@@ -11,6 +11,7 @@ import {
   Share2,
   Lock,
   Heart,
+  Globe,
 } from 'lucide-react';
 
 interface TeamSelectModalProps {
@@ -24,6 +25,7 @@ export const TeamSelectModal: React.FC<TeamSelectModalProps> = ({
 }) => {
   const [selectedTeam, setSelectedTeam] = useState<Team>('PROTESTOR');
   const [selectedMode, setSelectedMode] = useState<GameMode>('SOLO');
+  const [selectedMap, setSelectedMap] = useState<'DELHI' | 'PARIS'>('DELHI');
   const [roomCode, setRoomCode] = useState('');
 
   return (
@@ -32,14 +34,14 @@ export const TeamSelectModal: React.FC<TeamSelectModalProps> = ({
         {/* Title Header */}
         <div className="text-center flex flex-col items-center gap-2">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-pink-500/10 border border-pink-500/30 text-pink-400 text-xs font-bold tracking-widest uppercase">
-            <Sparkles className="w-3.5 h-3.5" />
-            3D Tactical Action Game
+            <Globe className="w-3.5 h-3.5 text-cyan-400" />
+            <span>Protest-n-Chase: <strong className="text-white">World Tour</strong></span>
           </div>
           <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-white uppercase">
-            Awaaz: <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-500 via-purple-400 to-cyan-400">Jantar Mantar</span>
+            Chapter 1: <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-500 via-purple-400 to-cyan-400">Delhi</span>
           </h1>
           <p className="text-xs sm:text-sm text-slate-300 max-w-lg">
-            Subway Surfers-style agile evasion, megaphone chants, and tactical crowd control in an authentic 3D Delhi landmark.
+            Subway Surfers-style agile evasion, megaphone chants, and tactical crowd control across global iconic landmarks.
           </p>
           <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-slate-900/80 border border-white/10 text-xs text-slate-300">
             <span>Created by</span>
@@ -127,13 +129,82 @@ export const TeamSelectModal: React.FC<TeamSelectModalProps> = ({
               Multiplayer (P2P)
             </button>
           </div>
+        </div>
 
-          {/* Map Location Badge */}
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-slate-300">
-            <MapPin className="w-4 h-4 text-rose-400" />
-            <span>Map: </span>
-            <strong className="text-white">Jantar Mantar, New Delhi</strong>
+        {/* 3. World Tour Map Selector */}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+              <Globe className="w-3.5 h-3.5 text-cyan-400" />
+              World Tour Map Selection
+            </span>
+            <span className="text-[10px] text-cyan-300 font-mono font-bold">
+              Global Franchise
+            </span>
           </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Map 1: Delhi (Active) */}
+            <div
+              onClick={() => setSelectedMap('DELHI')}
+              className={`cursor-pointer p-3.5 rounded-2xl border-2 transition-all flex items-center justify-between ${
+                selectedMap === 'DELHI'
+                  ? 'border-pink-500 bg-pink-500/15 shadow-lg shadow-pink-500/20'
+                  : 'border-white/10 bg-slate-900/60 hover:border-white/20'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <span className="text-2xl">🇮🇳</span>
+                <div>
+                  <div className="text-xs font-black text-white flex items-center gap-1.5">
+                    <span>Jantar Mantar</span>
+                    <span className="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[9px] uppercase font-bold">
+                      Active
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-slate-400">
+                    New Delhi • Chapter 1
+                  </div>
+                </div>
+              </div>
+              <MapPin className="w-4 h-4 text-pink-400" />
+            </div>
+
+            {/* Map 2: Paris, France (Coming Soon Teaser) */}
+            <div
+              onClick={() => setSelectedMap('PARIS')}
+              className={`cursor-pointer p-3.5 rounded-2xl border-2 transition-all flex items-center justify-between relative overflow-hidden ${
+                selectedMap === 'PARIS'
+                  ? 'border-cyan-400 bg-cyan-500/15 shadow-lg shadow-cyan-400/20'
+                  : 'border-white/10 bg-slate-900/40 hover:border-white/20 opacity-80'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <span className="text-2xl">🇫🇷</span>
+                <div>
+                  <div className="text-xs font-black text-white flex items-center gap-1.5">
+                    <span>Place de la Bastille</span>
+                    <span className="px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-[9px] uppercase font-bold animate-pulse">
+                      Teaser
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-slate-400">
+                    Paris, France • Chapter 2
+                  </div>
+                </div>
+              </div>
+              <span className="text-[10px] font-mono text-cyan-300 font-bold">Coming Soon</span>
+            </div>
+          </div>
+
+          {selectedMap === 'PARIS' && (
+            <div className="p-3 rounded-xl bg-cyan-950/70 border border-cyan-500/30 text-xs text-cyan-200 flex items-center gap-2 animate-fade-in">
+              <Sparkles className="w-4 h-4 text-cyan-400 flex-shrink-0" />
+              <span>
+                <strong>Paris, France (Chapter 2)</strong> is in active production with Parisian cobblestones and French CRS tactical vans! Launching with Delhi Chapter 1.
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Multiplayer Room Code Input (If selected) */}

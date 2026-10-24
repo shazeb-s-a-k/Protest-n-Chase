@@ -1,12 +1,23 @@
-# Protest-n-Chase
+# Protest-n-Chase: World Tour
 
-> **Protest-n-Chase: Awaaz Jantar Mantar** is a high-octane 3D tactical action web game celebrating youth energy, civil unity, and agile evasion set in an authentic 3D recreation of **Jantar Mantar, New Delhi**.
+> **Protest-n-Chase: World Tour** is a high-octane 3D tactical action web game celebrating youth energy, civil unity, and agile evasion set in iconic global landmarks.
 
+[![Play Live](https://img.shields.io/badge/Play%20Live-protestnchase.vercel.app-000000?style=for-the-badge&logo=vercel)](https://protestnchase.vercel.app)
 [![Created By](https://img.shields.io/badge/Created%20By-Shazeb%20Anwar%20Khan-ff2d55?style=for-the-badge&logo=code)](https://github.com/shazeb-s-a-k)
 [![Support via UPI](https://img.shields.io/badge/Support%20via%20UPI-shazeb26%40fam-00e5ff?style=for-the-badge&logo=google-pay)](upi://pay?pa=shazeb26@fam&pn=Shazeb%20Anwar%20Khan&cu=INR)
 [![License: MIT](https://img.shields.io/badge/License-MIT-purple.svg?style=for-the-badge)](LICENSE)
 [![Built with Three.js](https://img.shields.io/badge/3D%20Engine-Three.js%20WebGL-black?style=for-the-badge&logo=three.js)](https://threejs.org/)
 [![Built with React](https://img.shields.io/badge/UI-React%2018%20%2B%20TypeScript-61dafb?style=for-the-badge&logo=react)](https://react.dev/)
+
+---
+
+## 🌐 World Tour: Global Map Roadmap
+
+| Chapter | Destination | Landmark | Special Features | Status |
+| :---: | :--- | :--- | :--- | :---: |
+| **01** | **New Delhi, India 🇮🇳** | **Jantar Mantar** | Colossal Samrat Yantra ramp, DTC Buses, Varun water cannon, Cutting Chai boosts, flocking pigeons | 🟢 **Live Now** |
+| **02** | **Paris, France 🇫🇷** | **Place de la Bastille** | July Column, Parisian Hausmannian facades, French CRS riot vans, Café Espresso boosts, autumn fog | 🟡 **In Production** |
+| **03** | **London, UK 🇬🇧** | **Trafalgar Square** | Nelson's Column, Red double-decker buses, London Met tactical units, rain puddles | ⚪️ **Planned** |
 
 ---
 
@@ -16,12 +27,13 @@
 - 📧 Contact: **anwarshazeb09@gmail.com**
 - 🐙 GitHub: [@shazeb-s-a-k](https://github.com/shazeb-s-a-k)
 - 💖 Support / Donate (UPI): `shazeb26@fam` (Google Pay, PhonePe, Paytm, BHIM, FamPay)
+- 🌐 Live Game: [protestnchase.vercel.app](https://protestnchase.vercel.app)
 
 ---
 
 ## ☕️ Support The Project
 
-If you love playing **Protest-n-Chase**, consider supporting the creator to fund server hosting, new city maps (e.g., Mumbai Marine Drive, Kolkata Victoria Memorial), and new game modes!
+If you love playing **Protest-n-Chase**, consider supporting the creator to fund server hosting and accelerate the release of **Chapter 2: Paris, France**!
 
 - **UPI ID:** `shazeb26@fam`
 - **Supported Apps:** Google Pay, PhonePe, Paytm, BHIM UPI, FamPay, Cred
@@ -31,9 +43,9 @@ If you love playing **Protest-n-Chase**, consider supporting the creator to fund
 
 ## 🌟 Game Overview
 
-**Protest-n-Chase** combines Subway Surfers-style parkour agility with tactical team mechanics:
-- **Choose Your Team**: Play as the agile **Protestors** raising viral awareness through megaphone chants, placard broadcasts, and human chains — or play as the **Delhi Police** deploying riot barricades, water cannons, and detainment buses.
-- **Historic 3D Monument**: Faithfully recreated 3D environment of Delhi's **Jantar Mantar**, featuring the monumental **Samrat Yantra** sundial ramp, circular **Ram Yantra** observatories, sunken **Jai Prakash Yantra** marble bowls, and historic sandstone plazas.
+**Protest-n-Chase: World Tour** combines Subway Surfers-style parkour agility with tactical team mechanics across real-world historic cities:
+- **Choose Your Team**: Play as agile **Protestors** raising viral awareness through megaphone chants, placard broadcasts, and human chains — or play as **Police units** deploying riot barricades, water cannons, and detainment vehicles.
+- **Iconic 3D Cities**: Explore faithfully recreated historic architecture with custom lighting, weather conditions, dynamic shadows, and live-streaming spectators.
 - **Hybrid Solo & P2P Multiplayer**: Play solo against intelligent autonomous AI, or host/join real-time multiplayer lobbies using WebRTC PeerJS without any backend server.
 
 ---
