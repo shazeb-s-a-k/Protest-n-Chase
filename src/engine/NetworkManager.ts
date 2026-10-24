@@ -1,8 +1,22 @@
-import { Peer, DataConnection } from 'peerjs';
+import * as PeerNamespace from 'peerjs';
+import type { DataConnection } from 'peerjs';
 import { NetworkMessage } from '../types/game';
 
+// Helper to reliably extract Peer constructor across different bundler environments
+function getPeerConstructor(): any {
+  const p = PeerNamespace as any;
+  if (typeof p === 'function') return p;
+  if (p && typeof p.default === 'function') return p.default;
+  if (p && p.default && typeof p.default.default === 'function') return p.default.default;
+  if (p && typeof p.Peer === 'function') return p.Peer;
+  if (typeof window !== 'undefined' && typeof (window as any).Peer === 'function') {
+    return (window as any).Peer;
+  }
+  return null;
+}
+
 export class NetworkManager {
-  private peer: Peer | null = null;
+  private peer: any = null;
   private connections: Map<string, DataConnection> = new Map();
   public myPeerId: string = '';
   public roomCode: string = '';
@@ -25,21 +39,28 @@ export class NetworkManager {
     const targetPeerId = prefix + code;
 
     try {
-      this.peer = new Peer(targetPeerId, {
+      const PeerClass = getPeerConstructor();
+      if (!PeerClass) {
+        console.warn('PeerJS constructor not available. Running in local standalone mode.');
+        if (onConnected) onConnected(this.roomCode);
+        return;
+      }
+
+      this.peer = new PeerClass(targetPeerId, {
         debug: 1,
       });
 
-      this.peer.on('open', (id) => {
+      this.peer.on('open', (id: string) => {
         this.myPeerId = id;
         this.isHost = true;
         if (onConnected) onConnected(this.roomCode);
       });
 
-      this.peer.on('connection', (conn) => {
+      this.peer.on('connection', (conn: DataConnection) => {
         this.setupConnection(conn);
       });
 
-      this.peer.on('error', (err) => {
+      this.peer.on('error', (err: any) => {
         console.warn('NetworkManager peer warning:', err);
         // If room ID already taken, we might be joining as client
         if (err.type === 'unavailable-id' && customRoomCode) {
@@ -47,7 +68,8 @@ export class NetworkManager {
         }
       });
     } catch (e) {
-      console.warn('P2P signaling fallback to local session', e);
+      console.warn('P2P signaling fallback to local session:', e);
+      if (onConnected) onConnected(this.roomCode);
     }
   }
 
@@ -60,23 +82,35 @@ export class NetworkManager {
     this.roomCode = roomCode.toUpperCase();
     const targetHostId = 'awaaz-jm-' + this.roomCode;
 
-    // Create unique client peer
-    this.peer = new Peer();
-    this.peer.on('open', (myId) => {
-      this.myPeerId = myId;
-      this.isHost = false;
-
-      const conn = this.peer!.connect(targetHostId, { reliable: true });
-      this.setupConnection(conn);
-
-      conn.on('open', () => {
+    try {
+      const PeerClass = getPeerConstructor();
+      if (!PeerClass) {
+        console.warn('PeerJS constructor not available for joinRoom.');
         if (onConnected) onConnected(this.roomCode);
-      });
-    });
+        return;
+      }
 
-    this.peer.on('error', (err) => {
-      console.warn('Join room error:', err);
-    });
+      // Create unique client peer
+      this.peer = new PeerClass();
+      this.peer.on('open', (myId: string) => {
+        this.myPeerId = myId;
+        this.isHost = false;
+
+        const conn = this.peer!.connect(targetHostId, { reliable: true });
+        this.setupConnection(conn);
+
+        conn.on('open', () => {
+          if (onConnected) onConnected(this.roomCode);
+        });
+      });
+
+      this.peer.on('error', (err: any) => {
+        console.warn('Join room error:', err);
+      });
+    } catch (e) {
+      console.warn('Failed to join room P2P:', e);
+      if (onConnected) onConnected(this.roomCode);
+    }
   }
 
   private setupConnection(conn: DataConnection) {

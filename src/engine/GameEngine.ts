@@ -56,6 +56,7 @@ export class GameEngine {
   private clock: THREE.Clock = new THREE.Clock();
   private animationFrameId: number | null = null;
   private superchatTimer: number = 0;
+  private uiUpdateTimer: number = 0;
 
   // Callbacks to React UI
   public onStateUpdate?: (state: GameMatchState) => void;
@@ -81,9 +82,12 @@ export class GameEngine {
     this.scene.background = new THREE.Color(0xdbeafe);
     this.scene.fog = new THREE.FogExp2(0xfef08a, 0.006);
 
+    const width = container.clientWidth || (typeof window !== 'undefined' ? window.innerWidth : 1280) || 1280;
+    const height = container.clientHeight || (typeof window !== 'undefined' ? window.innerHeight : 720) || 720;
+
     this.camera = new THREE.PerspectiveCamera(
       65,
-      container.clientWidth / container.clientHeight,
+      width / height,
       0.1,
       250
     );
@@ -93,12 +97,16 @@ export class GameEngine {
       powerPreference: 'high-performance',
       preserveDrawingBuffer: true, // Allows high-res screenshots for PhotoBooth
     });
-    this.renderer.setSize(container.clientWidth, container.clientHeight);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2.0));
+    this.renderer.setSize(width, height);
+    this.renderer.setPixelRatio(Math.min(typeof window !== 'undefined' ? window.devicePixelRatio : 1, 2.0));
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.08;
+
+    while (container.firstChild) {
+      container.removeChild(container.firstChild);
+    }
     container.appendChild(this.renderer.domElement);
 
     // Systems
@@ -147,12 +155,20 @@ export class GameEngine {
     this.spawnAIUnits(mode, team);
 
     // Audio & Loop
-    audioManager.init();
-    audioManager.startAmbientProtestLoop();
+    try {
+      audioManager.init();
+      audioManager.startAmbientProtestLoop();
+    } catch (e) {
+      console.warn('Audio initialization note:', e);
+    }
 
     // Setup Network if Multiplayer
     if (mode === 'MULTIPLAYER') {
-      this.setupMultiplayer(roomCode);
+      try {
+        this.setupMultiplayer(roomCode);
+      } catch (e) {
+        console.warn('Multiplayer initialization note:', e);
+      }
     }
 
     // Controls & Listeners
@@ -834,9 +850,13 @@ export class GameEngine {
     // 15. Render
     this.renderer.render(this.scene, this.camera);
 
-    // 16. Notify UI
-    if (this.onStateUpdate) {
-      this.onStateUpdate({ ...this.matchState });
+    // 16. Notify UI (Throttled to ~20 FPS so React isn't flooded with 120 re-renders/sec)
+    this.uiUpdateTimer += delta;
+    if (this.uiUpdateTimer >= 0.05) {
+      this.uiUpdateTimer = 0;
+      if (this.onStateUpdate) {
+        this.onStateUpdate({ ...this.matchState });
+      }
     }
   };
 

@@ -148,8 +148,13 @@ export const TeamSelectModal: React.FC<TeamSelectModalProps> = ({
 
         {/* Start Game CTA Button */}
         <button
-          onClick={() => onStartGame(selectedTeam, selectedMode, roomCode || undefined)}
-          className="w-full py-4 rounded-2xl bg-gradient-to-r from-pink-500 via-purple-600 to-cyan-500 text-white font-black text-lg tracking-wider uppercase shadow-xl shadow-purple-500/30 hover:brightness-110 active:scale-98 transition-all flex items-center justify-center gap-2.5"
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onStartGame(selectedTeam, selectedMode, roomCode || undefined);
+          }}
+          className="w-full py-4 rounded-2xl bg-gradient-to-r from-pink-500 via-purple-600 to-cyan-500 text-white font-black text-lg tracking-wider uppercase shadow-xl shadow-purple-500/30 hover:brightness-110 active:scale-98 transition-all flex items-center justify-center gap-2.5 cursor-pointer z-10"
         >
           <Play className="w-5 h-5 fill-white" />
           <span>ENTER THE SQUARE</span>

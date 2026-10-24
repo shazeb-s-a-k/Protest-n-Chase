@@ -22,24 +22,30 @@ class AudioManager {
   }
 
   public init() {
-    if (!this.ctx) {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      this.ctx = new AudioCtx();
+    try {
+      if (!this.ctx) {
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioCtx) {
+          this.ctx = new AudioCtx();
 
-      this.masterGain = this.ctx.createGain();
-      this.masterGain.gain.setValueAtTime(0.75, this.ctx.currentTime);
-      this.masterGain.connect(this.ctx.destination);
+          this.masterGain = this.ctx.createGain();
+          this.masterGain.gain.setValueAtTime(0.75, this.ctx.currentTime);
+          this.masterGain.connect(this.ctx.destination);
 
-      this.sfxGain = this.ctx.createGain();
-      this.sfxGain.gain.setValueAtTime(0.85, this.ctx.currentTime);
-      this.sfxGain.connect(this.masterGain);
+          this.sfxGain = this.ctx.createGain();
+          this.sfxGain.gain.setValueAtTime(0.85, this.ctx.currentTime);
+          this.sfxGain.connect(this.masterGain);
 
-      this.bgmGain = this.ctx.createGain();
-      this.bgmGain.gain.setValueAtTime(0.65, this.ctx.currentTime);
-      this.bgmGain.connect(this.masterGain);
-    }
-    if (this.ctx.state === 'suspended') {
-      this.ctx.resume();
+          this.bgmGain = this.ctx.createGain();
+          this.bgmGain.gain.setValueAtTime(0.65, this.ctx.currentTime);
+          this.bgmGain.connect(this.masterGain);
+        }
+      }
+      if (this.ctx && this.ctx.state === 'suspended') {
+        this.ctx.resume().catch(() => {});
+      }
+    } catch (e) {
+      console.warn('Web Audio initialization note:', e);
     }
   }
 

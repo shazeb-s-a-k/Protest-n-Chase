@@ -75,41 +75,62 @@ export const App: React.FC = () => {
 
   // Start Match
   const handleStartGame = (team: Team, mode: GameMode, roomCode?: string) => {
-    if (!containerRef.current) return;
+    try {
+      console.log('🎮 Starting Awaaz Match:', { team, mode, roomCode });
 
-    if (engineRef.current) {
-      engineRef.current.destroy();
-    }
-
-    const engine = new GameEngine(containerRef.current, mode, team, roomCode);
-    engineRef.current = engine;
-
-    engine.onStateUpdate = (newState) => {
-      setMatchState(newState);
-      if (engine.localPlayer) {
-        setStamina(Math.round(engine.localPlayer.currentStamina));
+      if (!containerRef.current) {
+        console.warn('⚠️ containerRef.current is not attached yet, retrying in next tick...');
+        setIsPlaying(true);
+        setTimeout(() => {
+          if (containerRef.current && !engineRef.current) {
+            handleStartGame(team, mode, roomCode);
+          }
+        }, 50);
+        return;
       }
-    };
 
-    engine.onLiveStreamComment = (commentText) => {
-      const users = ['PoojaLive', 'RohanYouth', 'Kavita_Now', 'GenZPower', 'Simran_V', 'ArjunDelhi', 'Vikram_S'];
-      const emojis = ['❤️', '🔥', '📢', '✊', '⚡️', '🌟'];
-      const randomUser = users[Math.floor(Math.random() * users.length)];
-      const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
+      if (engineRef.current) {
+        try {
+          engineRef.current.destroy();
+        } catch (destroyErr) {
+          console.warn('Note while destroying previous engine:', destroyErr);
+        }
+      }
 
-      setComments((prev) => [
-        ...prev.slice(-12),
-        {
-          id: Math.random().toString(),
-          user: randomUser,
-          text: commentText,
-          emoji: randomEmoji,
-          timestamp: Date.now(),
-        },
-      ]);
-    };
+      const engine = new GameEngine(containerRef.current, mode, team, roomCode);
+      engineRef.current = engine;
 
-    setIsPlaying(true);
+      engine.onStateUpdate = (newState) => {
+        setMatchState(newState);
+        if (engine.localPlayer) {
+          setStamina(Math.round(engine.localPlayer.currentStamina));
+        }
+      };
+
+      engine.onLiveStreamComment = (commentText) => {
+        const users = ['PoojaLive', 'RohanYouth', 'Kavita_Now', 'GenZPower', 'Simran_V', 'ArjunDelhi', 'Vikram_S'];
+        const emojis = ['❤️', '🔥', '📢', '✊', '⚡️', '🌟'];
+        const randomUser = users[Math.floor(Math.random() * users.length)];
+        const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
+
+        setComments((prev) => [
+          ...prev.slice(-12),
+          {
+            id: Math.random().toString(),
+            user: randomUser,
+            text: commentText,
+            emoji: randomEmoji,
+            timestamp: Date.now(),
+          },
+        ]);
+      };
+
+      setIsPlaying(true);
+    } catch (err) {
+      console.error('❌ Error during GameEngine initialization:', err);
+      // Make sure UI transitions into playing state regardless so user is never stuck
+      setIsPlaying(true);
+    }
   };
 
   // Keyboard Event Handlers
