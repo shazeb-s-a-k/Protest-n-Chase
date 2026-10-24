@@ -1,7 +1,13 @@
 {
-  "name": "awaaz-jantar-mantar",
+  "name": "protest-n-chase",
   "private": true,
   "version": "1.0.0",
+  "description": "Protest-n-Chase: Awaaz (Voices of Jantar Mantar) - High-octane 3D tactical chase & evade action game created by Shazeb Anwar Khan.",
+  "author": "Shazeb Anwar Khan <anwarshazeb09@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/shazeb-s-a-k/Protest-n-Chase.git"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",

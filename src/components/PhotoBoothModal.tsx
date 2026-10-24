@@ -57,15 +57,15 @@ export const PhotoBoothModal: React.FC<PhotoBoothModalProps> = ({
     ctx.font = 'bold 36px Outfit, sans-serif';
     ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
     ctx.shadowBlur = 8;
-    ctx.fillText('📢 AWAAZ • JANTAR MANTAR, NEW DELHI', 40, exportCanvas.height - 50);
+    ctx.fillText('📢 PROTEST-N-CHASE • BY SHAZEB ANWAR KHAN', 40, exportCanvas.height - 50);
 
     ctx.font = '22px Space Grotesk, monospace';
     ctx.fillStyle = '#fef08a';
-    ctx.fillText('#GenZActivism #RaiseYourVoice #DelhiUnited', 40, exportCanvas.height - 20);
+    ctx.fillText('#ProtestNChase #JantarMantar #GenZActivism', 40, exportCanvas.height - 20);
 
     // Trigger download
     const link = document.createElement('a');
-    link.download = `Awaaz_Jantar_Mantar_${Date.now()}.png`;
+    link.download = `Protest_n_Chase_${Date.now()}.png`;
     link.href = exportCanvas.toDataURL('image/png');
     link.click();
   };
@@ -119,10 +119,10 @@ export const PhotoBoothModal: React.FC<PhotoBoothModalProps> = ({
           {/* Aesthetic Watermark Overlay */}
           <div className="absolute bottom-3 left-4 pointer-events-none drop-shadow-lg">
             <div className="text-sm sm:text-base font-black text-white tracking-wider uppercase">
-              📢 AWAAZ: JANTAR MANTAR
+              📢 PROTEST-N-CHASE • BY SHAZEB ANWAR KHAN
             </div>
             <div className="text-[10px] font-mono text-amber-300">
-              #YouthSolidarity #DelhiProtest #NonViolence
+              #YouthSolidarity #DelhiProtest #ProtestNChase
             </div>
           </div>
         </div>

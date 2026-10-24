@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   Megaphone,
   Radio,
@@ -16,6 +15,7 @@ import {
   Coffee,
   Wifi,
   Eye,
+  Heart,
 } from 'lucide-react';
 import { GameMatchState, CameraViewMode } from '../types/game';
 import { Radar } from './Radar';
@@ -29,6 +29,7 @@ interface HUDProps {
   onToggleMute: () => void;
   onOpenSettings: () => void;
   onOpenPhotoBooth: () => void;
+  onOpenSupport?: () => void;
   onUseAbility: (ability: string) => void;
 }
 
@@ -41,6 +42,7 @@ export const HUD: React.FC<HUDProps> = ({
   onToggleMute,
   onOpenSettings,
   onOpenPhotoBooth,
+  onOpenSupport,
   onUseAbility,
 }) => {
   const isProtestor = matchState.localTeam === 'PROTESTOR';
@@ -158,6 +160,15 @@ export const HUD: React.FC<HUDProps> = ({
             >
               <Settings className="w-4 h-4 text-purple-400" />
             </button>
+            {onOpenSupport && (
+              <button
+                onClick={onOpenSupport}
+                className="glass-panel p-2 rounded-xl hover:bg-pink-500/20 transition-all text-slate-200 active:scale-95 border border-pink-500/30 bg-pink-500/10 shadow-lg"
+                title="Support Shazeb Anwar Khan (UPI: shazeb26@fam)"
+              >
+                <Heart className="w-4 h-4 text-pink-400 fill-pink-400" />
+              </button>
+            )}
           </div>
 
           {/* Real-time Circular Radar */}

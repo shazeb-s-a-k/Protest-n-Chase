@@ -56,8 +56,8 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
           </h2>
           <p className="text-xs sm:text-sm text-slate-300 mt-2">
             {isProtestorWin
-              ? 'Jantar Mantar resonated with non-violent solidarity. The movement achieved global viral awareness!'
-              : 'Crowd control officers peacefully cleared the perimeter and secured the area.'}
+              ? 'Jantar Mantar echoed with united energy! The movement achieved global viral awareness!'
+              : 'Crowd control units tactically cleared the perimeter and secured the plaza.'}
           </p>
         </div>
 
@@ -87,11 +87,22 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
         <div className="flex flex-col sm:flex-row gap-3 w-full pt-2">
           <button
             onClick={onRestart}
-            className="flex-1 py-3.5 rounded-2xl bg-gradient-to-r from-pink-500 via-purple-600 to-cyan-500 text-white font-black text-sm uppercase tracking-wider shadow-xl hover:brightness-110 active:scale-98 transition-all flex items-center justify-center gap-2"
+            className="flex-1 py-3.5 rounded-2xl bg-gradient-to-r from-pink-500 via-purple-600 to-cyan-500 text-white font-black text-sm uppercase tracking-wider shadow-xl hover:brightness-110 active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
             <RotateCcw className="w-4 h-4" />
             <span>PLAY AGAIN</span>
           </button>
+        </div>
+
+        {/* Creator & Support Footer */}
+        <div className="pt-3 border-t border-white/10 w-full flex flex-col items-center gap-1.5 text-center">
+          <div className="text-[11px] text-slate-300 font-medium">
+            Created with ❤️ by <span className="text-white font-bold">Shazeb Anwar Khan</span>
+          </div>
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-mono font-bold">
+            <span>Support via UPI:</span>
+            <strong className="text-white select-all">shazeb26@fam</strong>
+          </div>
         </div>
       </div>
     </div>

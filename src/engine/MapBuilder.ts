@@ -379,12 +379,12 @@ export class MapBuilder {
       ctx.fillStyle = '#ffffff';
       ctx.font = 'bold 50px Outfit, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('⚡️ AWAAZ: VOICES OF JANTAR MANTAR ⚡️', 512, 95);
+      ctx.fillText('⚡️ PROTEST-N-CHASE: JANTAR MANTAR ⚡️', 512, 95);
       ctx.font = 'bold 34px Inter, sans-serif';
-      ctx.fillText('NON-VIOLENT • UNITED • YOUTH FOR CLIMATE & FUTURE', 512, 175);
+      ctx.fillText('TACTICAL ACTION • UNITED YOUTH • BY SHAZEB ANWAR KHAN', 512, 175);
       ctx.font = 'italic 28px Space Grotesk, monospace';
       ctx.fillStyle = '#fef08a';
-      ctx.fillText('#GenZActivism #RaiseYourVoice #DelhiUnited', 512, 245);
+      ctx.fillText('#ProtestNChase #GenZActivism #DelhiUnited', 512, 245);
     }
     const bannerTex = new THREE.CanvasTexture(canvas);
     const bannerMat = new THREE.MeshBasicMaterial({ map: bannerTex, side: THREE.DoubleSide });

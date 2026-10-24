@@ -19,6 +19,7 @@ import { TeamSelectModal } from './components/TeamSelectModal';
 import { VictoryModal } from './components/VictoryModal';
 import { SettingsModal } from './components/SettingsModal';
 import { PhotoBoothModal } from './components/PhotoBoothModal';
+import { SupportModal } from './components/SupportModal';
 import { audioManager } from './engine/AudioManager';
 
 export const App: React.FC = () => {
@@ -29,6 +30,7 @@ export const App: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isPhotoBoothOpen, setIsPhotoBoothOpen] = useState(false);
+  const [isSupportOpen, setIsSupportOpen] = useState(false);
   const [launchError, setLaunchError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -393,6 +395,7 @@ export const App: React.FC = () => {
             onToggleMute={handleToggleMute}
             onOpenSettings={() => setIsSettingsOpen(true)}
             onOpenPhotoBooth={() => setIsPhotoBoothOpen(true)}
+            onOpenSupport={() => setIsSupportOpen(true)}
             onUseAbility={handleUseAbility}
           />
 
@@ -438,12 +441,23 @@ export const App: React.FC = () => {
       )}
 
       {/* Team Selection & Mode Modal */}
-      {!isPlaying && <TeamSelectModal onStartGame={handleStartGame} />}
+      {!isPlaying && (
+        <TeamSelectModal
+          onStartGame={handleStartGame}
+          onOpenSupport={() => setIsSupportOpen(true)}
+        />
+      )}
 
       {/* Victory / Defeat Modal */}
       {isPlaying && matchState.isGameOver && (
         <VictoryModal matchState={matchState} onRestart={handleRestart} />
       )}
+
+      {/* Global Support Modal */}
+      <SupportModal
+        isOpen={isSupportOpen}
+        onClose={() => setIsSupportOpen(false)}
+      />
     </div>
   );
 };

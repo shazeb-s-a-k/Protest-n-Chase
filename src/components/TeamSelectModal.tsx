@@ -10,14 +10,17 @@ import {
   Play,
   Share2,
   Lock,
+  Heart,
 } from 'lucide-react';
 
 interface TeamSelectModalProps {
   onStartGame: (team: Team, mode: GameMode, roomCode?: string) => void;
+  onOpenSupport?: () => void;
 }
 
 export const TeamSelectModal: React.FC<TeamSelectModalProps> = ({
   onStartGame,
+  onOpenSupport,
 }) => {
   const [selectedTeam, setSelectedTeam] = useState<Team>('PROTESTOR');
   const [selectedMode, setSelectedMode] = useState<GameMode>('SOLO');
@@ -30,7 +33,7 @@ export const TeamSelectModal: React.FC<TeamSelectModalProps> = ({
         <div className="text-center flex flex-col items-center gap-2">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-pink-500/10 border border-pink-500/30 text-pink-400 text-xs font-bold tracking-widest uppercase">
             <Sparkles className="w-3.5 h-3.5" />
-            3D Non-Violent Action Game
+            3D Tactical Action Game
           </div>
           <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-white uppercase">
             Awaaz: <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-500 via-purple-400 to-cyan-400">Jantar Mantar</span>
@@ -38,6 +41,10 @@ export const TeamSelectModal: React.FC<TeamSelectModalProps> = ({
           <p className="text-xs sm:text-sm text-slate-300 max-w-lg">
             Subway Surfers-style agile evasion, megaphone chants, and tactical crowd control in an authentic 3D Delhi landmark.
           </p>
+          <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-slate-900/80 border border-white/10 text-xs text-slate-300">
+            <span>Created by</span>
+            <strong className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-pink-400 font-extrabold">Shazeb Anwar Khan</strong>
+          </div>
         </div>
 
         {/* 1. Choose Team Cards */}
@@ -167,6 +174,25 @@ export const TeamSelectModal: React.FC<TeamSelectModalProps> = ({
           <span>Jump: <strong className="text-slate-200">Space</strong></span>
           <span>Slide: <strong className="text-slate-200">C</strong></span>
           <span>Abilities: <strong className="text-slate-200">Q / E / F</strong></span>
+        </div>
+
+        {/* Creator & UPI Support Bar */}
+        <div className="pt-2 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="text-xs text-slate-400 text-center sm:text-left">
+            <span>Created with passion by </span>
+            <span className="text-white font-bold">Shazeb Anwar Khan</span>
+          </div>
+
+          {onOpenSupport && (
+            <button
+              type="button"
+              onClick={onOpenSupport}
+              className="px-3.5 py-1.5 rounded-xl bg-pink-500/15 hover:bg-pink-500/25 border border-pink-500/30 text-pink-300 hover:text-pink-200 text-xs font-bold transition-all flex items-center gap-1.5 shadow-md active:scale-95 cursor-pointer"
+            >
+              <Heart className="w-3.5 h-3.5 text-pink-400 fill-pink-400" />
+              <span>Support via UPI: <strong className="font-mono text-white">shazeb26@fam</strong></span>
+            </button>
+          )}
         </div>
       </div>
     </div>

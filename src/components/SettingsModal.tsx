@@ -13,6 +13,9 @@ import {
   Type,
   Keyboard,
   Sparkles,
+  Heart,
+  Copy,
+  Check,
 } from 'lucide-react';
 
 interface SettingsModalProps {
@@ -45,6 +48,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onUpdatePlacard,
 }) => {
   const [inputText, setInputText] = useState(placardText);
+  const [copied, setCopied] = useState(false);
 
   if (!isOpen) return null;
 
@@ -194,6 +198,61 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </button>
           </div>
         </form>
+
+        {/* Creator & Support Option */}
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-pink-950/40 via-purple-950/40 to-slate-900/60 border border-pink-500/20 flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-pink-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs shadow-md shadow-pink-500/20">
+                SA
+              </div>
+              <div>
+                <div className="text-xs font-bold text-white">
+                  Created by Shazeb Anwar Khan
+                </div>
+                <div className="text-[10px] text-slate-400">
+                  Lead Developer • anwarshazeb09@gmail.com
+                </div>
+              </div>
+            </div>
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-pink-500/20 text-pink-300 border border-pink-500/30 font-bold uppercase">
+              Creator
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-950/80 border border-pink-500/20">
+            <div className="flex items-center gap-1.5">
+              <Heart className="w-3.5 h-3.5 text-pink-400 fill-pink-400" />
+              <span className="text-[11px] text-slate-300 font-medium">Support via UPI:</span>
+              <strong className="text-xs font-mono text-cyan-300">shazeb26@fam</strong>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                navigator.clipboard.writeText('shazeb26@fam');
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+              }}
+              className={`px-3 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                copied
+                  ? 'bg-emerald-500 text-white'
+                  : 'bg-white/10 hover:bg-white/20 text-white'
+              }`}
+            >
+              {copied ? (
+                <>
+                  <Check className="w-3 h-3" />
+                  <span>Copied!</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3 h-3" />
+                  <span>Copy</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
 
         {/* 5. Controls Reference */}
         <div className="border-t border-white/10 pt-3">
