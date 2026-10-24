@@ -8,7 +8,10 @@ import {
   CameraViewMode,
   GraphicsQuality,
   TimeOfDay,
+  WeatherCondition,
+  PowerUpType,
   RadarEntity,
+  SuperChat,
 } from '../types/game';
 import { MapBuilder, Collider } from './MapBuilder';
 import { CharacterController, MovementInput } from './CharacterController';
@@ -16,6 +19,9 @@ import { AIController } from './AIController';
 import { ParticleSystem } from './ParticleSystem';
 import { audioManager } from './AudioManager';
 import { NetworkManager } from './NetworkManager';
+import { PowerUpManager } from './PowerUpManager';
+import { WeatherManager } from './WeatherManager';
+import { WildlifeManager } from './WildlifeManager';
 
 export class GameEngine {
   public scene: THREE.Scene;
@@ -28,6 +34,9 @@ export class GameEngine {
   public particleSystem: ParticleSystem;
   public aiController: AIController;
   public networkManager: NetworkManager;
+  public powerUpManager: PowerUpManager;
+  public weatherManager: WeatherManager;
+  public wildlifeManager: WildlifeManager;
 
   // Entities
   public localPlayer: CharacterController | null = null;
@@ -46,6 +55,7 @@ export class GameEngine {
 
   private clock: THREE.Clock = new THREE.Clock();
   private animationFrameId: number | null = null;
+  private superchatTimer: number = 0;
 
   // Callbacks to React UI
   public onStateUpdate?: (state: GameMatchState) => void;
@@ -81,6 +91,7 @@ export class GameEngine {
     this.renderer = new THREE.WebGLRenderer({
       antialias: true,
       powerPreference: 'high-performance',
+      preserveDrawingBuffer: true, // Allows high-res screenshots for PhotoBooth
     });
     this.renderer.setSize(container.clientWidth, container.clientHeight);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2.0));
@@ -95,6 +106,9 @@ export class GameEngine {
     this.particleSystem = new ParticleSystem(this.scene);
     this.aiController = new AIController();
     this.networkManager = new NetworkManager();
+    this.powerUpManager = new PowerUpManager(this.scene);
+    this.weatherManager = new WeatherManager(this.scene);
+    this.wildlifeManager = new WildlifeManager(this.scene);
 
     // Default Match State
     this.matchState = {
@@ -111,11 +125,18 @@ export class GameEngine {
       minigameProgress: 50,
       graphicsQuality: 'HIGH',
       timeOfDay: 'GOLDEN_HOUR',
+      weather: 'CLEAR_GOLDEN',
       radarEntities: [],
       droneSpotlightPos: { x: 0, z: 20 },
       isPlayerInSpotlight: false,
       humanChainActive: false,
       placardText: 'AWAAZ 2026',
+      activePowerUp: null,
+      powerUpTimeLeft: 0,
+      superchats: [
+        { id: 'sc_init', user: 'DelhiEcho', amount: 500, message: 'Solidarity with the youth! ✊', timestamp: Date.now() },
+      ],
+      isPhotoMode: false,
     };
 
     // Build World
@@ -152,7 +173,7 @@ export class GameEngine {
     const el = this.renderer.domElement;
 
     el.addEventListener('mousedown', (e) => {
-      if (e.button === 2 || e.button === 0) { // Right or Left click drag
+      if (e.button === 2 || e.button === 0) {
         this.isMouseDragging = true;
         this.previousMouseX = e.clientX;
       }
@@ -178,7 +199,6 @@ export class GameEngine {
       );
     }, { passive: false });
 
-    // Prevent context menu on right click in game
     el.addEventListener('contextmenu', (e) => e.preventDefault());
   }
 
@@ -203,6 +223,8 @@ export class GameEngine {
       isGrappled: false,
       awarenessContribution: 0,
       placardText: this.matchState.placardText,
+      activePowerUp: null,
+      powerUpTimeRemaining: 0,
     };
 
     this.localPlayer = new CharacterController(this.scene, state);
@@ -284,7 +306,39 @@ export class GameEngine {
     );
   }
 
-  // --- GRAPHICS & ATMOSPHERE MODIFIERS ---
+  // --- POWER-UP PICKUPS ---
+
+  public handleCollectPowerUp(type: PowerUpType, duration: number) {
+    this.matchState.activePowerUp = type;
+    this.matchState.powerUpTimeLeft = duration;
+
+    if (type === 'ENERGY_CHAI' && this.localPlayer) {
+      this.localPlayer.currentStamina = 100;
+      this.localPlayer.maxStamina = 150;
+      if (this.onLiveStreamComment) {
+        this.onLiveStreamComment('☕️ Cutting Chai Power! Stamina fully recharged + Super Sprint!');
+      }
+    } else if (type === 'WIFI_HOTSPOT') {
+      this.matchState.viewerCount += 2500;
+      if (this.onLiveStreamComment) {
+        this.onLiveStreamComment('📶 5G Hotspot Active! Stream bandwidth 5x viral acceleration!');
+      }
+    } else if (type === 'PEACE_AURA') {
+      if (this.onLiveStreamComment) {
+        this.onLiveStreamComment('🛡️ Peace Aura Activated! Immune to police detainment locks!');
+      }
+    } else if (type === 'CONE_TRAP') {
+      // Extinguish all active canisters
+      this.activeCanisters.forEach((c) => {
+        c.timer = 0;
+      });
+      if (this.onLiveStreamComment) {
+        this.onLiveStreamComment('🧯 Traffic cone deployed! Tear gas smothered safely!');
+      }
+    }
+  }
+
+  // --- GRAPHICS & WEATHER ---
 
   public setGraphicsQuality(quality: GraphicsQuality) {
     this.matchState.graphicsQuality = quality;
@@ -298,7 +352,6 @@ export class GameEngine {
       this.renderer.setPixelRatio(1.0);
       this.renderer.shadowMap.enabled = true;
     } else {
-      // LOW: Performance boost for older mobile phones
       this.renderer.setPixelRatio(0.85);
       this.renderer.shadowMap.enabled = false;
     }
@@ -308,6 +361,11 @@ export class GameEngine {
   public setTimeOfDay(time: TimeOfDay) {
     this.matchState.timeOfDay = time;
     this.mapBuilder.setTimeOfDay(time, this.scene);
+  }
+
+  public setWeather(weather: WeatherCondition) {
+    this.matchState.weather = weather;
+    this.weatherManager.setWeather(weather);
   }
 
   public setPlacardText(text: string) {
@@ -341,20 +399,30 @@ export class GameEngine {
     const pos = this.localPlayer.mesh.position.clone();
     this.particleSystem.spawnMegaphoneSoundwave(pos);
 
-    // Stun nearby police officers
+    // Scare nearby pigeons!
+    this.wildlifeManager.scareNearbyPigeons(pos, 12);
+
+    // Stun radius boosted if AMP_BOOST is active
+    const isAmped = this.matchState.activePowerUp === 'AMP_BOOST';
+    const stunRadius = isAmped ? 16 : 9;
+
     this.aiPlayers.forEach((ai) => {
-      if (ai.state.team === 'POLICE' && ai.mesh.position.distanceTo(pos) < 9) {
+      if (ai.state.team === 'POLICE' && ai.mesh.position.distanceTo(pos) < stunRadius) {
         ai.mesh.rotation.y += Math.PI / 2;
       }
     });
 
-    const boost = this.matchState.isPlayerInSpotlight ? 9 : 4;
+    let boost = this.matchState.isPlayerInSpotlight ? 9 : 4;
+    if (this.matchState.activePowerUp === 'WIFI_HOTSPOT') boost *= 2.5;
+
     this.addAwareness(boost);
     this.particleSystem.spawnLiveStreamEmoji(pos, '📢');
     if (this.onLiveStreamComment) {
       this.onLiveStreamComment(
         this.matchState.isPlayerInSpotlight
           ? '🌟 SPOTLIGHT CHANT! Millions tuning in live across India!!'
+          : isAmped
+          ? '📢 AMPLIFIED CHANT! Whole plaza echoing with unity!!'
           : '📢 Mega megaphone chant resonating through Jantar Mantar!!'
       );
     }
@@ -377,7 +445,9 @@ export class GameEngine {
     const chosenEmoji = emojis[Math.floor(Math.random() * emojis.length)];
     this.particleSystem.spawnLiveStreamEmoji(pos, chosenEmoji);
 
-    const multiplier = this.matchState.isPlayerInSpotlight ? 3 : 1;
+    let multiplier = this.matchState.isPlayerInSpotlight ? 3 : 1;
+    if (this.matchState.activePowerUp === 'WIFI_HOTSPOT') multiplier *= 3;
+
     this.matchState.viewerCount += Math.floor((400 + Math.random() * 800) * multiplier);
     this.addAwareness(2.5 * multiplier);
 
@@ -467,6 +537,12 @@ export class GameEngine {
 
   public triggerLocalGrappleMinigame(grapplerId: string) {
     if (!this.localPlayer) return;
+    // Grapple Immunity if PEACE_AURA is active!
+    if (this.matchState.activePowerUp === 'PEACE_AURA') {
+      audioManager.playBreakoutDash();
+      return;
+    }
+
     this.localPlayer.state.isGrappled = true;
     this.localPlayer.state.grappledById = grapplerId;
 
@@ -589,6 +665,11 @@ export class GameEngine {
 
   public updateLocalInput(input: MovementInput) {
     if (this.localPlayer) {
+      // Speed multiplier if ENERGY_CHAI is active
+      const hasChai = this.matchState.activePowerUp === 'ENERGY_CHAI';
+      if (hasChai) {
+        this.localPlayer.currentStamina = 100;
+      }
       this.localPlayer.update(this.clock.getDelta(), input, this.colliders);
     }
   }
@@ -606,26 +687,76 @@ export class GameEngine {
       }
     }
 
-    // 2. Update Drone & Spotlight Position
+    // 2. Update Power-Up Active Duration
+    if (this.matchState.activePowerUp && this.matchState.powerUpTimeLeft > 0) {
+      this.matchState.powerUpTimeLeft -= delta;
+      if (this.matchState.powerUpTimeLeft <= 0) {
+        this.matchState.activePowerUp = null;
+        this.matchState.powerUpTimeLeft = 0;
+      }
+    }
+
+    // 3. Update Power-Ups in Scene
+    if (this.localPlayer) {
+      this.powerUpManager.update(
+        delta,
+        this.localPlayer.mesh.position,
+        (type, duration) => this.handleCollectPowerUp(type, duration)
+      );
+    }
+
+    // 4. Update Weather & Atmospheric Simulation
+    this.weatherManager.update(delta);
+
+    // 5. Update Wildlife Flocks (Pigeons)
+    if (this.localPlayer) {
+      this.wildlifeManager.update(delta, this.localPlayer.mesh.position);
+    }
+
+    // 6. Update Superchats Simulation
+    this.superchatTimer += delta;
+    if (this.superchatTimer > 25) {
+      this.superchatTimer = 0;
+      const donors = ['Aarav_Z', 'Kavita_Youth', 'Simran_Delhi', 'Rohan_Now', 'Arjun_V', 'Pooja_Eco'];
+      const messages = [
+        'Voice of Gen-Z! Stay strong!',
+        'Donating for fresh megaphones! 📢',
+        'Truth cannot be detained! ❤️',
+        'Trending across all of Twitter/X right now!',
+        'Sending love from Mumbai! ✊',
+      ];
+      const randomDonor = donors[Math.floor(Math.random() * donors.length)];
+      const randomMsg = messages[Math.floor(Math.random() * messages.length)];
+      const randomAmount = [200, 500, 1000, 2000][Math.floor(Math.random() * 4)];
+
+      this.matchState.superchats.push({
+        id: 'sc_' + Date.now(),
+        user: randomDonor,
+        amount: randomAmount,
+        message: randomMsg,
+        timestamp: Date.now(),
+      });
+      audioManager.playCanisterKick(); // Chime
+    }
+
+    // 7. Update Drone & Spotlight Position
     const spotlightPos = this.mapBuilder.updateDrone(delta);
     this.matchState.droneSpotlightPos = spotlightPos;
 
-    // Check if local player is in the spotlight
     if (this.localPlayer) {
       const p = this.localPlayer.mesh.position;
       const distToSpotlight = Math.hypot(p.x - spotlightPos.x, p.z - spotlightPos.z);
       this.matchState.isPlayerInSpotlight = distToSpotlight < 4.2;
 
-      // Passive awareness boost while under spotlight
       if (this.matchState.isPlayerInSpotlight && this.localPlayer.state.team === 'PROTESTOR') {
         this.addAwareness(delta * 0.8);
       }
     }
 
-    // 3. Update Police Flashing Lights
+    // 8. Update Police Flashing Lights
     this.mapBuilder.updateSirenLights();
 
-    // 4. Update AI Units
+    // 9. Update AI Units
     const allUnits = this.localPlayer ? [this.localPlayer, ...this.aiPlayers] : this.aiPlayers;
     this.aiController.update(
       delta,
@@ -646,7 +777,7 @@ export class GameEngine {
       }
     );
 
-    // 5. Update Active Canisters
+    // 10. Update Active Canisters
     for (let i = this.activeCanisters.length - 1; i >= 0; i--) {
       const c = this.activeCanisters[i];
       c.timer -= delta;
@@ -683,7 +814,7 @@ export class GameEngine {
       }
     }
 
-    // 6. Update QTE decay
+    // 11. Update QTE decay
     if (this.matchState.activeMinigame === 'STRUGGLE') {
       this.matchState.minigameProgress -= delta * 12;
       if (this.matchState.minigameProgress <= 0) {
@@ -691,19 +822,19 @@ export class GameEngine {
       }
     }
 
-    // 7. Update Particle System
+    // 12. Update Particle System
     this.particleSystem.update(delta);
 
-    // 8. Update Camera Follow
+    // 13. Update Camera Follow
     this.updateCamera(delta);
 
-    // 9. Collect Entities for Real-Time Radar HUD
+    // 14. Collect Entities for Radar HUD
     this.updateRadarEntities();
 
-    // 10. Render
+    // 15. Render
     this.renderer.render(this.scene, this.camera);
 
-    // 11. Notify UI
+    // 16. Notify UI
     if (this.onStateUpdate) {
       this.onStateUpdate({ ...this.matchState });
     }
@@ -712,7 +843,6 @@ export class GameEngine {
   private updateRadarEntities() {
     const entities: RadarEntity[] = [];
 
-    // Local player
     if (this.localPlayer) {
       entities.push({
         id: this.matchState.localPlayerId,
@@ -723,7 +853,6 @@ export class GameEngine {
       });
     }
 
-    // AI Players
     this.aiPlayers.forEach((ai) => {
       entities.push({
         id: ai.state.id,
@@ -735,7 +864,6 @@ export class GameEngine {
       });
     });
 
-    // Buses
     this.busPositions.forEach((bus) => {
       entities.push({
         id: bus.id,
@@ -745,12 +873,24 @@ export class GameEngine {
       });
     });
 
-    // Drone Spotlight
     entities.push({
       id: 'media_drone',
       type: 'DRONE',
       x: this.matchState.droneSpotlightPos.x,
       z: this.matchState.droneSpotlightPos.z,
+    });
+
+    // Add PowerUps to Radar
+    this.powerUpManager.powerUps.forEach((p) => {
+      if (p.mesh.visible) {
+        entities.push({
+          id: p.item.id,
+          type: 'POWERUP',
+          x: p.item.position.x,
+          z: p.item.position.z,
+          powerUpType: p.item.type,
+        });
+      }
     });
 
     this.matchState.radarEntities = entities;
@@ -784,7 +924,6 @@ export class GameEngine {
       this.camera.position.lerp(tacticalPos, delta * 6);
       this.camera.lookAt(targetPos);
     } else {
-      // FIRST_PERSON VIEW
       const headPos = targetPos.clone().add(new THREE.Vector3(0, 1.7, 0));
       this.camera.position.copy(headPos);
       const frontDir = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), finalRot);
@@ -815,6 +954,9 @@ export class GameEngine {
     audioManager.stopAmbientProtestLoop();
     this.networkManager.destroy();
     this.particleSystem.clear();
+    this.powerUpManager.destroy();
+    this.weatherManager.destroy();
+    this.wildlifeManager.destroy();
     this.renderer.dispose();
     if (this.container && this.renderer.domElement) {
       this.container.removeChild(this.renderer.domElement);

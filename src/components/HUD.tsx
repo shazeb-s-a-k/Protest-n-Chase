@@ -13,6 +13,9 @@ import {
   Sparkles,
   Settings,
   Tv,
+  Coffee,
+  Wifi,
+  Eye,
 } from 'lucide-react';
 import { GameMatchState, CameraViewMode } from '../types/game';
 import { Radar } from './Radar';
@@ -25,6 +28,7 @@ interface HUDProps {
   onToggleCamera: () => void;
   onToggleMute: () => void;
   onOpenSettings: () => void;
+  onOpenPhotoBooth: () => void;
   onUseAbility: (ability: string) => void;
 }
 
@@ -36,6 +40,7 @@ export const HUD: React.FC<HUDProps> = ({
   onToggleCamera,
   onToggleMute,
   onOpenSettings,
+  onOpenPhotoBooth,
   onUseAbility,
 }) => {
   const isProtestor = matchState.localTeam === 'PROTESTOR';
@@ -47,7 +52,7 @@ export const HUD: React.FC<HUDProps> = ({
     <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-2 sm:p-5">
       {/* Top Header Bar */}
       <div className="flex items-start justify-between gap-2.5 w-full max-w-6xl mx-auto">
-        {/* Left: Live Stream Indicator & Media Spotlight Alert */}
+        {/* Left: Live Stream Indicator, Active PowerUp & Media Spotlight Alert */}
         <div className="flex flex-col gap-2 pointer-events-auto">
           <div className="glass-panel px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-2xl flex items-center gap-2 border border-white/10 shadow-lg">
             <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full badge-live text-[10px] sm:text-xs font-bold tracking-wider uppercase">
@@ -59,6 +64,21 @@ export const HUD: React.FC<HUDProps> = ({
               <span className="text-slate-400 font-normal hidden sm:inline">watching</span>
             </div>
           </div>
+
+          {/* Active PowerUp Badge */}
+          {matchState.activePowerUp && (
+            <div className="glass-panel px-3 py-1 rounded-xl border border-amber-400/50 bg-amber-950/80 text-amber-300 text-xs font-black tracking-wide uppercase flex items-center gap-2 animate-bounce shadow-xl shadow-amber-500/20">
+              {matchState.activePowerUp === 'ENERGY_CHAI' && <Coffee className="w-4 h-4 text-orange-400" />}
+              {matchState.activePowerUp === 'WIFI_HOTSPOT' && <Wifi className="w-4 h-4 text-cyan-400" />}
+              {matchState.activePowerUp === 'AMP_BOOST' && <Megaphone className="w-4 h-4 text-pink-400" />}
+              {matchState.activePowerUp === 'PEACE_AURA' && <Shield className="w-4 h-4 text-emerald-400" />}
+              {matchState.activePowerUp === 'CONE_TRAP' && <AlertTriangle className="w-4 h-4 text-yellow-400" />}
+              <span>
+                {matchState.activePowerUp.replace('_', ' ')} (
+                {Math.ceil(matchState.powerUpTimeLeft)}s)
+              </span>
+            </div>
+          )}
 
           {/* Dynamic Spotlight Banner */}
           {matchState.isPlayerInSpotlight && (
@@ -104,14 +124,21 @@ export const HUD: React.FC<HUDProps> = ({
 
         {/* Right: Controls & Radar Minimap */}
         <div className="flex items-start gap-2.5 pointer-events-auto">
-          {/* Action Buttons: Camera, Sound, Settings */}
+          {/* Action Buttons: Camera, PhotoBooth, Sound, Settings */}
           <div className="flex flex-col gap-1.5">
             <button
               onClick={onToggleCamera}
               className="glass-panel p-2 rounded-xl hover:bg-white/15 transition-all text-slate-200 active:scale-95 border border-white/10 shadow-lg"
               title="Toggle Camera View (V)"
             >
-              <Camera className="w-4 h-4 text-cyan-400" />
+              <Eye className="w-4 h-4 text-cyan-400" />
+            </button>
+            <button
+              onClick={onOpenPhotoBooth}
+              className="glass-panel p-2 rounded-xl hover:bg-white/15 transition-all text-slate-200 active:scale-95 border border-white/10 shadow-lg"
+              title="Photo Mode / Poster (P)"
+            >
+              <Camera className="w-4 h-4 text-pink-400" />
             </button>
             <button
               onClick={onToggleMute}

@@ -1,17 +1,17 @@
 import React, { useState } from 'react';
-import { GraphicsQuality, TimeOfDay } from '../types/game';
+import { GraphicsQuality, TimeOfDay, WeatherCondition } from '../types/game';
 import {
   X,
   Sliders,
   Sun,
   Moon,
   Sunset,
+  CloudRain,
   Monitor,
   Volume2,
   VolumeX,
   Type,
   Keyboard,
-  Smartphone,
   Sparkles,
 } from 'lucide-react';
 
@@ -22,6 +22,8 @@ interface SettingsModalProps {
   onSelectGraphics: (q: GraphicsQuality) => void;
   timeOfDay: TimeOfDay;
   onSelectTimeOfDay: (t: TimeOfDay) => void;
+  weather: WeatherCondition;
+  onSelectWeather: (w: WeatherCondition) => void;
   isMuted: boolean;
   onToggleMute: () => void;
   placardText: string;
@@ -35,6 +37,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onSelectGraphics,
   timeOfDay,
   onSelectTimeOfDay,
+  weather,
+  onSelectWeather,
   isMuted,
   onToggleMute,
   placardText,
@@ -99,45 +103,45 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
         </div>
 
-        {/* 2. Atmosphere & Time of Day */}
+        {/* 2. Weather & Atmosphere Simulation */}
         <div className="flex flex-col gap-2">
           <label className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-            <Sun className="w-4 h-4 text-amber-400" />
-            Atmosphere & Time of Day
+            <CloudRain className="w-4 h-4 text-cyan-400" />
+            Dynamic Weather Simulation
           </label>
           <div className="grid grid-cols-3 gap-2">
             <button
-              onClick={() => onSelectTimeOfDay('GOLDEN_HOUR')}
-              className={`py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 border transition-all ${
-                timeOfDay === 'GOLDEN_HOUR'
+              onClick={() => onSelectWeather('CLEAR_GOLDEN')}
+              className={`py-2.5 px-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all ${
+                weather === 'CLEAR_GOLDEN'
                   ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white border-amber-400 shadow-lg'
                   : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'
               }`}
             >
               <Sunset className="w-4 h-4" />
-              Golden Hour
+              Golden Dust
             </button>
             <button
-              onClick={() => onSelectTimeOfDay('NIGHT_RALLY')}
-              className={`py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 border transition-all ${
-                timeOfDay === 'NIGHT_RALLY'
-                  ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white border-purple-400 shadow-lg'
+              onClick={() => onSelectWeather('MONSOON_RAIN')}
+              className={`py-2.5 px-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all ${
+                weather === 'MONSOON_RAIN'
+                  ? 'bg-gradient-to-r from-blue-600 to-sky-600 text-white border-blue-400 shadow-lg'
+                  : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'
+              }`}
+            >
+              <CloudRain className="w-4 h-4" />
+              Monsoon Rain
+            </button>
+            <button
+              onClick={() => onSelectWeather('NIGHT_CYBERPUNK')}
+              className={`py-2.5 px-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all ${
+                weather === 'NIGHT_CYBERPUNK'
+                  ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white border-purple-400 shadow-lg'
                   : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'
               }`}
             >
               <Moon className="w-4 h-4" />
-              Night Rally
-            </button>
-            <button
-              onClick={() => onSelectTimeOfDay('MIDDAY')}
-              className={`py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 border transition-all ${
-                timeOfDay === 'MIDDAY'
-                  ? 'bg-gradient-to-r from-sky-500 to-blue-600 text-white border-sky-400 shadow-lg'
-                  : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'
-              }`}
-            >
-              <Sun className="w-4 h-4" />
-              Midday Sun
+              Cyberpunk
             </button>
           </div>
         </div>
@@ -206,6 +210,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <div><strong className="text-white">F:</strong> Viral Hype / Water Cannon</div>
             <div><strong className="text-white">E:</strong> Bus Jailbreak / Canister Kick</div>
             <div><strong className="text-white">H:</strong> Form Human Chain</div>
+            <div><strong className="text-white">P:</strong> Photo Mode / Poster</div>
             <div><strong className="text-white">V:</strong> Camera View Mode</div>
             <div><strong className="text-white">Right-Drag:</strong> Free Orbit Camera</div>
           </div>

@@ -10,6 +10,26 @@ export type GraphicsQuality = 'ULTRA' | 'HIGH' | 'MEDIUM' | 'LOW';
 
 export type TimeOfDay = 'GOLDEN_HOUR' | 'NIGHT_RALLY' | 'MIDDAY';
 
+export type WeatherCondition = 'CLEAR_GOLDEN' | 'MONSOON_RAIN' | 'NIGHT_CYBERPUNK';
+
+export type PowerUpType = 'ENERGY_CHAI' | 'AMP_BOOST' | 'WIFI_HOTSPOT' | 'PEACE_AURA' | 'CONE_TRAP';
+
+export interface PowerUpItem {
+  id: string;
+  type: PowerUpType;
+  position: { x: number; y: number; z: number };
+  duration: number; // effect duration in seconds
+  respawnTimer?: number;
+}
+
+export interface SuperChat {
+  id: string;
+  user: string;
+  amount: number;
+  message: string;
+  timestamp: number;
+}
+
 export interface PlayerStats {
   speed: number;
   sprintMultiplier: number;
@@ -39,6 +59,8 @@ export interface PlayerState {
   grappledById?: string;
   awarenessContribution: number;
   placardText?: string;
+  activePowerUp?: PowerUpType | null;
+  powerUpTimeRemaining?: number;
   currentAction?: 'CHANTING' | 'LIVESTREAMING' | 'PLACING_BARRICADE' | 'THROWING_SMOKE' | 'IDLE';
 }
 
@@ -79,11 +101,12 @@ export interface LiveStreamComment {
 
 export interface RadarEntity {
   id: string;
-  type: 'LOCAL' | 'PROTESTOR' | 'POLICE' | 'BUS' | 'DRONE';
+  type: 'LOCAL' | 'PROTESTOR' | 'POLICE' | 'BUS' | 'DRONE' | 'POWERUP';
   x: number;
   z: number;
   rotation?: number;
   isDetained?: boolean;
+  powerUpType?: PowerUpType;
 }
 
 export interface GameMatchState {
@@ -101,11 +124,16 @@ export interface GameMatchState {
   canisterIdTargeted?: string;
   graphicsQuality: GraphicsQuality;
   timeOfDay: TimeOfDay;
+  weather: WeatherCondition;
   radarEntities: RadarEntity[];
   droneSpotlightPos: { x: number; z: number };
   isPlayerInSpotlight: boolean;
   humanChainActive: boolean;
   placardText: string;
+  activePowerUp: PowerUpType | null;
+  powerUpTimeLeft: number;
+  superchats: SuperChat[];
+  isPhotoMode: boolean;
 }
 
 export interface NetworkMessage {
@@ -119,6 +147,7 @@ export interface NetworkMessage {
     | 'BARRICADE_SPAWN'
     | 'CANISTER_SPAWN'
     | 'HUMAN_CHAIN_TOGGLE'
+    | 'POWERUP_COLLECT'
     | 'MATCH_SYNC';
   payload: any;
   senderId: string;

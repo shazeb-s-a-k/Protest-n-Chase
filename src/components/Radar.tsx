@@ -102,6 +102,16 @@ export const Radar: React.FC<RadarProps> = ({ entities, localPlayerId }) => {
           );
         }
 
+        if (e.type === 'POWERUP') {
+          return (
+            <div
+              key={e.id}
+              className="absolute w-2 h-2 -ml-1 -mt-1 rotate-45 bg-amber-300 shadow-sm shadow-amber-400 animate-bounce pointer-events-none"
+              style={{ left: screenX, top: screenY }}
+            />
+          );
+        }
+
         return null;
       })}
     </div>

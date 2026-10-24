@@ -8,6 +8,7 @@ import {
   LiveStreamComment,
   GraphicsQuality,
   TimeOfDay,
+  WeatherCondition,
 } from './types/game';
 import { MovementInput } from './engine/CharacterController';
 import { HUD } from './components/HUD';
@@ -17,6 +18,7 @@ import { MobileControls } from './components/MobileControls';
 import { TeamSelectModal } from './components/TeamSelectModal';
 import { VictoryModal } from './components/VictoryModal';
 import { SettingsModal } from './components/SettingsModal';
+import { PhotoBoothModal } from './components/PhotoBoothModal';
 import { audioManager } from './engine/AudioManager';
 
 export const App: React.FC = () => {
@@ -26,6 +28,8 @@ export const App: React.FC = () => {
   // Game UI States
   const [isPlaying, setIsPlaying] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isPhotoBoothOpen, setIsPhotoBoothOpen] = useState(false);
+
   const [matchState, setMatchState] = useState<GameMatchState>({
     mode: 'SOLO',
     localPlayerId: '',
@@ -40,11 +44,16 @@ export const App: React.FC = () => {
     minigameProgress: 50,
     graphicsQuality: 'HIGH',
     timeOfDay: 'GOLDEN_HOUR',
+    weather: 'CLEAR_GOLDEN',
     radarEntities: [],
     droneSpotlightPos: { x: 0, z: 20 },
     isPlayerInSpotlight: false,
     humanChainActive: false,
     placardText: 'AWAAZ 2026',
+    activePowerUp: null,
+    powerUpTimeLeft: 0,
+    superchats: [],
+    isPhotoMode: false,
   });
 
   const [stamina, setStamina] = useState(100);
@@ -173,6 +182,9 @@ export const App: React.FC = () => {
             engineRef.current.toggleHumanChain();
           }
           break;
+        case 'KeyP':
+          setIsPhotoBoothOpen((prev) => !prev);
+          break;
         case 'KeyV':
           setCameraMode(engineRef.current.toggleCameraMode());
           break;
@@ -180,7 +192,11 @@ export const App: React.FC = () => {
           setIsMuted(audioManager.toggleMute());
           break;
         case 'Escape':
-          setIsSettingsOpen((prev) => !prev);
+          if (isPhotoBoothOpen) {
+            setIsPhotoBoothOpen(false);
+          } else {
+            setIsSettingsOpen((prev) => !prev);
+          }
           break;
       }
 
@@ -229,7 +245,7 @@ export const App: React.FC = () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [isPlaying, matchState.activeMinigame, matchState.localTeam]);
+  }, [isPlaying, matchState.activeMinigame, matchState.localTeam, isPhotoBoothOpen]);
 
   // Ability Click Trigger from HUD or Mobile Controls
   const handleUseAbility = (ability: string) => {
@@ -288,6 +304,12 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleSelectWeather = (w: WeatherCondition) => {
+    if (engineRef.current) {
+      engineRef.current.setWeather(w);
+    }
+  };
+
   const handleUpdatePlacard = (text: string) => {
     if (engineRef.current) {
       engineRef.current.setPlacardText(text);
@@ -301,6 +323,7 @@ export const App: React.FC = () => {
     }
     setIsPlaying(false);
     setIsSettingsOpen(false);
+    setIsPhotoBoothOpen(false);
   };
 
   return (
@@ -319,10 +342,14 @@ export const App: React.FC = () => {
             onToggleCamera={handleToggleCamera}
             onToggleMute={handleToggleMute}
             onOpenSettings={() => setIsSettingsOpen(true)}
+            onOpenPhotoBooth={() => setIsPhotoBoothOpen(true)}
             onUseAbility={handleUseAbility}
           />
 
-          <LiveStreamFeed comments={comments} />
+          <LiveStreamFeed
+            comments={comments}
+            superchats={matchState.superchats}
+          />
 
           <MobileControls
             onInput={handleMobileInput}
@@ -344,10 +371,18 @@ export const App: React.FC = () => {
             onSelectGraphics={handleSelectGraphics}
             timeOfDay={matchState.timeOfDay}
             onSelectTimeOfDay={handleSelectTimeOfDay}
+            weather={matchState.weather}
+            onSelectWeather={handleSelectWeather}
             isMuted={isMuted}
             onToggleMute={handleToggleMute}
             placardText={matchState.placardText}
             onUpdatePlacard={handleUpdatePlacard}
+          />
+
+          <PhotoBoothModal
+            isOpen={isPhotoBoothOpen}
+            onClose={() => setIsPhotoBoothOpen(false)}
+            canvasElement={engineRef.current?.renderer.domElement || null}
           />
         </>
       )}
