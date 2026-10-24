@@ -12,16 +12,23 @@ import {
   Lock,
   Heart,
   Globe,
+  Maximize,
+  Minimize,
+  Smartphone,
 } from 'lucide-react';
 
 interface TeamSelectModalProps {
   onStartGame: (team: Team, mode: GameMode, roomCode?: string, mapId?: 'DELHI' | 'PARIS') => void;
   onOpenSupport?: () => void;
+  isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
 }
 
 export const TeamSelectModal: React.FC<TeamSelectModalProps> = ({
   onStartGame,
   onOpenSupport,
+  isFullscreen = false,
+  onToggleFullscreen,
 }) => {
   const [selectedTeam, setSelectedTeam] = useState<Team>('PROTESTOR');
   const [selectedMode, setSelectedMode] = useState<GameMode>('SOLO');
@@ -229,6 +236,31 @@ export const TeamSelectModal: React.FC<TeamSelectModalProps> = ({
               className="px-4 py-2 bg-slate-900/90 border border-white/20 rounded-xl text-sm font-mono text-cyan-400 placeholder:text-slate-500 uppercase tracking-widest focus:outline-none focus:border-cyan-400 text-center w-36"
             />
           </div>
+        )}
+
+        {/* Fullscreen Mobile Landscape Switch */}
+        {onToggleFullscreen && (
+          <button
+            type="button"
+            onClick={onToggleFullscreen}
+            className={`w-full py-2.5 px-4 rounded-xl border flex items-center justify-center gap-2 text-xs font-bold transition-all active:scale-98 ${
+              isFullscreen
+                ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300 shadow-lg shadow-emerald-500/10'
+                : 'bg-gradient-to-r from-cyan-500/15 to-pink-500/15 hover:bg-white/10 border-cyan-400/30 text-cyan-200'
+            }`}
+          >
+            {isFullscreen ? (
+              <>
+                <Minimize className="w-4 h-4 text-emerald-400" />
+                <span>FULLSCREEN ACTIVE (100% EDGE-TO-EDGE IMMERSIVE)</span>
+              </>
+            ) : (
+              <>
+                <Maximize className="w-4 h-4 text-cyan-400" />
+                <span>📱 TAP FOR FULLSCREEN LANDSCAPE (YOUTUBE-STYLE IMMERSIVE)</span>
+              </>
+            )}
+          </button>
         )}
 
         {/* Start Game CTA Button */}

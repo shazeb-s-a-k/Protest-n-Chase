@@ -15,7 +15,10 @@ import {
   Coffee,
   Wifi,
   Eye,
+  EyeOff,
   Heart,
+  Maximize,
+  Minimize,
 } from 'lucide-react';
 import { GameMatchState, CameraViewMode } from '../types/game';
 import { Radar } from './Radar';
@@ -25,8 +28,13 @@ interface HUDProps {
   stamina: number;
   cameraMode: CameraViewMode;
   isMuted: boolean;
+  isFullscreen?: boolean;
+  isImmersiveMode?: boolean;
+  isUIHidden?: boolean;
   onToggleCamera: () => void;
   onToggleMute: () => void;
+  onToggleFullscreen?: () => void;
+  onToggleImmersiveMode?: () => void;
   onOpenSettings: () => void;
   onOpenPhotoBooth: () => void;
   onOpenSupport?: () => void;
@@ -38,8 +46,13 @@ export const HUD: React.FC<HUDProps> = ({
   stamina,
   cameraMode,
   isMuted,
+  isFullscreen = false,
+  isImmersiveMode = false,
+  isUIHidden = false,
   onToggleCamera,
   onToggleMute,
+  onToggleFullscreen,
+  onToggleImmersiveMode,
   onOpenSettings,
   onOpenPhotoBooth,
   onOpenSupport,
@@ -50,6 +63,8 @@ export const HUD: React.FC<HUDProps> = ({
   const seconds = Math.floor(Math.max(0, matchState.timeRemaining) % 60);
   const formattedTime = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
 
+  const isOverlayHidden = isUIHidden || isImmersiveMode;
+
   return (
     <div
       className="absolute inset-0 pointer-events-none flex flex-col justify-between p-2 sm:p-5"
@@ -59,8 +74,40 @@ export const HUD: React.FC<HUDProps> = ({
         paddingRight: 'max(env(safe-area-inset-right, 0px), 8px)',
       }}
     >
-      {/* Top Header Bar */}
-      <div className="flex items-start justify-between gap-2.5 w-full max-w-6xl mx-auto">
+      {/* Floating Restore Pill if HUD is Hidden / Immersive Mode active */}
+      {isOverlayHidden && (
+        <div className="absolute top-2 right-2 sm:top-4 sm:right-4 pointer-events-auto flex items-center gap-1.5 animate-fade-in z-50">
+          {onToggleImmersiveMode && (
+            <button
+              onClick={onToggleImmersiveMode}
+              className="glass-panel px-3 py-1.5 rounded-full text-xs font-bold text-slate-200 border border-white/20 hover:bg-white/15 flex items-center gap-1.5 shadow-2xl backdrop-blur-xl active:scale-95 transition-transform"
+            >
+              <Eye className="w-3.5 h-3.5 text-cyan-400" />
+              <span className="text-[10px] tracking-wider uppercase">Show HUD</span>
+            </button>
+          )}
+          {onToggleFullscreen && (
+            <button
+              onClick={onToggleFullscreen}
+              className="glass-panel p-1.5 rounded-full text-xs text-slate-200 border border-white/20 hover:bg-white/15 shadow-2xl backdrop-blur-xl active:scale-95 transition-transform"
+              title="Toggle Fullscreen"
+            >
+              {isFullscreen ? (
+                <Minimize className="w-3.5 h-3.5 text-pink-400" />
+              ) : (
+                <Maximize className="w-3.5 h-3.5 text-cyan-400" />
+              )}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Top Header Bar with YouTube-style autohide transition */}
+      <div
+        className={`flex items-start justify-between gap-2.5 w-full max-w-6xl mx-auto transition-all duration-300 ${
+          isOverlayHidden ? '-translate-y-28 opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'
+        }`}
+      >
         {/* Left: Live Stream Indicator, Active PowerUp & Media Spotlight Alert */}
         <div className="flex flex-col gap-2 pointer-events-auto">
           <div className="glass-panel px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-2xl flex items-center gap-2 border border-white/10 shadow-lg">
@@ -163,6 +210,38 @@ export const HUD: React.FC<HUDProps> = ({
                 <Volume2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400" />
               )}
             </button>
+            {/* Fullscreen Button (YouTube-style Maximize / Minimize) */}
+            {onToggleFullscreen && (
+              <button
+                onClick={onToggleFullscreen}
+                className="glass-panel p-1.5 sm:p-2 rounded-lg sm:rounded-xl hover:bg-white/15 transition-all text-slate-200 active:scale-95 border border-white/10 shadow-lg"
+                title={isFullscreen ? 'Exit Fullscreen' : 'Full Screen (Landscape)'}
+              >
+                {isFullscreen ? (
+                  <Minimize className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-pink-400" />
+                ) : (
+                  <Maximize className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-cyan-400" />
+                )}
+              </button>
+            )}
+
+            {/* Theater / Cinema View Toggle (Hide HUD) */}
+            {onToggleImmersiveMode && (
+              <button
+                onClick={onToggleImmersiveMode}
+                className={`glass-panel p-1.5 sm:p-2 rounded-lg sm:rounded-xl hover:bg-white/15 transition-all text-slate-200 active:scale-95 border border-white/10 shadow-lg ${
+                  isImmersiveMode ? 'border-amber-400 bg-amber-500/20 text-amber-300' : ''
+                }`}
+                title={isImmersiveMode ? 'Show Full HUD' : 'Cinema View (Hide Overlays)'}
+              >
+                {isImmersiveMode ? (
+                  <EyeOff className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" />
+                ) : (
+                  <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-300" />
+                )}
+              </button>
+            )}
+
             <button
               onClick={onOpenSettings}
               className="glass-panel p-1.5 sm:p-2 rounded-lg sm:rounded-xl hover:bg-white/15 transition-all text-slate-200 active:scale-95 border border-white/10 shadow-lg"
@@ -189,8 +268,8 @@ export const HUD: React.FC<HUDProps> = ({
         </div>
       </div>
 
-      {/* Bottom Center: Desktop Ability Bar & Stamina */}
-      <div className="w-full max-w-xl mx-auto flex flex-col items-center gap-2 hidden md:flex">
+      {/* Bottom Center: Desktop Ability Bar & Stamina (hidden on mobile landscape, shown on desktop keyboards) */}
+      <div className="w-full max-w-xl mx-auto flex flex-col items-center gap-2 hidden lg:flex">
         {/* Stamina Meter */}
         <div className="w-56 glass-panel px-3 py-1 rounded-xl flex items-center gap-2 pointer-events-auto border border-white/10">
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">

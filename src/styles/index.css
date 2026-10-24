@@ -26,9 +26,38 @@
 html, body, #root {
   width: 100%;
   height: 100%;
+  height: 100dvh;
+  min-height: 100dvh;
   overflow: hidden;
+  position: fixed;
+  inset: 0;
   background-color: #080c14;
   color: #f8fafc;
+  touch-action: none;
+}
+
+/* Fullscreen pseudo-classes */
+:fullscreen, :-webkit-full-screen, :-moz-full-screen, :-ms-fullscreen {
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+/* YouTube-style UI Autohide & Fade Transitions */
+.ui-autohide {
+  transition: opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1), transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: opacity, transform;
+}
+
+.ui-autohide.ui-hidden {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transform: translateY(-12px) scale(0.98);
+}
+
+.ui-fade-slow {
+  transition: opacity 0.5s ease;
 }
 
 /* Glassmorphism Classes */

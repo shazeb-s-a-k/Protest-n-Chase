@@ -5,14 +5,24 @@ import { Heart, Sparkles, Zap } from 'lucide-react';
 interface LiveStreamFeedProps {
   comments: LiveStreamComment[];
   superchats: SuperChat[];
+  isUIHidden?: boolean;
+  isImmersiveMode?: boolean;
 }
 
 export const LiveStreamFeed: React.FC<LiveStreamFeedProps> = ({
   comments,
   superchats,
+  isUIHidden = false,
+  isImmersiveMode = false,
 }) => {
+  const isHidden = isUIHidden || isImmersiveMode;
+
   return (
-    <div className="absolute left-3 bottom-48 sm:left-6 sm:bottom-28 w-60 sm:w-84 pointer-events-none flex flex-col gap-2 z-20">
+    <div
+      className={`absolute left-3 bottom-36 sm:left-6 sm:bottom-28 w-56 sm:w-80 pointer-events-none flex flex-col gap-1.5 z-20 transition-all duration-300 landscape:bottom-28 landscape:w-56 ${
+        isHidden ? 'opacity-0 -translate-x-12 pointer-events-none' : 'opacity-100 translate-x-0'
+      }`}
+    >
       {/* SuperChat Donation Callouts */}
       {superchats.slice(-2).map((sc) => (
         <div

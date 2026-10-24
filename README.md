@@ -89,9 +89,11 @@ If you love playing **Protest-n-Chase**, consider supporting the creator to fund
 - Watermarked with official creator branding: `📢 PROTEST-N-CHASE • BY SHAZEB ANWAR KHAN`.
 - Export high-resolution PNG posters directly to your device.
 
-### 7. 📱 Cross-Platform Responsive Controls
-- **Desktop**: Full WASD / Arrow keys, Space, Shift, C, Q, E, F, R, H, P, V, M.
-- **Mobile & Touch**: 360° virtual analog joystick, dedicated jump/slide/sprint thumb buttons, and haptic feedback.
+### 7. 📱 Cross-Platform Responsive Controls & YouTube Fullscreen Mode
+- **YouTube-Style Fullscreen Experience**: 1-tap dedicated button enters 100% edge-to-edge native fullscreen, automatically hides mobile browser URL/navigation bars, locks landscape orientation, and smoothly auto-fades non-essential HUD overlays during gameplay just like a full-screen video player!
+- **Dynamic Floating Steering Zone**: Touch anywhere on the left half of the screen in landscape mode to anchor your thumb and steer fluidly in 360° analog degrees without hunting for a fixed circle.
+- **Landscape Ergonomic Layout**: Action buttons (Jump, Slide, Sprint) and abilities are arranged in compact rows adapted specifically for landscape screens (360px - 430px height).
+- **Multi-Touch Isolation**: Left thumb steering is completely unaffected when tapping Jump, Slide, or Abilities with the right thumb.
 
 ---
 
@@ -117,9 +119,12 @@ If you love playing **Protest-n-Chase**, consider supporting the creator to fund
 | **Escape** | Open Settings & Quality Menu |
 
 ### Mobile Touch Controls
-- **Left Virtual Joystick**: 360° fluid analog movement.
-- **Action Buttons**: Sprint, Jump, Slide, Chant / Barricade, Hype / Water Cannon, Jailbreak.
-- **QTE Touch Trigger**: Rapidly tap when prompted on screen to break free.
+- **Dynamic Floating Left Joystick**: Touch and drag anywhere on the lower-left screen to steer with 360° analog precision in both portrait and landscape.
+- **Ergonomic Action Buttons**: Dedicated thumb buttons for Jump, Slide, and Sprint toggle.
+- **Quick Ability Buttons**: Chant, Viral Live-Stream Hype, Bus Jailbreak, Human Chain, Barricade, and Water Cannon.
+- **YouTube Fullscreen Button**: Toggle true edge-to-edge fullscreen landscape mode with 1 tap.
+- **Cinema Mode (T)**: Tap the eye icon to hide all HUD overlays for pure cinematic viewing.
+- **QTE Rapid-Mash Overlay**: Rapidly tap anywhere on the screen during police grapple to break free!
 
 ---
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { GameEngine } from './engine/GameEngine';
 import {
   Team,
@@ -22,6 +22,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { PhotoBoothModal } from './components/PhotoBoothModal';
 import { SupportModal } from './components/SupportModal';
 import { audioManager } from './engine/AudioManager';
+import { Smartphone } from 'lucide-react';
 
 export const App: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -34,6 +35,16 @@ export const App: React.FC = () => {
   const [isSupportOpen, setIsSupportOpen] = useState(false);
   const [launchError, setLaunchError] = useState<string | null>(null);
 
+  // Fullscreen, Orientation & YouTube-style Autohide States
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isImmersiveMode, setIsImmersiveMode] = useState(false);
+  const [isUIIdle, setIsUIIdle] = useState(false);
+  const [isLandscape, setIsLandscape] = useState(
+    typeof window !== 'undefined' ? window.innerWidth > window.innerHeight : false
+  );
+  const [isMobileDevice, setIsMobileDevice] = useState(false);
+  const idleTimerRef = useRef<any>(null);
+
   useEffect(() => {
     const handleErr = (e: ErrorEvent) => {
       console.error('Window Error:', e);
@@ -44,6 +55,106 @@ export const App: React.FC = () => {
     window.addEventListener('error', handleErr);
     return () => window.removeEventListener('error', handleErr);
   }, []);
+
+  // Track viewport, touch capability and fullscreen changes
+  useEffect(() => {
+    const checkViewport = () => {
+      setIsLandscape(window.innerWidth > window.innerHeight);
+      setIsMobileDevice(
+        'ontouchstart' in window || navigator.maxTouchPoints > 0 || window.innerWidth < 1024
+      );
+      const isFs = !!(
+        document.fullscreenElement ||
+        (document as any).webkitFullscreenElement ||
+        (document as any).mozFullScreenElement ||
+        (document as any).msFullscreenElement
+      );
+      setIsFullscreen(isFs);
+    };
+
+    checkViewport();
+    window.addEventListener('resize', checkViewport);
+    window.addEventListener('orientationchange', checkViewport);
+    document.addEventListener('fullscreenchange', checkViewport);
+    document.addEventListener('webkitfullscreenchange', checkViewport);
+
+    return () => {
+      window.removeEventListener('resize', checkViewport);
+      window.removeEventListener('orientationchange', checkViewport);
+      document.removeEventListener('fullscreenchange', checkViewport);
+      document.removeEventListener('webkitfullscreenchange', checkViewport);
+    };
+  }, []);
+
+  // Fullscreen Toggle Handler (with orientation lock attempt)
+  const toggleFullscreen = async () => {
+    try {
+      const doc = document as any;
+      const elem = document.documentElement as any;
+
+      if (!doc.fullscreenElement && !doc.webkitFullscreenElement && !doc.mozFullScreenElement && !doc.msFullscreenElement) {
+        if (elem.requestFullscreen) {
+          await elem.requestFullscreen();
+        } else if (elem.webkitRequestFullscreen) {
+          await elem.webkitRequestFullscreen();
+        } else if (elem.mozRequestFullScreen) {
+          await elem.mozRequestFullScreen();
+        } else if (elem.msRequestFullscreen) {
+          await elem.msRequestFullscreen();
+        }
+
+        try {
+          if (screen.orientation && 'lock' in screen.orientation) {
+            await (screen.orientation as any).lock('landscape');
+          }
+        } catch (_) {}
+        setIsFullscreen(true);
+      } else {
+        if (doc.exitFullscreen) {
+          await doc.exitFullscreen();
+        } else if (doc.webkitExitFullscreen) {
+          await doc.webkitExitFullscreen();
+        } else if (doc.mozCancelFullScreen) {
+          await doc.mozCancelFullScreen();
+        } else if (doc.msExitFullscreen) {
+          await doc.msExitFullscreen();
+        }
+        try {
+          if (screen.orientation && 'unlock' in screen.orientation) {
+            (screen.orientation as any).unlock();
+          }
+        } catch (_) {}
+        setIsFullscreen(false);
+      }
+    } catch (err) {
+      console.warn('Fullscreen toggle note:', err);
+    }
+  };
+
+  // YouTube-style UI idle autohide timer
+  const resetUIIdleTimer = useCallback(() => {
+    setIsUIIdle(false);
+    if (idleTimerRef.current) {
+      clearTimeout(idleTimerRef.current);
+    }
+    if (isPlaying) {
+      idleTimerRef.current = setTimeout(() => {
+        setIsUIIdle(true);
+      }, 4500); // 4.5s idle fades non-essential overlays
+    }
+  }, [isPlaying]);
+
+  useEffect(() => {
+    if (isPlaying) {
+      resetUIIdleTimer();
+    } else {
+      setIsUIIdle(false);
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    }
+    return () => {
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    };
+  }, [isPlaying, resetUIIdleTimer]);
 
   const [matchState, setMatchState] = useState<GameMatchState>({
     mode: 'SOLO',
@@ -377,7 +488,12 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-slate-950 font-sans select-none">
+    <div
+      onPointerDown={resetUIIdleTimer}
+      onTouchStart={resetUIIdleTimer}
+      onMouseMove={resetUIIdleTimer}
+      className="fixed inset-0 w-full h-full min-h-[100dvh] h-[100dvh] overflow-hidden bg-slate-950 font-sans select-none touch-none"
+    >
       {/* 3D WebGL Canvas Viewport */}
       <div
         ref={containerRef}
@@ -401,6 +517,19 @@ export const App: React.FC = () => {
         </div>
       )}
 
+      {/* Floating Landscape Orientation Suggestion for Mobile in Portrait */}
+      {isPlaying && isMobileDevice && !isLandscape && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-40 animate-bounce pointer-events-auto">
+          <button
+            onClick={toggleFullscreen}
+            className="px-4 py-2 rounded-full glass-panel border border-cyan-400/50 bg-slate-900/90 text-cyan-300 text-xs font-bold shadow-2xl flex items-center gap-2 backdrop-blur-xl active:scale-95"
+          >
+            <Smartphone className="w-4 h-4 text-pink-400 rotate-90 animate-pulse" />
+            <span>Rotate to Landscape or Tap for Fullscreen ⛶</span>
+          </button>
+        </div>
+      )}
+
       {/* Main Game In-Play Overlays */}
       {isPlaying && (
         <div className="absolute inset-0 pointer-events-none z-10 overflow-hidden">
@@ -409,8 +538,13 @@ export const App: React.FC = () => {
             stamina={stamina}
             cameraMode={cameraMode}
             isMuted={isMuted}
+            isFullscreen={isFullscreen}
+            isImmersiveMode={isImmersiveMode}
+            isUIHidden={isUIIdle}
             onToggleCamera={handleToggleCamera}
             onToggleMute={handleToggleMute}
+            onToggleFullscreen={toggleFullscreen}
+            onToggleImmersiveMode={() => setIsImmersiveMode(!isImmersiveMode)}
             onOpenSettings={() => setIsSettingsOpen(true)}
             onOpenPhotoBooth={() => setIsPhotoBoothOpen(true)}
             onOpenSupport={() => setIsSupportOpen(true)}
@@ -420,6 +554,8 @@ export const App: React.FC = () => {
           <LiveStreamFeed
             comments={comments}
             superchats={matchState.superchats}
+            isUIHidden={isUIIdle}
+            isImmersiveMode={isImmersiveMode}
           />
 
           <MobileControls
@@ -427,12 +563,17 @@ export const App: React.FC = () => {
             currentInput={inputRef.current}
             team={matchState.localTeam}
             onUseAbility={handleUseAbility}
+            isUIIdle={isUIIdle}
+            onUserInteraction={resetUIIdleTimer}
           />
 
           <MinigameOverlay
             type={matchState.activeMinigame}
             progress={matchState.minigameProgress}
-            onTap={() => engineRef.current?.handleMinigameTap()}
+            onTap={() => {
+              resetUIIdleTimer();
+              engineRef.current?.handleMinigameTap();
+            }}
           />
 
           <SettingsModal
@@ -463,6 +604,8 @@ export const App: React.FC = () => {
         <TeamSelectModal
           onStartGame={handleStartGame}
           onOpenSupport={() => setIsSupportOpen(true)}
+          isFullscreen={isFullscreen}
+          onToggleFullscreen={toggleFullscreen}
         />
       )}
 
