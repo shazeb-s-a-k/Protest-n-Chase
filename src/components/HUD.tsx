@@ -51,7 +51,14 @@ export const HUD: React.FC<HUDProps> = ({
   const formattedTime = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
 
   return (
-    <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-2 sm:p-5">
+    <div
+      className="absolute inset-0 pointer-events-none flex flex-col justify-between p-2 sm:p-5"
+      style={{
+        paddingTop: 'max(env(safe-area-inset-top, 0px), 8px)',
+        paddingLeft: 'max(env(safe-area-inset-left, 0px), 8px)',
+        paddingRight: 'max(env(safe-area-inset-right, 0px), 8px)',
+      }}
+    >
       {/* Top Header Bar */}
       <div className="flex items-start justify-between gap-2.5 w-full max-w-6xl mx-auto">
         {/* Left: Live Stream Indicator, Active PowerUp & Media Spotlight Alert */}
@@ -127,46 +134,46 @@ export const HUD: React.FC<HUDProps> = ({
         {/* Right: Controls & Radar Minimap */}
         <div className="flex items-start gap-2.5 pointer-events-auto">
           {/* Action Buttons: Camera, PhotoBooth, Sound, Settings */}
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1 sm:gap-1.5">
             <button
               onClick={onToggleCamera}
-              className="glass-panel p-2 rounded-xl hover:bg-white/15 transition-all text-slate-200 active:scale-95 border border-white/10 shadow-lg"
+              className="glass-panel p-1.5 sm:p-2 rounded-lg sm:rounded-xl hover:bg-white/15 transition-all text-slate-200 active:scale-95 border border-white/10 shadow-lg"
               title="Toggle Camera View (V)"
             >
-              <Eye className="w-4 h-4 text-cyan-400" />
+              <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-cyan-400" />
             </button>
             <button
               onClick={onOpenPhotoBooth}
-              className="glass-panel p-2 rounded-xl hover:bg-white/15 transition-all text-slate-200 active:scale-95 border border-white/10 shadow-lg"
+              className="glass-panel p-1.5 sm:p-2 rounded-lg sm:rounded-xl hover:bg-white/15 transition-all text-slate-200 active:scale-95 border border-white/10 shadow-lg"
               title="Photo Mode / Poster (P)"
             >
-              <Camera className="w-4 h-4 text-pink-400" />
+              <Camera className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-pink-400" />
             </button>
             <button
               onClick={onToggleMute}
-              className="glass-panel p-2 rounded-xl hover:bg-white/15 transition-all text-slate-200 active:scale-95 border border-white/10 shadow-lg"
+              className="glass-panel p-1.5 sm:p-2 rounded-lg sm:rounded-xl hover:bg-white/15 transition-all text-slate-200 active:scale-95 border border-white/10 shadow-lg"
               title="Toggle Audio (M)"
             >
               {isMuted ? (
-                <VolumeX className="w-4 h-4 text-red-400" />
+                <VolumeX className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-400" />
               ) : (
-                <Volume2 className="w-4 h-4 text-emerald-400" />
+                <Volume2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400" />
               )}
             </button>
             <button
               onClick={onOpenSettings}
-              className="glass-panel p-2 rounded-xl hover:bg-white/15 transition-all text-slate-200 active:scale-95 border border-white/10 shadow-lg"
+              className="glass-panel p-1.5 sm:p-2 rounded-lg sm:rounded-xl hover:bg-white/15 transition-all text-slate-200 active:scale-95 border border-white/10 shadow-lg"
               title="Settings & Quality"
             >
-              <Settings className="w-4 h-4 text-purple-400" />
+              <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-400" />
             </button>
             {onOpenSupport && (
               <button
                 onClick={onOpenSupport}
-                className="glass-panel p-2 rounded-xl hover:bg-pink-500/20 transition-all text-slate-200 active:scale-95 border border-pink-500/30 bg-pink-500/10 shadow-lg"
+                className="glass-panel p-1.5 sm:p-2 rounded-lg sm:rounded-xl hover:bg-pink-500/20 transition-all text-slate-200 active:scale-95 border border-pink-500/30 bg-pink-500/10 shadow-lg"
                 title="Support Shazeb Anwar Khan (UPI: shazeb26@fam)"
               >
-                <Heart className="w-4 h-4 text-pink-400 fill-pink-400" />
+                <Heart className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-pink-400 fill-pink-400" />
               </button>
             )}
           </div>

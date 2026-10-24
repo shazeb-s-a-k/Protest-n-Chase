@@ -43,6 +43,7 @@ export const MinigameOverlay: React.FC<MinigameOverlayProps> = ({
     <div
       onClick={handleTap}
       onTouchStart={handleTap}
+      style={{ touchAction: 'none' }}
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-lg animate-fade-in pointer-events-auto cursor-pointer select-none"
     >
       {/* Pulsing Red/Amber Vignette */}

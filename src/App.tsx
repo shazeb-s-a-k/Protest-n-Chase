@@ -91,6 +91,7 @@ export const App: React.FC = () => {
   const handleStartGame = (team: Team, mode: GameMode, roomCode?: string) => {
     setLaunchError(null);
     try {
+      audioManager.init();
       console.log('🎮 Starting Awaaz Match:', { team, mode, roomCode });
 
       if (!containerRef.current) {

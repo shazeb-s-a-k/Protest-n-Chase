@@ -12,7 +12,7 @@ export const LiveStreamFeed: React.FC<LiveStreamFeedProps> = ({
   superchats,
 }) => {
   return (
-    <div className="absolute left-3 bottom-24 sm:left-6 sm:bottom-28 w-64 sm:w-84 pointer-events-none flex flex-col gap-2 z-20">
+    <div className="absolute left-3 bottom-48 sm:left-6 sm:bottom-28 w-60 sm:w-84 pointer-events-none flex flex-col gap-2 z-20">
       {/* SuperChat Donation Callouts */}
       {superchats.slice(-2).map((sc) => (
         <div
