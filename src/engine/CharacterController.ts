@@ -135,6 +135,17 @@ export class CharacterController {
     hips.castShadow = true;
     torsoGroup.add(hips);
 
+    // Stitched Leather Belt with Polished Metal Buckle
+    const beltMat = new THREE.MeshStandardMaterial({ color: 0x3e2723, roughness: 0.6 });
+    const buckleMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.95, roughness: 0.2 });
+    const belt = new THREE.Mesh(new THREE.CylinderGeometry(0.31, 0.31, 0.07, 16), beltMat);
+    belt.position.y = 0.04;
+    torsoGroup.add(belt);
+
+    const buckle = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.09, 0.04), buckleMat);
+    buckle.position.set(0, 0.04, 0.31);
+    torsoGroup.add(buckle);
+
     if (isProtestor) {
       // Kangaroo pocket on belly
       const pocketGeo = new THREE.BoxGeometry(0.38, 0.22, 0.12);
@@ -274,6 +285,24 @@ export class CharacterController {
       visor.position.set(0, 0.1, 0.28);
       visor.rotation.x = -0.15;
       this.headGroup.add(visor);
+
+      // Iconic Vice City Gold Aviator Sunglasses
+      const shadesFrameMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.95, roughness: 0.15 });
+      const shadesLensMat = new THREE.MeshStandardMaterial({ color: 0x090d16, metalness: 0.9, roughness: 0.05 });
+      [-0.08, 0.08].forEach((sx) => {
+        const lensGeo = new THREE.CylinderGeometry(0.048, 0.048, 0.015, 12);
+        const lens = new THREE.Mesh(lensGeo, shadesLensMat);
+        lens.rotation.x = Math.PI / 2;
+        lens.position.set(sx, 0.04, 0.24);
+        this.headGroup?.add(lens);
+
+        const frame = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.006, 6, 16), shadesFrameMat);
+        frame.position.set(sx, 0.04, 0.245);
+        this.headGroup?.add(frame);
+      });
+      const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.008, 0.01), shadesFrameMat);
+      bridge.position.set(0, 0.06, 0.245);
+      this.headGroup.add(bridge);
 
       // Chunky DJ / Streetwear Wireless Headphones around neck
       const hpBandGeo = new THREE.TorusGeometry(0.22, 0.025, 8, 20, Math.PI * 1.3);
@@ -513,6 +542,20 @@ export class CharacterController {
     const forearm = new THREE.Mesh(foreGeo, isProtestor ? skinMat : clothMat);
     forearm.castShadow = true;
     armGroup.add(forearm);
+
+    // Luxury Gold Chronograph Wristwatch on Left Arm (Tommy Vercetti signature)
+    if (xPos < 0 && isProtestor) {
+      const watchMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.95, roughness: 0.15 });
+      const watchBand = new THREE.Mesh(new THREE.TorusGeometry(0.082, 0.016, 8, 16), watchMat);
+      watchBand.rotation.x = Math.PI / 2;
+      watchBand.position.set(0, -0.62, 0);
+      armGroup.add(watchBand);
+
+      const watchFace = new THREE.Mesh(new THREE.CylinderGeometry(0.038, 0.038, 0.015, 12), watchMat);
+      watchFace.position.set(0, -0.62, 0.085);
+      watchFace.rotation.x = Math.PI / 2;
+      armGroup.add(watchFace);
+    }
 
     // Hand & Tactical Fingerless Gloves
     const handGeo = new THREE.BoxGeometry(0.13, 0.15, 0.11);

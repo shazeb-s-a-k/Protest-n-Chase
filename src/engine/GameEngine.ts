@@ -23,6 +23,11 @@ import { NetworkManager } from './NetworkManager';
 import { PowerUpManager } from './PowerUpManager';
 import { WeatherManager } from './WeatherManager';
 import { WildlifeManager } from './WildlifeManager';
+import { SkyAtmosphere } from './SkyAtmosphere';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 
 export class GameEngine {
   public scene: THREE.Scene;
@@ -39,6 +44,8 @@ export class GameEngine {
   public powerUpManager: PowerUpManager;
   public weatherManager: WeatherManager;
   public wildlifeManager: WildlifeManager;
+  public skyAtmosphere: SkyAtmosphere;
+  private composer: EffectComposer | null = null;
 
   // Entities
   public localPlayer: CharacterController | null = null;
@@ -150,6 +157,27 @@ export class GameEngine {
     this.powerUpManager = new PowerUpManager(this.scene);
     this.weatherManager = new WeatherManager(this.scene);
     this.wildlifeManager = new WildlifeManager(this.scene);
+    this.skyAtmosphere = new SkyAtmosphere(this.scene);
+
+    // GTA Vice City Cinematic Post-Processing Pipeline: UnrealBloomPass & Tone Mapping
+    try {
+      const renderPass = new RenderPass(this.scene, this.camera);
+      const bloomPass = new UnrealBloomPass(
+        new THREE.Vector2(width, height),
+        0.58, // Bloom Strength
+        0.42, // Bloom Radius
+        0.80  // Bloom Threshold (Sirens, neon, headlights, gold statues bloom)
+      );
+      const outputPass = new OutputPass();
+
+      this.composer = new EffectComposer(this.renderer);
+      this.composer.addPass(renderPass);
+      this.composer.addPass(bloomPass);
+      this.composer.addPass(outputPass);
+    } catch (compErr) {
+      console.warn('EffectComposer fallback to standard WebGL renderer:', compErr);
+      this.composer = null;
+    }
 
     // Default Match State
     this.matchState = {
@@ -420,6 +448,9 @@ export class GameEngine {
   public setTimeOfDay(time: TimeOfDay) {
     this.matchState.timeOfDay = time;
     this.mapBuilder.setTimeOfDay(time, this.scene);
+    if (this.skyAtmosphere) {
+      this.skyAtmosphere.setTimeOfDay(time);
+    }
   }
 
   public setWeather(weather: WeatherCondition) {
@@ -913,8 +944,11 @@ export class GameEngine {
         }
       }
 
-      // 13. Update Particle System
+      // 13. Update Particle System & Atmospheric Sky
       this.particleSystem.update(delta);
+      if (this.skyAtmosphere) {
+        this.skyAtmosphere.update(delta);
+      }
 
       // 14. Update Camera Follow
       this.updateCamera(delta);
@@ -922,8 +956,12 @@ export class GameEngine {
       // 15. Collect Entities for Radar HUD
       this.updateRadarEntities();
 
-      // 16. Render Frame
-      this.renderer.render(this.scene, this.camera);
+      // 16. Render Frame (Cinematic Bloom Post-processing in HIGH/MEDIUM quality)
+      if (this.composer && this.matchState.graphicsQuality !== 'LOW') {
+        this.composer.render();
+      } else {
+        this.renderer.render(this.scene, this.camera);
+      }
 
       // 17. Notify UI (Throttled to ~20 FPS so React isn't flooded with 120 re-renders/sec)
       this.uiUpdateTimer += delta;
@@ -1041,6 +1079,9 @@ export class GameEngine {
     this.camera.aspect = this.container.clientWidth / this.container.clientHeight;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
+    if (this.composer) {
+      this.composer.setSize(this.container.clientWidth, this.container.clientHeight);
+    }
   };
 
   public destroy() {
@@ -1055,6 +1096,12 @@ export class GameEngine {
     this.powerUpManager.destroy();
     this.weatherManager.destroy();
     this.wildlifeManager.destroy();
+    if (this.skyAtmosphere) {
+      this.skyAtmosphere.destroy();
+    }
+    if (this.composer) {
+      this.composer.dispose();
+    }
     this.renderer.dispose();
     if (this.container && this.renderer.domElement) {
       this.container.removeChild(this.renderer.domElement);

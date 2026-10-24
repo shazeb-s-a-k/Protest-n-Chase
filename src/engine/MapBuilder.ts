@@ -109,6 +109,15 @@ export class MapBuilder {
     // 10. Plaza Streetlights and Atmospheric Spotlights
     this.createPlazaLighting(scene);
 
+    // 11. GTA Vice City Boulevard Roadways & Curbs
+    this.createGTARoadways(scene, 'DELHI');
+
+    // 12. Tropical Palm Tree Groves (Vice City signature palms)
+    this.createPalmGroves(scene, 'DELHI');
+
+    // 13. Parked GTA Sports Cars & Street Dressing
+    this.createGTAStreetDressings(scene, 'DELHI');
+
     return {
       colliders: this.colliders,
       busPositions: this.busPositions,
@@ -576,6 +585,10 @@ export class MapBuilder {
     this.createDetainmentBus(scene, -22, 55, Math.PI / 12, 'BUS_ALPHA');
     this.createDetainmentBus(scene, 22, 55, -Math.PI / 12, 'BUS_BRAVO');
     this.createWaterCannonTruck(scene, 0, 62);
+
+    // 2 High-Speed Tactical Police Cruisers with flashing dual lightbars
+    this.createPoliceCruiser(scene, -11, 47, 0.22, 'DELHI');
+    this.createPoliceCruiser(scene, 11, 47, -0.22, 'DELHI');
 
     const barricadeSpecs = [
       { x: -14, z: 42, rot: 0.1 },
@@ -1173,6 +1186,12 @@ export class MapBuilder {
     // 10. Ornate Parisian Street Lamps (Réverbères Parisiens)
     this.createParisLighting(scene);
 
+    // 11. GTA Paris Boulevard Roadways & Curbs
+    this.createGTARoadways(scene, 'PARIS');
+
+    // 12. Parked GTA Sports Cars & Street Dressing
+    this.createGTAStreetDressings(scene, 'PARIS');
+
     return {
       colliders: this.colliders,
       busPositions: this.busPositions,
@@ -1572,6 +1591,10 @@ export class MapBuilder {
 
     // Armored French CRS Water Cannon Truck (Camion Arroseur Blindé)
     this.createFrenchWaterCannonTruck(scene, 0, 62);
+
+    // 2 French CRS High-Speed Police Interceptor Cruisers
+    this.createPoliceCruiser(scene, -11, 47, 0.22, 'CRS');
+    this.createPoliceCruiser(scene, 11, 47, -0.22, 'CRS');
 
     // Galvanized Silver Steel Crowd Barriers (Barrières Vauban)
     const barricadeSpecs = [
@@ -2218,5 +2241,683 @@ export class MapBuilder {
     this.sunLight.shadow.camera.top = d;
     this.sunLight.shadow.camera.bottom = -d;
     scene.add(this.sunLight);
+  }
+
+  /**
+   * GTA Vice City Style Boulevard Roadways, Curbs & Crosswalks
+   */
+  public createGTARoadways(scene: THREE.Scene, _map: 'DELHI' | 'PARIS') {
+    const { map: roadTex, roughnessMap: roadRough } = TextureGenerator.getGTABoulevardRoadTexture();
+    const roadMat = new THREE.MeshStandardMaterial({
+      map: roadTex,
+      roughnessMap: roadRough,
+      roughness: 0.75,
+      metalness: 0.15,
+    });
+
+    // South Perimeter Main Boulevard (140m long, 16m wide)
+    const southRoadGeo = new THREE.PlaneGeometry(140, 16);
+    const southRoad = new THREE.Mesh(southRoadGeo, roadMat);
+    southRoad.rotation.x = -Math.PI / 2;
+    southRoad.position.set(0, 0.03, 64);
+    southRoad.receiveShadow = true;
+    scene.add(southRoad);
+
+    // Raised Concrete Curbs along the roadway edge
+    const curbMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.8 });
+    const curbGeo = new THREE.BoxGeometry(140, 0.22, 0.4);
+    const curb = new THREE.Mesh(curbGeo, curbMat);
+    curb.position.set(0, 0.11, 55.8);
+    curb.receiveShadow = true;
+    curb.castShadow = true;
+    scene.add(curb);
+
+    // Pedestrian Zebra Crosswalks at intersections
+    const crosswalkTex = TextureGenerator.getZebraCrosswalkTexture();
+    const crosswalkMat = new THREE.MeshStandardMaterial({
+      map: crosswalkTex,
+      roughness: 0.8,
+    });
+    [-32, 32].forEach((cx) => {
+      const crossGeo = new THREE.PlaneGeometry(8, 16);
+      const cross = new THREE.Mesh(crossGeo, crosswalkMat);
+      cross.rotation.x = -Math.PI / 2;
+      cross.position.set(cx, 0.035, 64);
+      cross.receiveShadow = true;
+      scene.add(cross);
+    });
+  }
+
+  /**
+   * Iconic GTA Police Patrol Cruiser (VCPD / Delhi Police Squad Sedan)
+   */
+  public createPoliceCruiser(
+    scene: THREE.Scene,
+    x: number,
+    z: number,
+    rot: number,
+    model: 'DELHI' | 'CRS' = 'DELHI'
+  ) {
+    const carGroup = new THREE.Group();
+    carGroup.position.set(x, 0, z);
+    carGroup.rotation.y = rot;
+
+    const length = 5.2;
+    const width = 2.15;
+    const height = 1.55;
+
+    const bodyColor = model === 'DELHI' ? 0x0f172a : 0x0f2852; // Tactical Black / CRS Navy
+    const doorColor = 0xf8fafc; // Contrasting white doors & roof
+
+    const mainMat = new THREE.MeshStandardMaterial({
+      color: bodyColor,
+      metalness: 0.5,
+      roughness: 0.35,
+    });
+
+    const whiteMat = new THREE.MeshStandardMaterial({
+      color: doorColor,
+      metalness: 0.3,
+      roughness: 0.4,
+    });
+
+    const glassMat = new THREE.MeshStandardMaterial({
+      color: 0x0f172a,
+      metalness: 0.95,
+      roughness: 0.05,
+    });
+
+    // 1. Lower Chassis
+    const chassis = new THREE.Mesh(
+      new THREE.BoxGeometry(width - 0.1, 0.35, length),
+      new THREE.MeshStandardMaterial({ color: 0x18181b, metalness: 0.8, roughness: 0.7 })
+    );
+    chassis.position.y = 0.45;
+    carGroup.add(chassis);
+
+    // 2. Fenders & Lower Body
+    const lowerBody = new THREE.Mesh(
+      new THREE.BoxGeometry(width, 0.45, length - 0.1),
+      mainMat
+    );
+    lowerBody.position.y = 0.65;
+    lowerBody.castShadow = true;
+    lowerBody.receiveShadow = true;
+    carGroup.add(lowerBody);
+
+    // 3. Front Sloped Hood
+    const hood = new THREE.Mesh(
+      new THREE.BoxGeometry(width - 0.05, 0.28, 1.6),
+      mainMat
+    );
+    hood.position.set(0, 0.85, 1.45);
+    hood.rotation.x = 0.05;
+    hood.castShadow = true;
+    carGroup.add(hood);
+
+    // 4. White Doors & Side Contrasts
+    const doors = new THREE.Mesh(
+      new THREE.BoxGeometry(width + 0.02, 0.55, 2.1),
+      whiteMat
+    );
+    doors.position.set(0, 0.78, -0.2);
+    carGroup.add(doors);
+
+    // Police Star / Badge on front doors
+    const starGeo = new THREE.CylinderGeometry(0.18, 0.18, 0.02, 5);
+    const starMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.9, roughness: 0.2 });
+    [-width / 2 - 0.02, width / 2 + 0.02].forEach((sx) => {
+      const star = new THREE.Mesh(starGeo, starMat);
+      star.rotation.z = Math.PI / 2;
+      star.position.set(sx, 0.85, -0.2);
+      carGroup.add(star);
+    });
+
+    // 5. Rear Trunk
+    const trunk = new THREE.Mesh(
+      new THREE.BoxGeometry(width - 0.05, 0.28, 1.3),
+      mainMat
+    );
+    trunk.position.set(0, 0.84, -1.8);
+    trunk.castShadow = true;
+    carGroup.add(trunk);
+
+    // 6. Cabin Greenhouse with Raked Windshield & Glass
+    const cabin = new THREE.Mesh(
+      new THREE.BoxGeometry(width - 0.25, 0.52, 2.05),
+      glassMat
+    );
+    cabin.position.set(0, 1.25, -0.3);
+    cabin.castShadow = true;
+    carGroup.add(cabin);
+
+    // White Roof Plate
+    const roof = new THREE.Mesh(
+      new THREE.BoxGeometry(width - 0.28, 0.06, 1.6),
+      whiteMat
+    );
+    roof.position.set(0, 1.52, -0.3);
+    carGroup.add(roof);
+
+    // 7. Heavy-Duty Front Push Bumper / Bull-Bar
+    const bullBar = new THREE.Mesh(
+      new THREE.BoxGeometry(width + 0.1, 0.55, 0.25),
+      new THREE.MeshStandardMaterial({ color: 0x18181b, metalness: 0.9, roughness: 0.25 })
+    );
+    bullBar.position.set(0, 0.62, length / 2 + 0.1);
+    carGroup.add(bullBar);
+
+    // Dual Bull-Bar Halogen Spotlights
+    [-0.55, 0.55].forEach((bx) => {
+      const spot = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.12, 0.12, 0.15, 12),
+        new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.8 })
+      );
+      spot.rotation.x = Math.PI / 2;
+      spot.position.set(bx, 0.82, length / 2 + 0.15);
+      carGroup.add(spot);
+    });
+
+    // 8. Glowing Xenon Headlights & Corner Lights
+    [-0.85, 0.85].forEach((hx) => {
+      const head = new THREE.Mesh(
+        new THREE.BoxGeometry(0.38, 0.22, 0.06),
+        new THREE.MeshStandardMaterial({ color: 0xf8fafc, emissive: 0xf8fafc, emissiveIntensity: 1.2 })
+      );
+      head.position.set(hx, 0.72, length / 2 + 0.02);
+      carGroup.add(head);
+    });
+
+    // Rear Red LED Tail-lights
+    [-0.85, 0.85].forEach((rx) => {
+      const tail = new THREE.Mesh(
+        new THREE.BoxGeometry(0.35, 0.18, 0.06),
+        new THREE.MeshStandardMaterial({ color: 0xef4444, emissive: 0xef4444, emissiveIntensity: 1.0 })
+      );
+      tail.position.set(rx, 0.74, -length / 2 - 0.02);
+      carGroup.add(tail);
+    });
+
+    // Dual Chrome Exhaust Pipes
+    [-0.6, 0.6].forEach((ex) => {
+      const pipe = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.06, 0.06, 0.35, 8),
+        new THREE.MeshStandardMaterial({ color: 0xd1d5db, metalness: 0.95, roughness: 0.1 })
+      );
+      pipe.rotation.x = Math.PI / 2;
+      pipe.position.set(ex, 0.32, -length / 2 - 0.1);
+      carGroup.add(pipe);
+    });
+
+    // 9. Realistic Wheels with Deep Rubber Tires & Chrome Hubcaps
+    const wheelOffsets = [
+      { x: -width / 2 - 0.05, z: 1.55 },
+      { x: width / 2 + 0.05, z: 1.55 },
+      { x: -width / 2 - 0.05, z: -1.55 },
+      { x: width / 2 + 0.05, z: -1.55 },
+    ];
+    wheelOffsets.forEach((w) => {
+      const wGroup = new THREE.Group();
+      wGroup.position.set(w.x, 0.42, w.z);
+      wGroup.rotation.z = Math.PI / 2;
+
+      const tire = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.42, 0.42, 0.32, 18),
+        new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.9 })
+      );
+      wGroup.add(tire);
+
+      const rim = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.30, 0.30, 0.34, 14),
+        new THREE.MeshStandardMaterial({ color: 0xd1d5db, metalness: 0.95, roughness: 0.15 })
+      );
+      wGroup.add(rim);
+
+      const hub = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.12, 0.12, 0.36, 10),
+        new THREE.MeshStandardMaterial({ color: 0x18181b, metalness: 0.9 })
+      );
+      wGroup.add(hub);
+
+      carGroup.add(wGroup);
+    });
+
+    // 10. Aerodynamic Roof Siren Lightbar (Alternating Red & Blue)
+    const barFrame = new THREE.Mesh(
+      new THREE.BoxGeometry(1.2, 0.12, 0.28),
+      new THREE.MeshStandardMaterial({ color: 0x18181b, metalness: 0.85 })
+    );
+    barFrame.position.set(0, 1.58, -0.2);
+    carGroup.add(barFrame);
+
+    // Left Red Strobe Pod
+    const redPod = new THREE.Mesh(
+      new THREE.BoxGeometry(0.42, 0.14, 0.24),
+      new THREE.MeshStandardMaterial({ color: 0xef4444, emissive: 0xef4444, emissiveIntensity: 1.2 })
+    );
+    redPod.position.set(-0.4, 1.68, -0.2);
+    carGroup.add(redPod);
+
+    const redLight = new THREE.PointLight(0xef4444, 3.2, 14);
+    redLight.position.set(-0.4, 1.75, -0.2);
+    carGroup.add(redLight);
+    this.policeLights.push(redLight);
+
+    // Right Blue Strobe Pod
+    const bluePod = new THREE.Mesh(
+      new THREE.BoxGeometry(0.42, 0.14, 0.24),
+      new THREE.MeshStandardMaterial({ color: 0x0066ff, emissive: 0x0066ff, emissiveIntensity: 1.2 })
+    );
+    bluePod.position.set(0.4, 1.68, -0.2);
+    carGroup.add(bluePod);
+
+    const blueLight = new THREE.PointLight(0x0066ff, 3.2, 14);
+    blueLight.position.set(0.4, 1.75, -0.2);
+    carGroup.add(blueLight);
+    this.policeLights.push(blueLight);
+
+    scene.add(carGroup);
+
+    // Collider so players & AI take cover behind squad car
+    const box = new THREE.Box3().setFromCenterAndSize(
+      new THREE.Vector3(x, height / 2, z),
+      new THREE.Vector3(width, height, length)
+    );
+    this.colliders.push({ box, type: 'WALL' });
+  }
+
+  /**
+   * Iconic GTA Retro Wedge Sports Car (Cheetah / Infernus style)
+   */
+  public createSportsCar(scene: THREE.Scene, x: number, z: number, rot: number, color: number) {
+    const carGroup = new THREE.Group();
+    carGroup.position.set(x, 0, z);
+    carGroup.rotation.y = rot;
+
+    const length = 4.6;
+    const width = 2.05;
+    const height = 1.18;
+
+    const bodyMat = new THREE.MeshStandardMaterial({
+      color,
+      roughness: 0.18,
+      metalness: 0.65,
+    });
+
+    const glassMat = new THREE.MeshStandardMaterial({
+      color: 0x090d16,
+      roughness: 0.05,
+      metalness: 0.95,
+    });
+
+    // 1. Sleek Aerodynamic Wedge Body
+    const body = new THREE.Mesh(
+      new THREE.BoxGeometry(width, 0.42, length),
+      bodyMat
+    );
+    body.position.y = 0.52;
+    body.castShadow = true;
+    body.receiveShadow = true;
+    carGroup.add(body);
+
+    // 2. Slanted Low Wedge Nose
+    const nose = new THREE.Mesh(
+      new THREE.BoxGeometry(width - 0.1, 0.22, 1.4),
+      bodyMat
+    );
+    nose.position.set(0, 0.62, 1.5);
+    nose.rotation.x = 0.12;
+    carGroup.add(nose);
+
+    // Pop-up headlights outlines
+    [-0.65, 0.65].forEach((px) => {
+      const pop = new THREE.Mesh(
+        new THREE.BoxGeometry(0.36, 0.08, 0.4),
+        new THREE.MeshStandardMaterial({ color: 0x18181b, metalness: 0.8 })
+      );
+      pop.position.set(px, 0.68, 1.4);
+      carGroup.add(pop);
+    });
+
+    // 3. Raked Low-Profile Windshield & Cabin
+    const cabin = new THREE.Mesh(
+      new THREE.BoxGeometry(width - 0.3, 0.45, 1.8),
+      glassMat
+    );
+    cabin.position.set(0, 0.92, -0.2);
+    cabin.castShadow = true;
+    carGroup.add(cabin);
+
+    // 4. Rear Engine Decklid & Raised Aerodynamic Spoiler Wing
+    const deck = new THREE.Mesh(
+      new THREE.BoxGeometry(width - 0.1, 0.22, 1.4),
+      bodyMat
+    );
+    deck.position.set(0, 0.64, -1.5);
+    carGroup.add(deck);
+
+    // Elevated Rear Spoiler Wing
+    const wingGeo = new THREE.BoxGeometry(width + 0.15, 0.08, 0.45);
+    const wing = new THREE.Mesh(wingGeo, bodyMat);
+    wing.position.set(0, 1.15, -length / 2 + 0.2);
+    wing.castShadow = true;
+    carGroup.add(wing);
+
+    [-width / 2 + 0.2, width / 2 - 0.2].forEach((sx) => {
+      const strut = new THREE.Mesh(
+        new THREE.BoxGeometry(0.06, 0.45, 0.15),
+        new THREE.MeshStandardMaterial({ color: 0x18181b, metalness: 0.9 })
+      );
+      strut.position.set(sx, 0.95, -length / 2 + 0.2);
+      carGroup.add(strut);
+    });
+
+    // 5. Dual Sports Twin-Exhaust
+    [-0.5, 0.5].forEach((ex) => {
+      const pipe = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.07, 0.07, 0.3, 10),
+        new THREE.MeshStandardMaterial({ color: 0xd1d5db, metalness: 0.95, roughness: 0.1 })
+      );
+      pipe.rotation.x = Math.PI / 2;
+      pipe.position.set(ex, 0.28, -length / 2 - 0.05);
+      carGroup.add(pipe);
+    });
+
+    // 6. Wide Sports Wheels with 5-Spoke Star Alloy Mags
+    const wheelOffsets = [
+      { x: -width / 2 - 0.06, z: 1.35 },
+      { x: width / 2 + 0.06, z: 1.35 },
+      { x: -width / 2 - 0.08, z: -1.35 },
+      { x: width / 2 + 0.08, z: -1.35 },
+    ];
+    wheelOffsets.forEach((w) => {
+      const wGroup = new THREE.Group();
+      wGroup.position.set(w.x, 0.38, w.z);
+      wGroup.rotation.z = Math.PI / 2;
+
+      const tire = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.38, 0.38, 0.34, 20),
+        new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.9 })
+      );
+      wGroup.add(tire);
+
+      const rim = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.28, 0.28, 0.36, 5),
+        new THREE.MeshStandardMaterial({ color: 0xf3f4f6, metalness: 0.95, roughness: 0.1 })
+      );
+      wGroup.add(rim);
+
+      carGroup.add(wGroup);
+    });
+
+    scene.add(carGroup);
+
+    const box = new THREE.Box3().setFromCenterAndSize(
+      new THREE.Vector3(x, height / 2, z),
+      new THREE.Vector3(width, height, length)
+    );
+    this.colliders.push({ box, type: 'WALL' });
+  }
+
+  /**
+   * Tropical Palm Tree (Signature Vice City Palm)
+   */
+  public createPalmTree(scene: THREE.Scene, x: number, z: number, scale = 1.0) {
+    const palmGroup = new THREE.Group();
+    palmGroup.position.set(x, 0, z);
+    palmGroup.scale.set(scale, scale, scale);
+
+    const barkTex = TextureGenerator.getPalmBarkTexture();
+    const frondTex = TextureGenerator.getPalmFrondTexture();
+
+    const barkMat = new THREE.MeshStandardMaterial({
+      map: barkTex,
+      roughness: 0.85,
+    });
+
+    const frondMat = new THREE.MeshStandardMaterial({
+      map: frondTex,
+      transparent: true,
+      side: THREE.DoubleSide,
+      roughness: 0.45,
+    });
+
+    // 1. Natural Curved Segmented Trunk
+    const segments = 5;
+    const segHeight = 2.2;
+    let currX = 0;
+    let currY = 0;
+    let currZ = 0;
+    const curveDir = (Math.random() - 0.5) * 0.4;
+
+    for (let i = 0; i < segments; i++) {
+      const rBot = 0.45 - i * 0.05;
+      const rTop = 0.40 - i * 0.05;
+      const segGeo = new THREE.CylinderGeometry(rTop, rBot, segHeight, 10);
+      const seg = new THREE.Mesh(segGeo, barkMat);
+      seg.position.set(currX, currY + segHeight / 2, currZ);
+      seg.rotation.z = curveDir * (i * 0.15);
+      seg.castShadow = true;
+      palmGroup.add(seg);
+
+      currX += Math.sin(curveDir * (i * 0.15)) * segHeight;
+      currY += segHeight;
+    }
+
+    // 2. Crown of Arching Tropical Palm Fronds
+    const frondCount = 10;
+    for (let f = 0; f < frondCount; f++) {
+      const angle = (f / frondCount) * Math.PI * 2;
+      const frondGeo = new THREE.PlaneGeometry(2.4, 5.5);
+      frondGeo.translate(0, 2.75, 0); // pivot at base
+      const frond = new THREE.Mesh(frondGeo, frondMat);
+      frond.position.set(currX, currY, currZ);
+      frond.rotation.y = angle;
+      frond.rotation.x = Math.PI / 3.4; // arch outward
+      frond.rotation.z = (Math.random() - 0.5) * 0.2;
+      frond.castShadow = true;
+      palmGroup.add(frond);
+    }
+
+    // 3. Cluster of Coconuts under the crown
+    const cocoMat = new THREE.MeshStandardMaterial({ color: 0x451a03, roughness: 0.8 });
+    for (let c = 0; c < 4; c++) {
+      const cAngle = (c / 4) * Math.PI * 2;
+      const coco = new THREE.Mesh(new THREE.SphereGeometry(0.24, 8, 8), cocoMat);
+      coco.position.set(
+        currX + Math.cos(cAngle) * 0.4,
+        currY - 0.35,
+        currZ + Math.sin(cAngle) * 0.4
+      );
+      palmGroup.add(coco);
+    }
+
+    scene.add(palmGroup);
+
+    // Trunk collider
+    const box = new THREE.Box3().setFromCenterAndSize(
+      new THREE.Vector3(x, 5, z),
+      new THREE.Vector3(1.2, 10, 1.2)
+    );
+    this.colliders.push({ box, type: 'WALL' });
+  }
+
+  /**
+   * Spawns Tropical Palm Groves across lawns and boulevard curbs
+   */
+  public createPalmGroves(scene: THREE.Scene, _map: 'DELHI' | 'PARIS') {
+    const palmPositions = [
+      { x: -55, z: 32, s: 1.1 },
+      { x: -55, z: -20, s: 1.0 },
+      { x: 55, z: 32, s: 1.1 },
+      { x: 55, z: -20, s: 1.0 },
+      { x: -38, z: 52, s: 0.95 },
+      { x: 38, z: 52, s: 0.95 },
+      { x: -48, z: -48, s: 1.05 },
+      { x: 48, z: -48, s: 1.05 },
+    ];
+    palmPositions.forEach((p) => {
+      this.createPalmTree(scene, p.x, p.z, p.s);
+    });
+  }
+
+  /**
+   * Cast-Metal Traffic Light with Glowing Red, Amber & Green Signal Lenses
+   */
+  public createTrafficLight(scene: THREE.Scene, x: number, z: number, rot = 0) {
+    const tGroup = new THREE.Group();
+    tGroup.position.set(x, 0, z);
+    tGroup.rotation.y = rot;
+
+    const metalMat = new THREE.MeshStandardMaterial({ color: 0x18181b, metalness: 0.85, roughness: 0.3 });
+
+    // Vertical Mast
+    const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.22, 6.5, 8), metalMat);
+    mast.position.y = 3.25;
+    mast.castShadow = true;
+    tGroup.add(mast);
+
+    // Cantilever Arm over road
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 4.2), metalMat);
+    arm.position.set(0, 6.2, 2.1);
+    tGroup.add(arm);
+
+    // Signal Head Box
+    const boxGeo = new THREE.BoxGeometry(0.45, 1.35, 0.4);
+    const boxMesh = new THREE.Mesh(boxGeo, metalMat);
+    boxMesh.position.set(0, 5.5, 3.8);
+    tGroup.add(boxMesh);
+
+    // 3 Signal Lenses
+    const lensColors = [
+      { c: 0xef4444, y: 5.9, active: true },  // Red (Active glow)
+      { c: 0xf59e0b, y: 5.5, active: false }, // Amber
+      { c: 0x10b981, y: 5.1, active: false }, // Green
+    ];
+
+    lensColors.forEach((l) => {
+      const lens = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.12, 0.12, 0.08, 14),
+        new THREE.MeshStandardMaterial({
+          color: l.c,
+          emissive: l.c,
+          emissiveIntensity: l.active ? 1.4 : 0.2,
+        })
+      );
+      lens.rotation.x = Math.PI / 2;
+      lens.position.set(0, l.y, 4.02);
+      tGroup.add(lens);
+    });
+
+    scene.add(tGroup);
+
+    const colBox = new THREE.Box3().setFromCenterAndSize(
+      new THREE.Vector3(x, 3.25, z),
+      new THREE.Vector3(1, 6.5, 1)
+    );
+    this.colliders.push({ box: colBox, type: 'WALL' });
+  }
+
+  /**
+   * Cast-Metal Street Fire Hydrant
+   */
+  public createFireHydrant(scene: THREE.Scene, x: number, z: number) {
+    const hGroup = new THREE.Group();
+    hGroup.position.set(x, 0, z);
+
+    const redMat = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.3, metalness: 0.4 });
+    const metalMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.9 });
+
+    // Barrel
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.22, 0.75, 12), redMat);
+    barrel.position.y = 0.38;
+    barrel.castShadow = true;
+    hGroup.add(barrel);
+
+    // Top Dome & Operating Nut
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(0.20, 10, 8, 0, Math.PI * 2, 0, Math.PI / 2), redMat);
+    dome.position.y = 0.75;
+    hGroup.add(dome);
+
+    const nut = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.12, 5), metalMat);
+    nut.position.y = 0.95;
+    hGroup.add(nut);
+
+    // Side Nozzle Caps
+    [-0.22, 0.22].forEach((nx) => {
+      const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.15, 8), metalMat);
+      cap.rotation.z = Math.PI / 2;
+      cap.position.set(nx, 0.48, 0);
+      hGroup.add(cap);
+    });
+
+    scene.add(hGroup);
+  }
+
+  /**
+   * Spawns parked sports cars, street furniture, and neon storefront signs
+   */
+  public createGTAStreetDressings(scene: THREE.Scene, map: 'DELHI' | 'PARIS') {
+    if (map === 'DELHI') {
+      // Parked GTA Wedge Sports Cars on Boulevard Curbs
+      this.createSportsCar(scene, -46, 56, Math.PI / 2, 0xec4899); // Vice City Hot Magenta
+      this.createSportsCar(scene, 46, 56, -Math.PI / 2, 0x06b6d4); // Miami Electric Teal
+
+      // Traffic Lights at Crosswalks
+      this.createTrafficLight(scene, -36, 56, 0);
+      this.createTrafficLight(scene, 36, 56, Math.PI);
+
+      // Fire Hydrants along Curbs
+      this.createFireHydrant(scene, -40, 55);
+      this.createFireHydrant(scene, 40, 55);
+
+      // Glowing Neon Signs on buildings
+      this.createNeonSign(scene, 0, 7.5, -67, 'OCEAN DRIVE RALLY', '#ec4899', 'VICE CITY TOUR');
+      this.createNeonSign(scene, -48, 7.5, -67, 'DELHI 24/7 CLUB', '#38bdf8', 'ALL NIGHT ACCESS');
+      this.createNeonSign(scene, 48, 7.5, -67, 'SYNTHWAVE STAGE', '#facc15', 'LIVE MUSIC');
+    } else {
+      // PARIS MAP: Parked Supercars & Parisian Boulevard Dressing
+      this.createSportsCar(scene, -48, 48, Math.PI / 2.8, 0xfacc15); // Canary Yellow
+      this.createSportsCar(scene, 48, 48, -Math.PI / 2.8, 0xef4444); // Crimson Red
+
+      // Traffic Lights
+      this.createTrafficLight(scene, -32, 45, 0);
+      this.createTrafficLight(scene, 32, 45, Math.PI);
+
+      // Fire Hydrant
+      this.createFireHydrant(scene, -26, 44);
+      this.createFireHydrant(scene, 26, 44);
+
+      // Glowing Paris Neon Signs
+      this.createNeonSign(scene, 0, 8.5, -67, 'LE BISTROT DE LA BASTILLE', '#38bdf8', 'GASTRONOMIE & CAFÉ');
+      this.createNeonSign(scene, -48, 8.5, -67, 'CLUB D\'OR BASTILLE', '#ec4899', 'DISCOTHÈQUE');
+      this.createNeonSign(scene, 48, 8.5, -67, 'PROTEST-N-CHASE PARIS', '#facc15', 'WORLD TOUR 2026');
+    }
+  }
+
+  /**
+   * Glowing Neon Sign with bloom trigger
+   */
+  public createNeonSign(
+    scene: THREE.Scene,
+    x: number,
+    y: number,
+    z: number,
+    title: string,
+    color: string,
+    subTitle?: string
+  ) {
+    const tex = TextureGenerator.getNeonSignTexture(title, color, subTitle);
+    const signGeo = new THREE.PlaneGeometry(12, 3.8);
+    const signMat = new THREE.MeshStandardMaterial({
+      map: tex,
+      emissive: new THREE.Color(color),
+      emissiveIntensity: 0.85,
+      roughness: 0.2,
+      metalness: 0.3,
+    });
+    const sign = new THREE.Mesh(signGeo, signMat);
+    sign.position.set(x, y, z + 0.15);
+    scene.add(sign);
   }
 }

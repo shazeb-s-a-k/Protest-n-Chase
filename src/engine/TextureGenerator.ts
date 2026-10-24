@@ -372,4 +372,258 @@ export class TextureGenerator {
     this.cache.set(key, tex);
     return tex;
   }
+
+  /**
+   * Generates a GTA Vice City style 2-Lane Boulevard Asphalt road with
+   * double center yellow stripes, white dashed lane dividers, and edge shoulder lines
+   */
+  public static getGTABoulevardRoadTexture(): { map: THREE.CanvasTexture; roughnessMap: THREE.CanvasTexture } {
+    const mapKey = 'gta_road_diffuse';
+    const roughKey = 'gta_road_roughness';
+    if (this.cache.has(mapKey) && this.cache.has(roughKey)) {
+      return { map: this.cache.get(mapKey)!, roughnessMap: this.cache.get(roughKey)! };
+    }
+
+    const size = 512;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    // 1. Dark weathered asphalt base
+    ctx.fillStyle = '#181b22';
+    ctx.fillRect(0, 0, size, size);
+
+    // Fine gravel aggregate
+    const imgData = ctx.getImageData(0, 0, size, size);
+    const data = imgData.data;
+    for (let i = 0; i < data.length; i += 4) {
+      const n = (Math.random() - 0.5) * 26;
+      data[i] = Math.min(255, Math.max(0, data[i] + n));
+      data[i + 1] = Math.min(255, Math.max(0, data[i + 1] + n));
+      data[i + 2] = Math.min(255, Math.max(0, data[i + 2] + n));
+    }
+    ctx.putImageData(imgData, 0, 0);
+
+    // 2. White outer shoulder stripes
+    ctx.fillStyle = '#f1f5f9';
+    ctx.fillRect(20, 0, 8, size);
+    ctx.fillRect(size - 28, 0, 8, size);
+
+    // 3. Double Solid Center Yellow Lines (Iconic GTA road markings)
+    ctx.fillStyle = '#eab308';
+    ctx.fillRect(size / 2 - 10, 0, 6, size);
+    ctx.fillRect(size / 2 + 4, 0, 6, size);
+
+    // 4. White dashed lane dividers for multi-lane boulevards
+    ctx.fillStyle = '#cbd5e1';
+    for (let y = 0; y < size; y += 64) {
+      ctx.fillRect(135, y, 5, 36);
+      ctx.fillRect(size - 140, y, 5, 36);
+    }
+
+    // 5. Weathering, oil drips, and tire skid marks
+    ctx.strokeStyle = 'rgba(10, 10, 14, 0.45)';
+    ctx.lineWidth = 14;
+    ctx.beginPath();
+    ctx.moveTo(size / 2 - 60, 0);
+    ctx.lineTo(size / 2 - 60, size);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(size / 2 + 60, 0);
+    ctx.lineTo(size / 2 + 60, size);
+    ctx.stroke();
+
+    const diffuseTex = new THREE.CanvasTexture(canvas);
+    diffuseTex.wrapS = THREE.RepeatWrapping;
+    diffuseTex.wrapT = THREE.RepeatWrapping;
+    diffuseTex.repeat.set(1, 10);
+
+    // Roughness / Specular Puddle Canvas (Wet puddle patches reflect sky/neon)
+    const rCanvas = document.createElement('canvas');
+    rCanvas.width = 256;
+    rCanvas.height = 256;
+    const rCtx = rCanvas.getContext('2d')!;
+    rCtx.fillStyle = '#b0b0b0'; // matte asphalt
+    rCtx.fillRect(0, 0, 256, 256);
+
+    // Wet reflective puddle patches
+    rCtx.fillStyle = '#101010'; // very glossy/reflective
+    for (let p = 0; p < 8; p++) {
+      const px = Math.random() * 256;
+      const py = Math.random() * 256;
+      const pr = 12 + Math.random() * 18;
+      rCtx.beginPath();
+      rCtx.arc(px, py, pr, 0, Math.PI * 2);
+      rCtx.fill();
+    }
+    const roughTex = new THREE.CanvasTexture(rCanvas);
+    roughTex.wrapS = THREE.RepeatWrapping;
+    roughTex.wrapT = THREE.RepeatWrapping;
+    roughTex.repeat.set(1, 10);
+
+    this.cache.set(mapKey, diffuseTex);
+    this.cache.set(roughKey, roughTex);
+
+    return { map: diffuseTex, roughnessMap: roughTex };
+  }
+
+  /**
+   * Generates a high-detail Pedestrian Crosswalk (Zebra crossing)
+   */
+  public static getZebraCrosswalkTexture(): THREE.CanvasTexture {
+    const key = 'zebra_crosswalk';
+    if (this.cache.has(key)) return this.cache.get(key)!;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d')!;
+
+    ctx.fillStyle = '#1e2430';
+    ctx.fillRect(0, 0, 256, 256);
+
+    ctx.fillStyle = '#f8fafc';
+    const barWidth = 32;
+    for (let x = 16; x < 256; x += 64) {
+      ctx.fillRect(x, 15, barWidth, 226);
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    this.cache.set(key, tex);
+    return tex;
+  }
+
+  /**
+   * Generates tropical palm tree textured trunk bark
+   */
+  public static getPalmBarkTexture(): THREE.CanvasTexture {
+    const key = 'palm_bark';
+    if (this.cache.has(key)) return this.cache.get(key)!;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d')!;
+
+    // Rich warm fibrous palm brown
+    ctx.fillStyle = '#78350f';
+    ctx.fillRect(0, 0, 128, 256);
+
+    // Horizontal ridge rings
+    ctx.strokeStyle = '#451a03';
+    ctx.lineWidth = 4;
+    for (let y = 0; y < 256; y += 14) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.quadraticCurveTo(64, y + 6, 128, y);
+      ctx.stroke();
+
+      // Fibrous flecks
+      ctx.fillStyle = '#b45309';
+      ctx.fillRect(Math.random() * 128, y + 2, 4, 8);
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(2, 6);
+    this.cache.set(key, tex);
+    return tex;
+  }
+
+  /**
+   * Generates vibrant tropical palm frond leaf blades
+   */
+  public static getPalmFrondTexture(): THREE.CanvasTexture {
+    const key = 'palm_frond';
+    if (this.cache.has(key)) return this.cache.get(key)!;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d')!;
+
+    ctx.clearRect(0, 0, 128, 256);
+
+    // Central golden palm spine
+    ctx.strokeStyle = '#facc15';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(64, 256);
+    ctx.quadraticCurveTo(64, 128, 64, 0);
+    ctx.stroke();
+
+    // Feathered green leaflet blades
+    ctx.strokeStyle = '#15803d';
+    ctx.lineWidth = 2.5;
+    for (let y = 20; y < 250; y += 6) {
+      const spread = (1 - y / 256) * 52;
+      // Left leaf
+      ctx.beginPath();
+      ctx.moveTo(64, y);
+      ctx.lineTo(64 - spread, y - 10);
+      ctx.stroke();
+
+      // Right leaf
+      ctx.beginPath();
+      ctx.moveTo(64, y);
+      ctx.lineTo(64 + spread, y - 10);
+      ctx.stroke();
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    this.cache.set(key, tex);
+    return tex;
+  }
+
+  /**
+   * Generates glowing neon signage tube canvas texture for Vice City storefronts
+   */
+  public static getNeonSignTexture(title: string, glowColor: string, subTitle?: string): THREE.CanvasTexture {
+    const key = `neon_${title}_${glowColor}`;
+    if (this.cache.has(key)) return this.cache.get(key)!;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 160;
+    const ctx = canvas.getContext('2d')!;
+
+    // Dark sleek backing plate
+    ctx.fillStyle = '#090d16';
+    ctx.fillRect(0, 0, 512, 160);
+
+    // Metallic frame
+    ctx.strokeStyle = '#334155';
+    ctx.lineWidth = 6;
+    ctx.strokeRect(6, 6, 500, 148);
+
+    // Outer neon glow
+    ctx.shadowColor = glowColor;
+    ctx.shadowBlur = 18;
+    ctx.fillStyle = glowColor;
+    ctx.font = '900 44px Outfit, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(title, 256, 75);
+
+    // Inner bright neon tube core
+    ctx.shadowBlur = 4;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(title, 256, 75);
+
+    if (subTitle) {
+      ctx.shadowBlur = 10;
+      ctx.fillStyle = '#38bdf8';
+      ctx.font = 'bold 22px Outfit, sans-serif';
+      ctx.fillText(subTitle, 256, 125);
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    this.cache.set(key, tex);
+    return tex;
+  }
 }
+
