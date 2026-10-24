@@ -29,6 +29,18 @@ export const App: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isPhotoBoothOpen, setIsPhotoBoothOpen] = useState(false);
+  const [launchError, setLaunchError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleErr = (e: ErrorEvent) => {
+      console.error('Window Error:', e);
+      if (e.message && (e.message.includes('WebGL') || e.message.includes('Three') || e.message.includes('Context'))) {
+        setLaunchError(e.message);
+      }
+    };
+    window.addEventListener('error', handleErr);
+    return () => window.removeEventListener('error', handleErr);
+  }, []);
 
   const [matchState, setMatchState] = useState<GameMatchState>({
     mode: 'SOLO',
@@ -75,17 +87,13 @@ export const App: React.FC = () => {
 
   // Start Match
   const handleStartGame = (team: Team, mode: GameMode, roomCode?: string) => {
+    setLaunchError(null);
     try {
       console.log('🎮 Starting Awaaz Match:', { team, mode, roomCode });
 
       if (!containerRef.current) {
         console.warn('⚠️ containerRef.current is not attached yet, retrying in next tick...');
-        setIsPlaying(true);
-        setTimeout(() => {
-          if (containerRef.current && !engineRef.current) {
-            handleStartGame(team, mode, roomCode);
-          }
-        }, 50);
+        setTimeout(() => handleStartGame(team, mode, roomCode), 50);
         return;
       }
 
@@ -126,10 +134,11 @@ export const App: React.FC = () => {
       };
 
       setIsPlaying(true);
-    } catch (err) {
+    } catch (err: any) {
       console.error('❌ Error during GameEngine initialization:', err);
-      // Make sure UI transitions into playing state regardless so user is never stuck
-      setIsPlaying(true);
+      const msg = err instanceof Error ? err.message : String(err);
+      setLaunchError(msg);
+      setIsPlaying(false);
     }
   };
 
@@ -350,11 +359,31 @@ export const App: React.FC = () => {
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-slate-950 font-sans select-none">
       {/* 3D WebGL Canvas Viewport */}
-      <div ref={containerRef} className="absolute inset-0 w-full h-full" />
+      <div
+        ref={containerRef}
+        id="awaaz-3d-viewport"
+        className="absolute inset-0 w-full h-full z-0 overflow-hidden bg-slate-950"
+      />
+
+      {/* On-screen diagnostic error banner */}
+      {launchError && (
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[100] max-w-lg w-11/12 p-4 rounded-2xl bg-rose-950/95 border border-rose-500 text-rose-200 text-sm shadow-2xl backdrop-blur-xl flex items-center justify-between gap-3 animate-fade-in">
+          <div className="flex items-center gap-2.5">
+            <span className="text-xl">⚠️</span>
+            <span className="leading-snug">{launchError}</span>
+          </div>
+          <button
+            onClick={() => setLaunchError(null)}
+            className="px-3 py-1.5 rounded-xl bg-rose-600 text-white font-bold text-xs hover:bg-rose-500 whitespace-nowrap"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Main Game In-Play Overlays */}
       {isPlaying && (
-        <>
+        <div className="absolute inset-0 pointer-events-none z-10 overflow-hidden">
           <HUD
             matchState={matchState}
             stamina={stamina}
@@ -405,7 +434,7 @@ export const App: React.FC = () => {
             onClose={() => setIsPhotoBoothOpen(false)}
             canvasElement={engineRef.current?.renderer.domElement || null}
           />
-        </>
+        </div>
       )}
 
       {/* Team Selection & Mode Modal */}

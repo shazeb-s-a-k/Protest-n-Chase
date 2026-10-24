@@ -92,17 +92,46 @@ export class GameEngine {
       250
     );
 
-    this.renderer = new THREE.WebGLRenderer({
-      antialias: true,
-      powerPreference: 'high-performance',
-      preserveDrawingBuffer: true, // Allows high-res screenshots for PhotoBooth
-    });
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        powerPreference: 'default',
+        preserveDrawingBuffer: true, // Allows high-res screenshots for PhotoBooth
+      });
+    } catch (e1) {
+      console.warn('High-res WebGL failed, trying basic WebGL:', e1);
+      try {
+        renderer = new THREE.WebGLRenderer({
+          antialias: false,
+          preserveDrawingBuffer: false,
+        });
+      } catch (e2) {
+        console.error('WebGL context creation failed:', e2);
+        throw new Error('WebGL 3D graphics context could not be created. Please ensure Hardware Acceleration is enabled in your browser settings.');
+      }
+    }
+
+    this.renderer = renderer;
     this.renderer.setSize(width, height);
     this.renderer.setPixelRatio(Math.min(typeof window !== 'undefined' ? window.devicePixelRatio : 1, 2.0));
-    this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    try {
+      this.renderer.shadowMap.enabled = true;
+      this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    } catch (shadowErr) {
+      console.warn('ShadowMap disabled on this hardware:', shadowErr);
+    }
+
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.08;
+
+    this.renderer.domElement.style.position = 'absolute';
+    this.renderer.domElement.style.top = '0';
+    this.renderer.domElement.style.left = '0';
+    this.renderer.domElement.style.width = '100%';
+    this.renderer.domElement.style.height = '100%';
+    this.renderer.domElement.style.display = 'block';
 
     while (container.firstChild) {
       container.removeChild(container.firstChild);
@@ -221,8 +250,8 @@ export class GameEngine {
   private spawnLocalPlayer(team: Team) {
     const isProtestor = team === 'PROTESTOR';
     const spawnPos = isProtestor
-      ? new THREE.Vector3((Math.random() - 0.5) * 8, 0, 28)
-      : new THREE.Vector3((Math.random() - 0.5) * 8, 0, 48);
+      ? new THREE.Vector3((Math.random() - 0.5) * 6, 0, 18)
+      : new THREE.Vector3((Math.random() - 0.5) * 6, 0, 46);
 
     const state: PlayerState = {
       id: this.matchState.localPlayerId,
@@ -231,7 +260,7 @@ export class GameEngine {
       isLocal: true,
       isAI: false,
       position: { x: spawnPos.x, y: spawnPos.y, z: spawnPos.z },
-      rotation: isProtestor ? 0 : Math.PI,
+      rotation: isProtestor ? Math.PI : 0, // Faces North into monument plaza
       isSprinting: false,
       isSliding: false,
       isJumping: false,
@@ -244,6 +273,7 @@ export class GameEngine {
     };
 
     this.localPlayer = new CharacterController(this.scene, state);
+    this.snapCameraToPlayer();
   }
 
   private spawnAIUnits(mode: GameMode, localTeam: Team) {
@@ -679,14 +709,36 @@ export class GameEngine {
 
   // --- GAME LOOP ---
 
+  public currentInput: MovementInput = {
+    moveForward: 0,
+    moveRight: 0,
+    sprint: false,
+    jump: false,
+    slide: false,
+  };
+
   public updateLocalInput(input: MovementInput) {
-    if (this.localPlayer) {
-      // Speed multiplier if ENERGY_CHAI is active
-      const hasChai = this.matchState.activePowerUp === 'ENERGY_CHAI';
-      if (hasChai) {
-        this.localPlayer.currentStamina = 100;
-      }
-      this.localPlayer.update(this.clock.getDelta(), input, this.colliders);
+    this.currentInput = input;
+  }
+
+  public snapCameraToPlayer() {
+    if (!this.localPlayer) return;
+    const targetPos = this.localPlayer.mesh.position;
+    const playerRot = this.localPlayer.mesh.rotation.y;
+    const finalRot = playerRot + this.cameraOrbitAngle;
+
+    if (this.cameraMode === 'CHASE') {
+      const cameraHeight = 3.2;
+      const backAngle = finalRot + Math.PI;
+      const idealCameraPos = new THREE.Vector3(
+        targetPos.x + Math.sin(backAngle) * this.cameraDistance,
+        Math.max(1.2, targetPos.y + cameraHeight),
+        targetPos.z + Math.cos(backAngle) * this.cameraDistance
+      );
+      this.camera.position.copy(idealCameraPos);
+      const lookTarget = targetPos.clone().add(new THREE.Vector3(0, 1.6, 0));
+      this.camera.lookAt(lookTarget);
+      this.camera.updateProjectionMatrix();
     }
   }
 
@@ -694,169 +746,182 @@ export class GameEngine {
     this.animationFrameId = requestAnimationFrame(this.animate);
     const delta = Math.min(this.clock.getDelta(), 0.1);
 
-    // 1. Update Match Timer
-    if (!this.matchState.isGameOver) {
-      this.matchState.timeRemaining -= delta;
-      if (this.matchState.timeRemaining <= 0) {
-        this.matchState.isGameOver = true;
-        this.matchState.winner = this.matchState.awarenessScore >= 50 ? 'PROTESTOR' : 'POLICE';
+    try {
+      // 1. Update Match Timer
+      if (!this.matchState.isGameOver) {
+        this.matchState.timeRemaining -= delta;
+        if (this.matchState.timeRemaining <= 0) {
+          this.matchState.isGameOver = true;
+          this.matchState.winner = this.matchState.awarenessScore >= 50 ? 'PROTESTOR' : 'POLICE';
+        }
       }
-    }
 
-    // 2. Update Power-Up Active Duration
-    if (this.matchState.activePowerUp && this.matchState.powerUpTimeLeft > 0) {
-      this.matchState.powerUpTimeLeft -= delta;
-      if (this.matchState.powerUpTimeLeft <= 0) {
-        this.matchState.activePowerUp = null;
-        this.matchState.powerUpTimeLeft = 0;
+      // 2. Continuous Local Player Physics, Sprint, Slide, & Collision Update
+      if (this.localPlayer) {
+        const hasChai = this.matchState.activePowerUp === 'ENERGY_CHAI';
+        if (hasChai) {
+          this.localPlayer.currentStamina = 100;
+        }
+        this.localPlayer.update(delta, this.currentInput, this.colliders);
       }
-    }
 
-    // 3. Update Power-Ups in Scene
-    if (this.localPlayer) {
-      this.powerUpManager.update(
+      // 3. Update Power-Up Active Duration
+      if (this.matchState.activePowerUp && this.matchState.powerUpTimeLeft > 0) {
+        this.matchState.powerUpTimeLeft -= delta;
+        if (this.matchState.powerUpTimeLeft <= 0) {
+          this.matchState.activePowerUp = null;
+          this.matchState.powerUpTimeLeft = 0;
+        }
+      }
+
+      // 4. Update Power-Ups in Scene
+      if (this.localPlayer) {
+        this.powerUpManager.update(
+          delta,
+          this.localPlayer.mesh.position,
+          (type, duration) => this.handleCollectPowerUp(type, duration)
+        );
+      }
+
+      // 5. Update Weather & Atmospheric Simulation
+      this.weatherManager.update(delta);
+
+      // 6. Update Wildlife Flocks (Pigeons)
+      if (this.localPlayer) {
+        this.wildlifeManager.update(delta, this.localPlayer.mesh.position);
+      }
+
+      // 7. Update Superchats Simulation
+      this.superchatTimer += delta;
+      if (this.superchatTimer > 25) {
+        this.superchatTimer = 0;
+        const donors = ['Aarav_Z', 'Kavita_Youth', 'Simran_Delhi', 'Rohan_Now', 'Arjun_V', 'Pooja_Eco'];
+        const messages = [
+          'Voice of Gen-Z! Stay strong!',
+          'Donating for fresh megaphones! 📢',
+          'Truth cannot be detained! ❤️',
+          'Trending across all of Twitter/X right now!',
+          'Sending love from Mumbai! ✊',
+        ];
+        const randomDonor = donors[Math.floor(Math.random() * donors.length)];
+        const randomMsg = messages[Math.floor(Math.random() * messages.length)];
+        const randomAmount = [200, 500, 1000, 2000][Math.floor(Math.random() * 4)];
+
+        this.matchState.superchats.push({
+          id: 'sc_' + Date.now(),
+          user: randomDonor,
+          amount: randomAmount,
+          message: randomMsg,
+          timestamp: Date.now(),
+        });
+        audioManager.playCanisterKick(); // Chime
+      }
+
+      // 8. Update Drone & Spotlight Position
+      const spotlightPos = this.mapBuilder.updateDrone(delta);
+      this.matchState.droneSpotlightPos = spotlightPos;
+
+      if (this.localPlayer) {
+        const p = this.localPlayer.mesh.position;
+        const distToSpotlight = Math.hypot(p.x - spotlightPos.x, p.z - spotlightPos.z);
+        this.matchState.isPlayerInSpotlight = distToSpotlight < 4.2;
+
+        if (this.matchState.isPlayerInSpotlight && this.localPlayer.state.team === 'PROTESTOR') {
+          this.addAwareness(delta * 0.8);
+        }
+      }
+
+      // 9. Update Police Flashing Lights
+      this.mapBuilder.updateSirenLights();
+
+      // 10. Update AI Units
+      const allUnits = this.localPlayer ? [this.localPlayer, ...this.aiPlayers] : this.aiPlayers;
+      this.aiController.update(
         delta,
-        this.localPlayer.mesh.position,
-        (type, duration) => this.handleCollectPowerUp(type, duration)
+        allUnits,
+        this.colliders,
+        this.busPositions,
+        (cop, protestor) => {
+          if (protestor.state.isLocal) {
+            this.triggerLocalGrappleMinigame(cop.state.id);
+          } else {
+            if (Math.random() < 0.5) {
+              protestor.state.isDetained = true;
+              this.matchState.detainedScore++;
+              const bus = this.busPositions[0];
+              if (bus) protestor.mesh.position.set(bus.x, 1, bus.z);
+            }
+          }
+        }
       );
-    }
 
-    // 4. Update Weather & Atmospheric Simulation
-    this.weatherManager.update(delta);
+      // 11. Update Active Canisters
+      for (let i = this.activeCanisters.length - 1; i >= 0; i--) {
+        const c = this.activeCanisters[i];
+        c.timer -= delta;
+        c.mesh.position.addScaledVector(c.velocity, delta);
+        c.velocity.y -= 12 * delta;
 
-    // 5. Update Wildlife Flocks (Pigeons)
-    if (this.localPlayer) {
-      this.wildlifeManager.update(delta, this.localPlayer.mesh.position);
-    }
+        if (c.mesh.position.y <= 0.2) {
+          c.mesh.position.y = 0.2;
+          c.velocity.x *= 0.7;
+          c.velocity.z *= 0.7;
+        }
 
-    // 6. Update Superchats Simulation
-    this.superchatTimer += delta;
-    if (this.superchatTimer > 25) {
-      this.superchatTimer = 0;
-      const donors = ['Aarav_Z', 'Kavita_Youth', 'Simran_Delhi', 'Rohan_Now', 'Arjun_V', 'Pooja_Eco'];
-      const messages = [
-        'Voice of Gen-Z! Stay strong!',
-        'Donating for fresh megaphones! 📢',
-        'Truth cannot be detained! ❤️',
-        'Trending across all of Twitter/X right now!',
-        'Sending love from Mumbai! ✊',
-      ];
-      const randomDonor = donors[Math.floor(Math.random() * donors.length)];
-      const randomMsg = messages[Math.floor(Math.random() * messages.length)];
-      const randomAmount = [200, 500, 1000, 2000][Math.floor(Math.random() * 4)];
+        if (
+          this.localPlayer &&
+          this.localPlayer.state.team === 'PROTESTOR' &&
+          this.matchState.activeMinigame === 'NONE' &&
+          c.mesh.position.distanceTo(this.localPlayer.mesh.position) < 3.2 &&
+          c.timer > 0.5
+        ) {
+          this.matchState.activeMinigame = 'CANISTER';
+          this.matchState.minigameProgress = 20;
+          this.matchState.canisterIdTargeted = c.id;
+          if (this.onMinigameTrigger) this.onMinigameTrigger('CANISTER');
+        }
 
-      this.matchState.superchats.push({
-        id: 'sc_' + Date.now(),
-        user: randomDonor,
-        amount: randomAmount,
-        message: randomMsg,
-        timestamp: Date.now(),
-      });
-      audioManager.playCanisterKick(); // Chime
-    }
-
-    // 7. Update Drone & Spotlight Position
-    const spotlightPos = this.mapBuilder.updateDrone(delta);
-    this.matchState.droneSpotlightPos = spotlightPos;
-
-    if (this.localPlayer) {
-      const p = this.localPlayer.mesh.position;
-      const distToSpotlight = Math.hypot(p.x - spotlightPos.x, p.z - spotlightPos.z);
-      this.matchState.isPlayerInSpotlight = distToSpotlight < 4.2;
-
-      if (this.matchState.isPlayerInSpotlight && this.localPlayer.state.team === 'PROTESTOR') {
-        this.addAwareness(delta * 0.8);
-      }
-    }
-
-    // 8. Update Police Flashing Lights
-    this.mapBuilder.updateSirenLights();
-
-    // 9. Update AI Units
-    const allUnits = this.localPlayer ? [this.localPlayer, ...this.aiPlayers] : this.aiPlayers;
-    this.aiController.update(
-      delta,
-      allUnits,
-      this.colliders,
-      this.busPositions,
-      (cop, protestor) => {
-        if (protestor.state.isLocal) {
-          this.triggerLocalGrappleMinigame(cop.state.id);
-        } else {
-          if (Math.random() < 0.5) {
-            protestor.state.isDetained = true;
-            this.matchState.detainedScore++;
-            const bus = this.busPositions[0];
-            if (bus) protestor.mesh.position.set(bus.x, 1, bus.z);
+        if (c.timer <= 0) {
+          this.particleSystem.spawnSmokePlume(c.mesh.position);
+          audioManager.playCanisterKick();
+          this.scene.remove(c.mesh);
+          this.activeCanisters.splice(i, 1);
+          if (this.matchState.activeMinigame === 'CANISTER') {
+            this.matchState.activeMinigame = 'NONE';
           }
         }
       }
-    );
 
-    // 10. Update Active Canisters
-    for (let i = this.activeCanisters.length - 1; i >= 0; i--) {
-      const c = this.activeCanisters[i];
-      c.timer -= delta;
-      c.mesh.position.addScaledVector(c.velocity, delta);
-      c.velocity.y -= 12 * delta;
-
-      if (c.mesh.position.y <= 0.2) {
-        c.mesh.position.y = 0.2;
-        c.velocity.x *= 0.7;
-        c.velocity.z *= 0.7;
-      }
-
-      if (
-        this.localPlayer &&
-        this.localPlayer.state.team === 'PROTESTOR' &&
-        this.matchState.activeMinigame === 'NONE' &&
-        c.mesh.position.distanceTo(this.localPlayer.mesh.position) < 3.2 &&
-        c.timer > 0.5
-      ) {
-        this.matchState.activeMinigame = 'CANISTER';
-        this.matchState.minigameProgress = 20;
-        this.matchState.canisterIdTargeted = c.id;
-        if (this.onMinigameTrigger) this.onMinigameTrigger('CANISTER');
-      }
-
-      if (c.timer <= 0) {
-        this.particleSystem.spawnSmokePlume(c.mesh.position);
-        audioManager.playCanisterKick();
-        this.scene.remove(c.mesh);
-        this.activeCanisters.splice(i, 1);
-        if (this.matchState.activeMinigame === 'CANISTER') {
-          this.matchState.activeMinigame = 'NONE';
+      // 12. Update QTE decay
+      if (this.matchState.activeMinigame === 'STRUGGLE') {
+        this.matchState.minigameProgress -= delta * 12;
+        if (this.matchState.minigameProgress <= 0) {
+          this.resolveGrappleFail();
         }
       }
-    }
 
-    // 11. Update QTE decay
-    if (this.matchState.activeMinigame === 'STRUGGLE') {
-      this.matchState.minigameProgress -= delta * 12;
-      if (this.matchState.minigameProgress <= 0) {
-        this.resolveGrappleFail();
+      // 13. Update Particle System
+      this.particleSystem.update(delta);
+
+      // 14. Update Camera Follow
+      this.updateCamera(delta);
+
+      // 15. Collect Entities for Radar HUD
+      this.updateRadarEntities();
+
+      // 16. Render Frame
+      this.renderer.render(this.scene, this.camera);
+
+      // 17. Notify UI (Throttled to ~20 FPS so React isn't flooded with 120 re-renders/sec)
+      this.uiUpdateTimer += delta;
+      if (this.uiUpdateTimer >= 0.05) {
+        this.uiUpdateTimer = 0;
+        if (this.onStateUpdate) {
+          this.onStateUpdate({ ...this.matchState });
+        }
       }
-    }
-
-    // 12. Update Particle System
-    this.particleSystem.update(delta);
-
-    // 13. Update Camera Follow
-    this.updateCamera(delta);
-
-    // 14. Collect Entities for Radar HUD
-    this.updateRadarEntities();
-
-    // 15. Render
-    this.renderer.render(this.scene, this.camera);
-
-    // 16. Notify UI (Throttled to ~20 FPS so React isn't flooded with 120 re-renders/sec)
-    this.uiUpdateTimer += delta;
-    if (this.uiUpdateTimer >= 0.05) {
-      this.uiUpdateTimer = 0;
-      if (this.onStateUpdate) {
-        this.onStateUpdate({ ...this.matchState });
-      }
+    } catch (frameErr) {
+      console.warn('Frame render loop warning:', frameErr);
     }
   };
 
@@ -924,29 +989,29 @@ export class GameEngine {
     const finalRot = playerRot + this.cameraOrbitAngle;
 
     if (this.cameraMode === 'CHASE') {
-      const cameraHeight = 3.6;
-
-      const idealOffset = new THREE.Vector3(0, cameraHeight, this.cameraDistance).applyAxisAngle(
-        new THREE.Vector3(0, 1, 0),
-        finalRot
+      const cameraHeight = 3.2;
+      const backAngle = finalRot + Math.PI;
+      const idealCameraPos = new THREE.Vector3(
+        targetPos.x + Math.sin(backAngle) * this.cameraDistance,
+        Math.max(1.2, targetPos.y + cameraHeight),
+        targetPos.z + Math.cos(backAngle) * this.cameraDistance
       );
-      const idealCameraPos = targetPos.clone().add(idealOffset);
 
-      this.camera.position.lerp(idealCameraPos, delta * 9);
+      this.camera.position.lerp(idealCameraPos, Math.min(1.0, delta * 9));
       const lookTarget = targetPos.clone().add(new THREE.Vector3(0, 1.6, 0));
       this.camera.lookAt(lookTarget);
 
       const targetFOV = this.localPlayer.state.isSprinting ? 75 : 65;
-      this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, targetFOV, delta * 5);
+      this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, targetFOV, Math.min(1.0, delta * 5));
       this.camera.updateProjectionMatrix();
     } else if (this.cameraMode === 'TACTICAL') {
-      const tacticalPos = new THREE.Vector3(targetPos.x, 28, targetPos.z + 14);
-      this.camera.position.lerp(tacticalPos, delta * 6);
+      const tacticalPos = new THREE.Vector3(targetPos.x, 26, targetPos.z + 12);
+      this.camera.position.lerp(tacticalPos, Math.min(1.0, delta * 6));
       this.camera.lookAt(targetPos);
     } else {
       const headPos = targetPos.clone().add(new THREE.Vector3(0, 1.7, 0));
       this.camera.position.copy(headPos);
-      const frontDir = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), finalRot);
+      const frontDir = new THREE.Vector3(Math.sin(finalRot), 0, Math.cos(finalRot));
       this.camera.lookAt(headPos.clone().add(frontDir));
     }
   }

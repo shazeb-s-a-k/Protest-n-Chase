@@ -821,8 +821,8 @@ export class MapBuilder {
     this.sunLight = new THREE.DirectionalLight(0xfff1dc, 1.8);
     this.sunLight.position.set(45, 50, 35);
     this.sunLight.castShadow = true;
-    this.sunLight.shadow.mapSize.width = 2048;
-    this.sunLight.shadow.mapSize.height = 2048;
+    this.sunLight.shadow.mapSize.width = 1024;
+    this.sunLight.shadow.mapSize.height = 1024;
     this.sunLight.shadow.camera.near = 0.5;
     this.sunLight.shadow.camera.far = 160;
     this.sunLight.shadow.camera.left = -65;
