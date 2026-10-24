@@ -1,6 +1,14 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { GameEngine } from './engine/GameEngine';
-import { Team, GameMode, GameMatchState, CameraViewMode, LiveStreamComment, MinigameType } from './types/game';
+import {
+  Team,
+  GameMode,
+  GameMatchState,
+  CameraViewMode,
+  LiveStreamComment,
+  GraphicsQuality,
+  TimeOfDay,
+} from './types/game';
 import { MovementInput } from './engine/CharacterController';
 import { HUD } from './components/HUD';
 import { LiveStreamFeed } from './components/LiveStreamFeed';
@@ -8,6 +16,7 @@ import { MinigameOverlay } from './components/MinigameOverlay';
 import { MobileControls } from './components/MobileControls';
 import { TeamSelectModal } from './components/TeamSelectModal';
 import { VictoryModal } from './components/VictoryModal';
+import { SettingsModal } from './components/SettingsModal';
 import { audioManager } from './engine/AudioManager';
 
 export const App: React.FC = () => {
@@ -16,6 +25,7 @@ export const App: React.FC = () => {
 
   // Game UI States
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [matchState, setMatchState] = useState<GameMatchState>({
     mode: 'SOLO',
     localPlayerId: '',
@@ -28,6 +38,13 @@ export const App: React.FC = () => {
     viewerCount: 1240,
     activeMinigame: 'NONE',
     minigameProgress: 50,
+    graphicsQuality: 'HIGH',
+    timeOfDay: 'GOLDEN_HOUR',
+    radarEntities: [],
+    droneSpotlightPos: { x: 0, z: 20 },
+    isPlayerInSpotlight: false,
+    humanChainActive: false,
+    placardText: 'AWAAZ 2026',
   });
 
   const [stamina, setStamina] = useState(100);
@@ -51,7 +68,6 @@ export const App: React.FC = () => {
   const handleStartGame = (team: Team, mode: GameMode, roomCode?: string) => {
     if (!containerRef.current) return;
 
-    // Clean existing engine if any
     if (engineRef.current) {
       engineRef.current.destroy();
     }
@@ -67,8 +83,8 @@ export const App: React.FC = () => {
     };
 
     engine.onLiveStreamComment = (commentText) => {
-      const users = ['PoojaLive', 'RohanYouth', 'Kavita_Now', 'GenZPower', 'Simran_V', 'ArjunDelhi'];
-      const emojis = ['❤️', '🔥', '📢', '✊', '⚡️'];
+      const users = ['PoojaLive', 'RohanYouth', 'Kavita_Now', 'GenZPower', 'Simran_V', 'ArjunDelhi', 'Vikram_S'];
+      const emojis = ['❤️', '🔥', '📢', '✊', '⚡️', '🌟'];
       const randomUser = users[Math.floor(Math.random() * users.length)];
       const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
 
@@ -152,11 +168,19 @@ export const App: React.FC = () => {
             engineRef.current.triggerBusJailbreak();
           }
           break;
+        case 'KeyH':
+          if (matchState.localTeam === 'PROTESTOR') {
+            engineRef.current.toggleHumanChain();
+          }
+          break;
         case 'KeyV':
           setCameraMode(engineRef.current.toggleCameraMode());
           break;
         case 'KeyM':
           setIsMuted(audioManager.toggleMute());
+          break;
+        case 'Escape':
+          setIsSettingsOpen((prev) => !prev);
           break;
       }
 
@@ -207,7 +231,7 @@ export const App: React.FC = () => {
     };
   }, [isPlaying, matchState.activeMinigame, matchState.localTeam]);
 
-  // Ability Click Trigger from HUD
+  // Ability Click Trigger from HUD or Mobile Controls
   const handleUseAbility = (ability: string) => {
     if (!engineRef.current) return;
     switch (ability) {
@@ -219,6 +243,9 @@ export const App: React.FC = () => {
         break;
       case 'BUS_RESCUE':
         engineRef.current.triggerBusJailbreak();
+        break;
+      case 'HUMAN_CHAIN':
+        engineRef.current.toggleHumanChain();
         break;
       case 'BARRICADE':
         engineRef.current.deployBarricade();
@@ -249,12 +276,31 @@ export const App: React.FC = () => {
     setIsMuted(audioManager.toggleMute());
   };
 
+  const handleSelectGraphics = (q: GraphicsQuality) => {
+    if (engineRef.current) {
+      engineRef.current.setGraphicsQuality(q);
+    }
+  };
+
+  const handleSelectTimeOfDay = (t: TimeOfDay) => {
+    if (engineRef.current) {
+      engineRef.current.setTimeOfDay(t);
+    }
+  };
+
+  const handleUpdatePlacard = (text: string) => {
+    if (engineRef.current) {
+      engineRef.current.setPlacardText(text);
+    }
+  };
+
   const handleRestart = () => {
     if (engineRef.current) {
       engineRef.current.destroy();
       engineRef.current = null;
     }
     setIsPlaying(false);
+    setIsSettingsOpen(false);
   };
 
   return (
@@ -265,7 +311,6 @@ export const App: React.FC = () => {
       {/* Main Game In-Play Overlays */}
       {isPlaying && (
         <>
-          {/* Top & Bottom In-Game HUD */}
           <HUD
             matchState={matchState}
             stamina={stamina}
@@ -273,23 +318,36 @@ export const App: React.FC = () => {
             isMuted={isMuted}
             onToggleCamera={handleToggleCamera}
             onToggleMute={handleToggleMute}
+            onOpenSettings={() => setIsSettingsOpen(true)}
             onUseAbility={handleUseAbility}
           />
 
-          {/* Floating Gen-Z Live Stream Reactions */}
           <LiveStreamFeed comments={comments} />
 
-          {/* Mobile Touch Virtual Controls */}
           <MobileControls
             onInput={handleMobileInput}
             currentInput={inputRef.current}
+            team={matchState.localTeam}
+            onUseAbility={handleUseAbility}
           />
 
-          {/* Struggle & Canister Rapid-Tap Minigame */}
           <MinigameOverlay
             type={matchState.activeMinigame}
             progress={matchState.minigameProgress}
             onTap={() => engineRef.current?.handleMinigameTap()}
+          />
+
+          <SettingsModal
+            isOpen={isSettingsOpen}
+            onClose={() => setIsSettingsOpen(false)}
+            graphicsQuality={matchState.graphicsQuality}
+            onSelectGraphics={handleSelectGraphics}
+            timeOfDay={matchState.timeOfDay}
+            onSelectTimeOfDay={handleSelectTimeOfDay}
+            isMuted={isMuted}
+            onToggleMute={handleToggleMute}
+            placardText={matchState.placardText}
+            onUpdatePlacard={handleUpdatePlacard}
           />
         </>
       )}

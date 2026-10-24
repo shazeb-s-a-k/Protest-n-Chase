@@ -6,6 +6,9 @@ import {
   GameMatchState,
   MinigameType,
   CameraViewMode,
+  GraphicsQuality,
+  TimeOfDay,
+  RadarEntity,
 } from '../types/game';
 import { MapBuilder, Collider } from './MapBuilder';
 import { CharacterController, MovementInput } from './CharacterController';
@@ -36,6 +39,11 @@ export class GameEngine {
   // Match State
   public matchState: GameMatchState;
   public cameraMode: CameraViewMode = 'CHASE';
+  private cameraDistance: number = 7.5;
+  private cameraOrbitAngle: number = 0;
+  private isMouseDragging: boolean = false;
+  private previousMouseX: number = 0;
+
   private clock: THREE.Clock = new THREE.Clock();
   private animationFrameId: number | null = null;
 
@@ -60,8 +68,8 @@ export class GameEngine {
   ) {
     this.container = container;
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0xdbeafe); // Warm twilight Delhi atmosphere
-    this.scene.fog = new THREE.FogExp2(0xdbeafe, 0.008);
+    this.scene.background = new THREE.Color(0xdbeafe);
+    this.scene.fog = new THREE.FogExp2(0xfef08a, 0.006);
 
     this.camera = new THREE.PerspectiveCamera(
       65,
@@ -75,14 +83,14 @@ export class GameEngine {
       powerPreference: 'high-performance',
     });
     this.renderer.setSize(container.clientWidth, container.clientHeight);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2.0));
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.05;
+    this.renderer.toneMappingExposure = 1.08;
     container.appendChild(this.renderer.domElement);
 
-    // Initialize systems
+    // Systems
     this.mapBuilder = new MapBuilder();
     this.particleSystem = new ParticleSystem(this.scene);
     this.aiController = new AIController();
@@ -101,6 +109,13 @@ export class GameEngine {
       viewerCount: 1240,
       activeMinigame: 'NONE',
       minigameProgress: 50,
+      graphicsQuality: 'HIGH',
+      timeOfDay: 'GOLDEN_HOUR',
+      radarEntities: [],
+      droneSpotlightPos: { x: 0, z: 20 },
+      isPlayerInSpotlight: false,
+      humanChainActive: false,
+      placardText: 'AWAAZ 2026',
     };
 
     // Build World
@@ -119,10 +134,11 @@ export class GameEngine {
       this.setupMultiplayer(roomCode);
     }
 
-    // Window resize
+    // Controls & Listeners
+    this.setupMouseControls();
     window.addEventListener('resize', this.onResize);
 
-    // Start Game Loop
+    // Start Loop
     this.animate();
   }
 
@@ -132,11 +148,45 @@ export class GameEngine {
     this.busPositions = busPositions;
   }
 
+  private setupMouseControls() {
+    const el = this.renderer.domElement;
+
+    el.addEventListener('mousedown', (e) => {
+      if (e.button === 2 || e.button === 0) { // Right or Left click drag
+        this.isMouseDragging = true;
+        this.previousMouseX = e.clientX;
+      }
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!this.isMouseDragging) return;
+      const deltaX = e.clientX - this.previousMouseX;
+      this.previousMouseX = e.clientX;
+      this.cameraOrbitAngle -= deltaX * 0.006;
+    });
+
+    window.addEventListener('mouseup', () => {
+      this.isMouseDragging = false;
+    });
+
+    el.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      this.cameraDistance = THREE.MathUtils.clamp(
+        this.cameraDistance + e.deltaY * 0.01,
+        4.5,
+        14.0
+      );
+    }, { passive: false });
+
+    // Prevent context menu on right click in game
+    el.addEventListener('contextmenu', (e) => e.preventDefault());
+  }
+
   private spawnLocalPlayer(team: Team) {
     const isProtestor = team === 'PROTESTOR';
     const spawnPos = isProtestor
-      ? new THREE.Vector3((Math.random() - 0.5) * 8, 0, 28) // Near protest stage
-      : new THREE.Vector3((Math.random() - 0.5) * 8, 0, 48); // Near police camp
+      ? new THREE.Vector3((Math.random() - 0.5) * 8, 0, 28)
+      : new THREE.Vector3((Math.random() - 0.5) * 8, 0, 48);
 
     const state: PlayerState = {
       id: this.matchState.localPlayerId,
@@ -152,6 +202,7 @@ export class GameEngine {
       isDetained: false,
       isGrappled: false,
       awarenessContribution: 0,
+      placardText: this.matchState.placardText,
     };
 
     this.localPlayer = new CharacterController(this.scene, state);
@@ -161,7 +212,6 @@ export class GameEngine {
     const copCount = localTeam === 'POLICE' ? 3 : 5;
     const protestorCount = localTeam === 'PROTESTOR' ? 5 : 7;
 
-    // Spawn AI Police
     for (let i = 0; i < copCount; i++) {
       const spawnX = -20 + i * 10;
       const spawnZ = 45 + Math.random() * 8;
@@ -186,7 +236,7 @@ export class GameEngine {
       this.aiController.registerAI(controller, 'PATROL');
     }
 
-    // Spawn AI Protestors
+    const aiSlogans = ['CLIMATE NOW', 'FREE MINDS', 'EQUALITY', 'SAVE FORESTS', 'GEN-Z'];
     for (let i = 0; i < protestorCount; i++) {
       const spawnX = (Math.random() - 0.5) * 26;
       const spawnZ = 15 + Math.random() * 20;
@@ -204,6 +254,7 @@ export class GameEngine {
         isDetained: false,
         isGrappled: false,
         awarenessContribution: 0,
+        placardText: aiSlogans[i % aiSlogans.length],
       };
 
       const controller = new CharacterController(this.scene, state);
@@ -216,7 +267,6 @@ export class GameEngine {
     this.networkManager.init(
       roomCode,
       (msg) => {
-        // Handle incoming network messages
         if (msg.type === 'MINIGAME_TRIGGER' && msg.payload.targetId === this.matchState.localPlayerId) {
           this.triggerLocalGrappleMinigame(msg.senderId);
         } else if (msg.type === 'ABILITY_USED') {
@@ -234,11 +284,55 @@ export class GameEngine {
     );
   }
 
-  // --- ACTIONS & ABILITIES ---
+  // --- GRAPHICS & ATMOSPHERE MODIFIERS ---
 
-  /**
-   * Protestor Ability 1: Megaphone Soundwave Chant
-   */
+  public setGraphicsQuality(quality: GraphicsQuality) {
+    this.matchState.graphicsQuality = quality;
+    if (quality === 'ULTRA') {
+      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio * 1.5, 3.0));
+      this.renderer.shadowMap.enabled = true;
+    } else if (quality === 'HIGH') {
+      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2.0));
+      this.renderer.shadowMap.enabled = true;
+    } else if (quality === 'MEDIUM') {
+      this.renderer.setPixelRatio(1.0);
+      this.renderer.shadowMap.enabled = true;
+    } else {
+      // LOW: Performance boost for older mobile phones
+      this.renderer.setPixelRatio(0.85);
+      this.renderer.shadowMap.enabled = false;
+    }
+    this.onResize();
+  }
+
+  public setTimeOfDay(time: TimeOfDay) {
+    this.matchState.timeOfDay = time;
+    this.mapBuilder.setTimeOfDay(time, this.scene);
+  }
+
+  public setPlacardText(text: string) {
+    this.matchState.placardText = text;
+    if (this.localPlayer) {
+      this.localPlayer.updatePlacardText(text);
+    }
+  }
+
+  public toggleHumanChain(): boolean {
+    if (!this.localPlayer || this.localPlayer.state.team !== 'PROTESTOR') return false;
+    this.matchState.humanChainActive = !this.matchState.humanChainActive;
+    this.localPlayer.setHumanChain(this.matchState.humanChainActive);
+
+    if (this.matchState.humanChainActive) {
+      this.addAwareness(3);
+      if (this.onLiveStreamComment) {
+        this.onLiveStreamComment('🤝 Human chain formed! An immovable peaceful wall of unity!');
+      }
+    }
+    return this.matchState.humanChainActive;
+  }
+
+  // --- ABILITIES ---
+
   public triggerMegaphoneBlast() {
     if (!this.localPlayer || this.localPlayer.state.team !== 'PROTESTOR') return;
     if (this.localPlayer.state.isDetained || this.localPlayer.state.isGrappled) return;
@@ -250,15 +344,19 @@ export class GameEngine {
     // Stun nearby police officers
     this.aiPlayers.forEach((ai) => {
       if (ai.state.team === 'POLICE' && ai.mesh.position.distanceTo(pos) < 9) {
-        ai.mesh.rotation.y += Math.PI / 2; // Disorient
+        ai.mesh.rotation.y += Math.PI / 2;
       }
     });
 
-    // Awareness Boost & Live-stream emoji
-    this.addAwareness(4);
+    const boost = this.matchState.isPlayerInSpotlight ? 9 : 4;
+    this.addAwareness(boost);
     this.particleSystem.spawnLiveStreamEmoji(pos, '📢');
     if (this.onLiveStreamComment) {
-      this.onLiveStreamComment('📢 Mega megaphone chant resonating through Jantar Mantar!!');
+      this.onLiveStreamComment(
+        this.matchState.isPlayerInSpotlight
+          ? '🌟 SPOTLIGHT CHANT! Millions tuning in live across India!!'
+          : '📢 Mega megaphone chant resonating through Jantar Mantar!!'
+      );
     }
 
     if (this.matchState.mode === 'MULTIPLAYER') {
@@ -271,21 +369,17 @@ export class GameEngine {
     }
   }
 
-  /**
-   * Protestor Ability 2: Live-stream Hype Spike
-   */
   public triggerLiveStreamHype() {
     if (!this.localPlayer || this.localPlayer.state.team !== 'PROTESTOR') return;
     const pos = this.localPlayer.mesh.position.clone();
 
-    // Floating reaction emojis
-    const emojis = ['❤️', '🔥', '✊', '⚡️'];
+    const emojis = ['❤️', '🔥', '✊', '⚡️', '🌟'];
     const chosenEmoji = emojis[Math.floor(Math.random() * emojis.length)];
     this.particleSystem.spawnLiveStreamEmoji(pos, chosenEmoji);
 
-    // Spike viewer count & awareness
-    this.matchState.viewerCount += Math.floor(400 + Math.random() * 800);
-    this.addAwareness(2.5);
+    const multiplier = this.matchState.isPlayerInSpotlight ? 3 : 1;
+    this.matchState.viewerCount += Math.floor((400 + Math.random() * 800) * multiplier);
+    this.addAwareness(2.5 * multiplier);
 
     if (this.onLiveStreamComment) {
       const streamComments = [
@@ -293,32 +387,26 @@ export class GameEngine {
         'Stay peaceful, stay strong! ❤️✊',
         'Trending #1 in India right now! 🔥',
         'Look at the crowd at Samrat Yantra!',
+        'Media drone got the live shot! 🎥',
       ];
       this.onLiveStreamComment(streamComments[Math.floor(Math.random() * streamComments.length)]);
     }
   }
 
-  /**
-   * Police Ability 1: Deploy Yellow Barricade
-   */
   public deployBarricade() {
     if (!this.localPlayer || this.localPlayer.state.team !== 'POLICE') return;
     const pos = this.localPlayer.mesh.position.clone();
     const rot = this.localPlayer.mesh.rotation.y;
 
-    // Spawn 2 meters in front
     const frontOffset = new THREE.Vector3(0, 0, -2).applyAxisAngle(new THREE.Vector3(0, 1, 0), rot);
     const spawnPos = pos.add(frontOffset);
 
     this.mapBuilder.createBarricadeMesh(this.scene, spawnPos.x, spawnPos.z, rot);
     this.colliders = this.mapBuilder.colliders;
 
-    audioManager.playCanisterKick(); // Metallic barricade lock sound
+    audioManager.playCanisterKick();
   }
 
-  /**
-   * Police Ability 2: Throw Smoke / Tear Gas Canister
-   */
   public throwSmokeCanister() {
     if (!this.localPlayer || this.localPlayer.state.team !== 'POLICE') return;
     const pos = this.localPlayer.mesh.position.clone();
@@ -351,14 +439,11 @@ export class GameEngine {
     this.activeCanisters.push({
       mesh,
       velocity,
-      timer: 2.8, // explodes after 2.8s
+      timer: 2.8,
       id,
     });
   }
 
-  /**
-   * Police Ability 3: Water Cannon Surge
-   */
   public fireWaterCannon() {
     if (!this.localPlayer || this.localPlayer.state.team !== 'POLICE') return;
     const pos = this.localPlayer.mesh.position.clone();
@@ -368,29 +453,25 @@ export class GameEngine {
     audioManager.playWaterCannonSpray();
     this.particleSystem.spawnWaterSurge(pos, forward);
 
-    // Push back protestors in cone
     this.aiPlayers.forEach((p) => {
       if (p.state.team === 'PROTESTOR') {
         const toTarget = p.mesh.position.clone().sub(pos);
         if (toTarget.length() < 12 && toTarget.normalize().dot(forward) > 0.6) {
-          p.mesh.position.addScaledVector(forward, 6); // Push back
+          p.mesh.position.addScaledVector(forward, 6);
         }
       }
     });
   }
 
-  // --- MINIGAMES & INTERACTION ---
+  // --- MINIGAMES & RESCUE ---
 
-  /**
-   * Triggers the Struggle / Break-Free Rapid-Tap Minigame
-   */
   public triggerLocalGrappleMinigame(grapplerId: string) {
     if (!this.localPlayer) return;
     this.localPlayer.state.isGrappled = true;
     this.localPlayer.state.grappledById = grapplerId;
 
     this.matchState.activeMinigame = 'STRUGGLE';
-    this.matchState.minigameProgress = 40; // Start at 40%
+    this.matchState.minigameProgress = 40;
 
     audioManager.startSiren(0.2);
     audioManager.playTensionHeartbeat();
@@ -400,24 +481,19 @@ export class GameEngine {
     }
   }
 
-  /**
-   * Called repeatedly when player mashes the button / taps the screen during QTE
-   */
   public handleMinigameTap() {
     if (this.matchState.activeMinigame === 'STRUGGLE') {
-      this.matchState.minigameProgress += 7.5;
+      this.matchState.minigameProgress += 8.5;
       audioManager.playTensionHeartbeat();
 
       if (this.matchState.minigameProgress >= 100) {
-        // BREAK-FREE SUCCESS!
         this.resolveGrappleSuccess();
       }
     } else if (this.matchState.activeMinigame === 'CANISTER') {
-      this.matchState.minigameProgress += 22;
+      this.matchState.minigameProgress += 25;
       audioManager.playCanisterKick();
 
       if (this.matchState.minigameProgress >= 100) {
-        // CANISTER KICKAWAY SUCCESS!
         this.resolveCanisterKickSuccess();
       }
     }
@@ -430,7 +506,6 @@ export class GameEngine {
     audioManager.stopSiren();
     audioManager.playBreakoutDash();
 
-    // Do an evasive backflip/dash away
     const backDir = new THREE.Vector3(0, 0, 8).applyAxisAngle(
       new THREE.Vector3(0, 1, 0),
       this.localPlayer.mesh.rotation.y
@@ -446,7 +521,6 @@ export class GameEngine {
     audioManager.stopSiren();
     audioManager.playHandcuffClick();
 
-    // Transport to the nearest Bus
     const nearestBus = this.busPositions[0];
     if (nearestBus) {
       this.localPlayer.mesh.position.set(nearestBus.x, 1.2, nearestBus.z);
@@ -457,7 +531,6 @@ export class GameEngine {
 
   private resolveCanisterKickSuccess() {
     this.matchState.activeMinigame = 'NONE';
-    // Deflect active canister away
     if (this.activeCanisters.length > 0) {
       const c = this.activeCanisters[0];
       c.velocity.multiplyScalar(-1.5);
@@ -465,17 +538,14 @@ export class GameEngine {
     audioManager.playBreakoutDash();
   }
 
-  /**
-   * Jailbreak Action: Free allies from the detainment bus
-   */
   public triggerBusJailbreak() {
     if (!this.localPlayer || this.localPlayer.state.team !== 'PROTESTOR') return;
 
-    // Check if player is near rear door of any bus (< 4.5m)
     for (const bus of this.busPositions) {
       const busVec = new THREE.Vector3(bus.x, 0, bus.z);
       if (this.localPlayer.mesh.position.distanceTo(busVec) < 6.5) {
-        // Free detained allies!
+        this.mapBuilder.openBusDoor(bus.id);
+
         this.aiPlayers.forEach((ai) => {
           if (ai.state.isDetained) {
             ai.state.isDetained = false;
@@ -489,7 +559,7 @@ export class GameEngine {
         this.particleSystem.spawnLiveStreamEmoji(busVec, '✊');
 
         if (this.onLiveStreamComment) {
-          this.onLiveStreamComment('🎉 BREAKOUT! Detained friends rescued from the police bus!!');
+          this.onLiveStreamComment('🎉 BREAKOUT! Detained friends freed from the police bus!!');
         }
         break;
       }
@@ -536,7 +606,26 @@ export class GameEngine {
       }
     }
 
-    // 2. Update AI Units
+    // 2. Update Drone & Spotlight Position
+    const spotlightPos = this.mapBuilder.updateDrone(delta);
+    this.matchState.droneSpotlightPos = spotlightPos;
+
+    // Check if local player is in the spotlight
+    if (this.localPlayer) {
+      const p = this.localPlayer.mesh.position;
+      const distToSpotlight = Math.hypot(p.x - spotlightPos.x, p.z - spotlightPos.z);
+      this.matchState.isPlayerInSpotlight = distToSpotlight < 4.2;
+
+      // Passive awareness boost while under spotlight
+      if (this.matchState.isPlayerInSpotlight && this.localPlayer.state.team === 'PROTESTOR') {
+        this.addAwareness(delta * 0.8);
+      }
+    }
+
+    // 3. Update Police Flashing Lights
+    this.mapBuilder.updateSirenLights();
+
+    // 4. Update AI Units
     const allUnits = this.localPlayer ? [this.localPlayer, ...this.aiPlayers] : this.aiPlayers;
     this.aiController.update(
       delta,
@@ -544,11 +633,9 @@ export class GameEngine {
       this.colliders,
       this.busPositions,
       (cop, protestor) => {
-        // Grapple trigger
         if (protestor.state.isLocal) {
           this.triggerLocalGrappleMinigame(cop.state.id);
         } else {
-          // AI vs AI grapple resolution
           if (Math.random() < 0.5) {
             protestor.state.isDetained = true;
             this.matchState.detainedScore++;
@@ -559,12 +646,12 @@ export class GameEngine {
       }
     );
 
-    // 3. Update Active Canisters
+    // 5. Update Active Canisters
     for (let i = this.activeCanisters.length - 1; i >= 0; i--) {
       const c = this.activeCanisters[i];
       c.timer -= delta;
       c.mesh.position.addScaledVector(c.velocity, delta);
-      c.velocity.y -= 12 * delta; // Gravity
+      c.velocity.y -= 12 * delta;
 
       if (c.mesh.position.y <= 0.2) {
         c.mesh.position.y = 0.2;
@@ -572,7 +659,6 @@ export class GameEngine {
         c.velocity.z *= 0.7;
       }
 
-      // Check proximity to local player for Canister Kick minigame
       if (
         this.localPlayer &&
         this.localPlayer.state.team === 'PROTESTOR' &&
@@ -586,7 +672,6 @@ export class GameEngine {
         if (this.onMinigameTrigger) this.onMinigameTrigger('CANISTER');
       }
 
-      // Detonation
       if (c.timer <= 0) {
         this.particleSystem.spawnSmokePlume(c.mesh.position);
         audioManager.playCanisterKick();
@@ -598,68 +683,119 @@ export class GameEngine {
       }
     }
 
-    // 4. Update QTE decay (tug-of-war tension)
+    // 6. Update QTE decay
     if (this.matchState.activeMinigame === 'STRUGGLE') {
-      this.matchState.minigameProgress -= delta * 12; // Cops pulling back
+      this.matchState.minigameProgress -= delta * 12;
       if (this.matchState.minigameProgress <= 0) {
         this.resolveGrappleFail();
       }
     }
 
-    // 5. Update Particle System
+    // 7. Update Particle System
     this.particleSystem.update(delta);
 
-    // 6. Camera Follow System
+    // 8. Update Camera Follow
     this.updateCamera(delta);
 
-    // 7. Render
+    // 9. Collect Entities for Real-Time Radar HUD
+    this.updateRadarEntities();
+
+    // 10. Render
     this.renderer.render(this.scene, this.camera);
 
-    // 8. Notify UI
+    // 11. Notify UI
     if (this.onStateUpdate) {
       this.onStateUpdate({ ...this.matchState });
     }
   };
 
-  /**
-   * Dynamic Subway Surfers Chase Camera or Tactical Bird's Eye Camera
-   */
+  private updateRadarEntities() {
+    const entities: RadarEntity[] = [];
+
+    // Local player
+    if (this.localPlayer) {
+      entities.push({
+        id: this.matchState.localPlayerId,
+        type: 'LOCAL',
+        x: this.localPlayer.mesh.position.x,
+        z: this.localPlayer.mesh.position.z,
+        rotation: this.localPlayer.mesh.rotation.y,
+      });
+    }
+
+    // AI Players
+    this.aiPlayers.forEach((ai) => {
+      entities.push({
+        id: ai.state.id,
+        type: ai.state.team === 'PROTESTOR' ? 'PROTESTOR' : 'POLICE',
+        x: ai.mesh.position.x,
+        z: ai.mesh.position.z,
+        rotation: ai.mesh.rotation.y,
+        isDetained: ai.state.isDetained,
+      });
+    });
+
+    // Buses
+    this.busPositions.forEach((bus) => {
+      entities.push({
+        id: bus.id,
+        type: 'BUS',
+        x: bus.x,
+        z: bus.z,
+      });
+    });
+
+    // Drone Spotlight
+    entities.push({
+      id: 'media_drone',
+      type: 'DRONE',
+      x: this.matchState.droneSpotlightPos.x,
+      z: this.matchState.droneSpotlightPos.z,
+    });
+
+    this.matchState.radarEntities = entities;
+  }
+
   private updateCamera(delta: number) {
     if (!this.localPlayer) return;
 
     const targetPos = this.localPlayer.mesh.position;
-    const targetRot = this.localPlayer.mesh.rotation.y;
+    const playerRot = this.localPlayer.mesh.rotation.y;
+    const finalRot = playerRot + this.cameraOrbitAngle;
 
     if (this.cameraMode === 'CHASE') {
-      // Behind character follow camera
-      const cameraDist = 7.5;
       const cameraHeight = 3.6;
 
-      const idealOffset = new THREE.Vector3(0, cameraHeight, cameraDist).applyAxisAngle(
+      const idealOffset = new THREE.Vector3(0, cameraHeight, this.cameraDistance).applyAxisAngle(
         new THREE.Vector3(0, 1, 0),
-        targetRot
+        finalRot
       );
       const idealCameraPos = targetPos.clone().add(idealOffset);
 
-      // Smooth lerp
       this.camera.position.lerp(idealCameraPos, delta * 9);
       const lookTarget = targetPos.clone().add(new THREE.Vector3(0, 1.6, 0));
       this.camera.lookAt(lookTarget);
 
-      // Dynamic FOV widening on sprint (Subway Surfers speed sensation)
       const targetFOV = this.localPlayer.state.isSprinting ? 75 : 65;
       this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, targetFOV, delta * 5);
       this.camera.updateProjectionMatrix();
-    } else {
-      // Tactical Bird's Eye View
+    } else if (this.cameraMode === 'TACTICAL') {
       const tacticalPos = new THREE.Vector3(targetPos.x, 28, targetPos.z + 14);
       this.camera.position.lerp(tacticalPos, delta * 6);
       this.camera.lookAt(targetPos);
+    } else {
+      // FIRST_PERSON VIEW
+      const headPos = targetPos.clone().add(new THREE.Vector3(0, 1.7, 0));
+      this.camera.position.copy(headPos);
+      const frontDir = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), finalRot);
+      this.camera.lookAt(headPos.clone().add(frontDir));
     }
   }
 
   public toggleCameraMode(): CameraViewMode {
-    this.cameraMode = this.cameraMode === 'CHASE' ? 'TACTICAL' : 'CHASE';
+    if (this.cameraMode === 'CHASE') this.cameraMode = 'TACTICAL';
+    else if (this.cameraMode === 'TACTICAL') this.cameraMode = 'FIRST_PERSON';
+    else this.cameraMode = 'CHASE';
     return this.cameraMode;
   }
 

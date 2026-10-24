@@ -4,7 +4,11 @@ export type GameMode = 'SOLO' | 'MULTIPLAYER';
 
 export type MinigameType = 'NONE' | 'STRUGGLE' | 'CANISTER' | 'BUS_RESCUE';
 
-export type CameraViewMode = 'CHASE' | 'TACTICAL';
+export type CameraViewMode = 'CHASE' | 'TACTICAL' | 'FIRST_PERSON';
+
+export type GraphicsQuality = 'ULTRA' | 'HIGH' | 'MEDIUM' | 'LOW';
+
+export type TimeOfDay = 'GOLDEN_HOUR' | 'NIGHT_RALLY' | 'MIDDAY';
 
 export interface PlayerStats {
   speed: number;
@@ -15,6 +19,7 @@ export interface PlayerStats {
   barricadeCooldown: number;
   smokeCooldown: number;
   waterCooldown: number;
+  humanChainCooldown: number;
 }
 
 export interface PlayerState {
@@ -30,8 +35,10 @@ export interface PlayerState {
   isJumping: boolean;
   isDetained: boolean;
   isGrappled: boolean;
+  isInHumanChain?: boolean;
   grappledById?: string;
   awarenessContribution: number;
+  placardText?: string;
   currentAction?: 'CHANTING' | 'LIVESTREAMING' | 'PLACING_BARRICADE' | 'THROWING_SMOKE' | 'IDLE';
 }
 
@@ -70,6 +77,15 @@ export interface LiveStreamComment {
   timestamp: number;
 }
 
+export interface RadarEntity {
+  id: string;
+  type: 'LOCAL' | 'PROTESTOR' | 'POLICE' | 'BUS' | 'DRONE';
+  x: number;
+  z: number;
+  rotation?: number;
+  isDetained?: boolean;
+}
+
 export interface GameMatchState {
   mode: GameMode;
   localPlayerId: string;
@@ -83,6 +99,13 @@ export interface GameMatchState {
   activeMinigame: MinigameType;
   minigameProgress: number; // 0 to 100
   canisterIdTargeted?: string;
+  graphicsQuality: GraphicsQuality;
+  timeOfDay: TimeOfDay;
+  radarEntities: RadarEntity[];
+  droneSpotlightPos: { x: number; z: number };
+  isPlayerInSpotlight: boolean;
+  humanChainActive: boolean;
+  placardText: string;
 }
 
 export interface NetworkMessage {
@@ -95,6 +118,7 @@ export interface NetworkMessage {
     | 'RESCUE_EVENT'
     | 'BARRICADE_SPAWN'
     | 'CANISTER_SPAWN'
+    | 'HUMAN_CHAIN_TOGGLE'
     | 'MATCH_SYNC';
   payload: any;
   senderId: string;
