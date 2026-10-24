@@ -1,32 +1,44 @@
-# 📢 Awaaz: Voices of Jantar Mantar (3D Web Game)
+# 📢 Awaaz: Voices of Jantar Mantar (3D Action Game)
 
-> A high-octane, non-violent 3D hybrid solo & multiplayer browser action game celebrating youth civic movements and peaceful activism, set against the historic astronomical architecture of **Jantar Mantar, New Delhi**.
+> The definitive, non-violent 3D hybrid solo & multiplayer action web game celebrating youth civic movements and peaceful activism, set against the historic astronomical architecture of **Jantar Mantar, New Delhi**.
 
 ---
 
-## 🌟 Game Highlights
+## 🌟 Game Features & Highlights
 
-- 🏛️ **Authentic 3D Landmark**: Faithfully modeled 3D recreation of Delhi's **Jantar Mantar**, including the colossal **Samrat Yantra** sundial ramp, open-columned **Ram Yantra** circular observatories, **Jai Prakash Yantra** sunken marble bowls, Delhi Police command tents, and DTC transfer buses.
-- ⚡️ **Subway Surfers-Style Agility**: High-speed sprint, parkour slides under high barricades, vaulting over obstacles, and responsive 3rd-person chase camera.
-- 📢 **Non-Violent Activism Gameplay**:
-  - **The Protestors (Gen-Z Voices)**: Soundwave megaphone chants, live-streaming viral reach, drop placard traps, and bus jailbreaks to free detained allies.
-  - **Delhi Police (Crowd Control Unit)**: Movable steel barricades, tear gas smoke screens, non-lethal water cannon surges, and transfer bus detentions.
+- 🏛️ **Authentic 3D Jantar Mantar**: Faithfully modeled 3D recreation of Delhi's landmark with the colossal **Samrat Yantra** sundial ramp, open-columned **Ram Yantra** circular observatories, **Jai Prakash Yantra** sunken marble bowls, DTC detainment transfer buses, and "Varun" water cannon riot truck.
+- ☕️ **3D Power-Ups & Collectibles**:
+  - ☕️ **Cutting Chai**: Restores 100% stamina + gives 1.45x super sprint!
+  - 📢 **Amplifier Booster**: Doubles megaphone soundwave radius and stun duration!
+  - 📶 **5G Portable Hotspot**: 5x live-stream viewer reach acceleration!
+  - 🛡️ **Peace Aura**: 7-second grapple immunity bubble!
+  - 🧯 **Traffic Cone Snuffer**: Smothers and extinguishes nearby tear gas canisters!
+- 🌧️ **Dynamic Weather & Atmosphere**:
+  - **Golden Dust**: Warm amber sun flare with drifting sunlight dust motes.
+  - **Monsoon Rain**: Overcast skies with 1,400 rain streak particles and pavement reflections.
+  - **Cyberpunk Night**: Dark indigo Delhi sky with neon placards, streetlights, and flashing police lightbars.
+- 🕊️ **Interactive Delhi Wildlife**:
+  - Flocks of low-poly pigeons (Kabootar) pecking peacefully on the lawns that take flight in panic when runners approach or when megaphones blast!
+- 📸 **Cinematic Photo Booth & Poster Creator**:
+  - Press `P` (or click Camera icon) to freeze frame, apply aesthetic filters (*Raw HDR*, *Golden Hour*, *Cyberpunk*, *1970s Vintage*, *Noir B&W*), add official event watermarks, and download high-resolution posters!
+- ⚡️ **Subway Surfers-Style Agility**: High-speed sprint, parkour slide under barricades (`C`), vaulting over obstacles (`Space`), and responsive 3rd-person follow cam.
+- 📱 **Full Mobile & Desktop Controls**:
+  - **Desktop**: Full WASD / Arrow keys, Space jump, Shift sprint, C slide, Q/E/F/R/H abilities, Right-click drag 360° camera orbit, and Mouse wheel zoom.
+  - **Mobile**: 360° virtual analog joystick, quick jump/slide/sprint thumb buttons, direct ability triggers, and haptic vibration feedback.
 - 🎮 **Rapid-Tap QTE Minigames**:
-  - **Break-Free Struggle**: Mash Spacebar / Rapid-Tap touch button when grappled to break police lock and perform an evasive backflip escape!
-  - **Canister Kickaway**: Rapidly kick away incoming smoke canisters before detonation.
-  - **Bus Jailbreak**: Sneak to the rear emergency latch of the police bus to liberate captured teammates!
-- 🌐 **Hybrid Solo & P2P Multiplayer**:
-  - **Solo Mode**: Intelligent finite-state-machine AI for patrol, megaphone hearing, flanking, pursuit, and evasion.
-  - **Multiplayer Mode**: 100% serverless Peer-to-Peer WebRTC DataChannels via PeerJS using 5-character room codes. Zero hosting cost, instant play!
-- 📱 **Full Desktop & Mobile Support**: Keyboard & mouse controls on desktop; high-precision virtual dual analog thumbstick + rapid tap screen zones on mobile.
+  - **Break-Free Struggle**: Mash Spacebar / Rapid-Tap touch button when grappled to break police lock with an evasive backflip escape!
+  - **Canister Kickaway**: Rapidly mash to deflect incoming tear gas canisters before detonation.
+- 🌐 **Serverless P2P Multiplayer & Smart AI**:
+  - Solo mode runs autonomous AI state machines for patrol, megaphone detection, pursuit, flanking, and evasion.
+  - Multiplayer mode uses PeerJS WebRTC DataChannels with 5-character room codes. Requires zero backend server hosting and runs 100% free and static on Vercel!
 - 🚀 **Vercel Ready**: Preconfigured with `vercel.json` for one-click deployment.
 
 ---
 
-## 🕹️ Controls
+## 🕹️ Controls Guide
 
-### Desktop Keyboard
-| Key | Action |
+### Desktop Keyboard & Mouse
+| Key / Input | Action |
 | :--- | :--- |
 | **W / A / S / D** or **Arrow Keys** | Move character in all directions |
 | **Shift** | Tactical Sprint (consumes stamina) |
@@ -36,48 +48,33 @@
 | **F** | Ability 2: **Viral Live-Stream Hype** (Protestor) / **Water Cannon Push** (Police) |
 | **R** | Ability 3: **Throw Smoke Canister** (Police) |
 | **E** | Interact: **Bus Jailbreak** / **Kickaway Canister QTE** |
-| **V** | Toggle Camera Mode (Subway Surfers Chase Follow ↔ Tactical Bird's-Eye View) |
+| **H** | Ability 4: **Form Human Chain** (Immovable peaceful barrier) |
+| **P** | **Photo Booth**: Freeze frame, apply filters & download HD poster |
+| **V** | Cycle Camera View (Chase Follow ↔ Tactical Bird's-Eye ↔ First-Person) |
 | **M** | Toggle Synthesized Audio Mute |
+| **Right-Click Drag** | 360° Free Camera Orbit around character |
+| **Mouse Wheel** | Camera Zoom In / Out |
+| **Escape** | Open Settings & Quality Menu |
 
 ### Mobile Touch
-- **Left Thumb Virtual Joystick**: 360-degree smooth analog movement.
-- **Right Thumb Action Buttons**: Instant Jump, Parkour Slide, and Sprint toggle.
+- **Left Thumb Virtual Joystick**: 360-degree analog thumbstick.
+- **Right Thumb Action Buttons**: Quick-access **Jump**, **Parkour Slide**, and **Sprint Toggle**.
+- **Right Ability Arc**: Direct thumb buttons for Chant, Hype, Free Bus, Human Chain (Protestors) or Barricade, Smoke, Water (Police).
 - **Center Rapid-Tap Button**: Full-width glowing button that triggers during Grapple and Canister minigames.
-
----
-
-## 🛠️ Tech Stack & Architecture
-
-- **Engine**: Three.js (WebGL 2.0) with custom low-poly cel-shaded materials, shadow maps, and ACES Filmic tone mapping.
-- **Frontend**: React 18 + TypeScript + Vite.
-- **Styling**: Tailwind CSS + Glassmorphism UI + Lucide Icons.
-- **Audio**: Web Audio API procedural synthesizer (no external audio files needed; generates real megaphones, sirens, whistles, dhol drumbeats, and heartbeat pulses in code).
-- **Networking**: PeerJS (WebRTC DataChannel P2P mesh).
-- **Effects**: Canvas Confetti + Custom Three.js particle systems for smoke, water jets, soundwaves, and floating live-stream emojis.
 
 ---
 
 ## 🚀 Running Locally & Deploying to Vercel
 
-### Run Locally
 ```bash
 # 1. Install dependencies
 npm install
 
-# 2. Start Vite dev server
+# 2. Run local dev server
 npm run dev
 
-# 3. Open in browser: http://localhost:5173
-```
-
-### Build for Production
-```bash
+# 3. Build production bundle
 npm run build
-npm run preview
 ```
 
-### Deploy to Vercel
-1. Push this repository to GitHub / GitLab.
-2. Go to [vercel.com](https://vercel.com) and click **"Add New Project"**.
-3. Import your repository. The included `vercel.json` and Vite framework preset will automatically configure the build command (`npm run build`) and output directory (`dist`).
-4. Click **Deploy**!
+Deploying to Vercel is as simple as importing the repository; `vercel.json` will automatically configure routing and caching.
