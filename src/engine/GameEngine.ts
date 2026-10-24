@@ -12,6 +12,7 @@ import {
   PowerUpType,
   RadarEntity,
   SuperChat,
+  MapId,
 } from '../types/game';
 import { MapBuilder, Collider } from './MapBuilder';
 import { CharacterController, MovementInput } from './CharacterController';
@@ -28,6 +29,7 @@ export class GameEngine {
   public camera: THREE.PerspectiveCamera;
   public renderer: THREE.WebGLRenderer;
   private container: HTMLElement;
+  public selectedMap: MapId = 'DELHI';
 
   // Systems
   public mapBuilder: MapBuilder;
@@ -75,12 +77,14 @@ export class GameEngine {
     container: HTMLElement,
     mode: GameMode,
     team: Team,
-    roomCode?: string
+    roomCode?: string,
+    mapId: MapId = 'DELHI'
   ) {
+    this.selectedMap = mapId;
     this.container = container;
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0xdbeafe);
-    this.scene.fog = new THREE.FogExp2(0xfef08a, 0.006);
+    this.scene.background = new THREE.Color(mapId === 'PARIS' ? 0x0f172a : 0xdbeafe);
+    this.scene.fog = new THREE.FogExp2(mapId === 'PARIS' ? 0x1e293b : 0xfef08a, mapId === 'PARIS' ? 0.005 : 0.006);
 
     const width = container.clientWidth || (typeof window !== 'undefined' ? window.innerWidth : 1280) || 1280;
     const height = container.clientHeight || (typeof window !== 'undefined' ? window.innerHeight : 720) || 720;
@@ -167,13 +171,16 @@ export class GameEngine {
       droneSpotlightPos: { x: 0, z: 20 },
       isPlayerInSpotlight: false,
       humanChainActive: false,
-      placardText: 'AWAAZ 2026',
+      placardText: this.selectedMap === 'PARIS' ? 'LIBERTÉ 2026' : 'AWAAZ 2026',
       activePowerUp: null,
       powerUpTimeLeft: 0,
       superchats: [
-        { id: 'sc_init', user: 'DelhiEcho', amount: 500, message: 'Solidarity with the youth! ✊', timestamp: Date.now() },
+        this.selectedMap === 'PARIS'
+          ? { id: 'sc_paris', user: 'BastilleEcho', amount: 50, message: 'Solidarité depuis Paris! 🇫🇷✊', timestamp: Date.now() }
+          : { id: 'sc_init', user: 'DelhiEcho', amount: 500, message: 'Solidarity with the youth! ✊', timestamp: Date.now() },
       ],
       isPhotoMode: false,
+      mapId: this.selectedMap,
     };
 
     // Build World
@@ -209,9 +216,15 @@ export class GameEngine {
   }
 
   private setupWorld() {
-    const { colliders, busPositions } = this.mapBuilder.buildJantarMantar(this.scene);
-    this.colliders = colliders;
-    this.busPositions = busPositions;
+    if (this.selectedMap === 'PARIS') {
+      const { colliders, busPositions } = this.mapBuilder.buildParisBastille(this.scene);
+      this.colliders = colliders;
+      this.busPositions = busPositions;
+    } else {
+      const { colliders, busPositions } = this.mapBuilder.buildJantarMantar(this.scene);
+      this.colliders = colliders;
+      this.busPositions = busPositions;
+    }
   }
 
   private setupMouseControls() {

@@ -9,6 +9,7 @@ import {
   GraphicsQuality,
   TimeOfDay,
   WeatherCondition,
+  MapId,
 } from './types/game';
 import { MovementInput } from './engine/CharacterController';
 import { HUD } from './components/HUD';
@@ -68,6 +69,7 @@ export const App: React.FC = () => {
     powerUpTimeLeft: 0,
     superchats: [],
     isPhotoMode: false,
+    mapId: 'DELHI',
   });
 
   const [stamina, setStamina] = useState(100);
@@ -88,15 +90,27 @@ export const App: React.FC = () => {
   });
 
   // Start Match
-  const handleStartGame = (team: Team, mode: GameMode, roomCode?: string) => {
+  const handleStartGame = (team: Team, mode: GameMode, roomCode?: string, mapId: MapId = 'DELHI') => {
     setLaunchError(null);
     try {
       audioManager.init();
-      console.log('🎮 Starting Awaaz Match:', { team, mode, roomCode });
+      console.log('🎮 Starting Awaaz Match:', { team, mode, roomCode, mapId });
+
+      if (mapId === 'PARIS') {
+        setComments([
+          { id: '1', user: 'BastilleEcho', text: 'Rassemblement à la Place de la Bastille! 🇫🇷📢', emoji: '✊', timestamp: Date.now() },
+          { id: '2', user: 'Camille_Z', text: 'Liberté, Égalité, Solidarité! Bastille debout!', emoji: '🔥', timestamp: Date.now() },
+        ]);
+      } else {
+        setComments([
+          { id: '1', user: 'DelhiEcho', text: 'Peaceful protest starting at Jantar Mantar! 📢', emoji: '✊', timestamp: Date.now() },
+          { id: '2', user: 'Aarav_Z', text: 'Stand strong! Raise our voices!', emoji: '🔥', timestamp: Date.now() },
+        ]);
+      }
 
       if (!containerRef.current) {
         console.warn('⚠️ containerRef.current is not attached yet, retrying in next tick...');
-        setTimeout(() => handleStartGame(team, mode, roomCode), 50);
+        setTimeout(() => handleStartGame(team, mode, roomCode, mapId), 50);
         return;
       }
 
@@ -108,7 +122,7 @@ export const App: React.FC = () => {
         }
       }
 
-      const engine = new GameEngine(containerRef.current, mode, team, roomCode);
+      const engine = new GameEngine(containerRef.current, mode, team, roomCode, mapId);
       engineRef.current = engine;
 
       engine.onStateUpdate = (newState) => {
@@ -119,8 +133,11 @@ export const App: React.FC = () => {
       };
 
       engine.onLiveStreamComment = (commentText) => {
-        const users = ['PoojaLive', 'RohanYouth', 'Kavita_Now', 'GenZPower', 'Simran_V', 'ArjunDelhi', 'Vikram_S'];
-        const emojis = ['❤️', '🔥', '📢', '✊', '⚡️', '🌟'];
+        const isParis = engine.selectedMap === 'PARIS';
+        const users = isParis
+          ? ['Camille_Paris', 'Lucas_Bastille', 'Manon_Republique', 'Hugo_Z', 'Chloe_Libre', 'Bastien_FR', 'Léa_Agora']
+          : ['PoojaLive', 'RohanYouth', 'Kavita_Now', 'GenZPower', 'Simran_V', 'ArjunDelhi', 'Vikram_S'];
+        const emojis = isParis ? ['🇫🇷', '🔥', '📢', '✊', '⚡️', '🥖'] : ['❤️', '🔥', '📢', '✊', '⚡️', '🌟'];
         const randomUser = users[Math.floor(Math.random() * users.length)];
         const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
 

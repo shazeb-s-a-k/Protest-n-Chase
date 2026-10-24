@@ -56,7 +56,9 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
           </h2>
           <p className="text-xs sm:text-sm text-slate-300 mt-2">
             {isProtestorWin
-              ? 'Jantar Mantar echoed with united energy! The movement achieved global viral awareness!'
+              ? matchState.mapId === 'PARIS'
+                ? 'Place de la Bastille resonated with freedom! The French movement achieved global viral awareness!'
+                : 'Jantar Mantar echoed with united energy! The movement achieved global viral awareness!'
               : 'Crowd control units tactically cleared the perimeter and secured the plaza.'}
           </p>
         </div>

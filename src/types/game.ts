@@ -2,6 +2,8 @@ export type Team = 'PROTESTOR' | 'POLICE';
 
 export type GameMode = 'SOLO' | 'MULTIPLAYER';
 
+export type MapId = 'DELHI' | 'PARIS';
+
 export type MinigameType = 'NONE' | 'STRUGGLE' | 'CANISTER' | 'BUS_RESCUE';
 
 export type CameraViewMode = 'CHASE' | 'TACTICAL' | 'FIRST_PERSON';
@@ -134,6 +136,7 @@ export interface GameMatchState {
   powerUpTimeLeft: number;
   superchats: SuperChat[];
   isPhotoMode: boolean;
+  mapId: MapId;
 }
 
 export interface NetworkMessage {

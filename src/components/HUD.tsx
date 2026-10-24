@@ -101,9 +101,12 @@ export const HUD: React.FC<HUDProps> = ({
         {/* Center: Awareness vs Detainment Status */}
         <div className="glass-panel px-3 sm:px-6 py-2 rounded-2xl flex-1 max-w-md mx-1 sm:mx-2 pointer-events-auto shadow-xl border border-white/10">
           <div className="flex items-center justify-between text-xs font-bold mb-1">
-            <span className="flex items-center gap-1 text-pink-400 tracking-wide uppercase text-[11px] sm:text-xs">
+            <span className="flex items-center gap-1.5 text-pink-400 tracking-wide uppercase text-[11px] sm:text-xs">
               <Sparkles className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-              Awaaz (Viral Reach)
+              <span>{matchState.mapId === 'PARIS' ? 'Bastille Mobilisation' : 'Awaaz (Viral Reach)'}</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/10 text-slate-300 font-mono border border-white/10">
+                {matchState.mapId === 'PARIS' ? '🇫🇷 Paris' : '🇮🇳 Delhi'}
+              </span>
             </span>
             <span className="text-xs sm:text-sm font-mono text-cyan-300 font-extrabold">
               {Math.round(matchState.awarenessScore)}%
@@ -120,7 +123,7 @@ export const HUD: React.FC<HUDProps> = ({
           <div className="flex items-center justify-between mt-1.5 pt-1 border-t border-white/5 text-[10px] sm:text-xs text-slate-300">
             <div className="flex items-center gap-1.5">
               <Shield className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-blue-400" />
-              <span>Buses: </span>
+              <span>{matchState.mapId === 'PARIS' ? 'CRS Vans: ' : 'Buses: '}</span>
               <span className="font-bold text-amber-300">
                 {matchState.detainedScore} / 8 Detained
               </span>

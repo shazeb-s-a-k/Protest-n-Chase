@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 
 interface TeamSelectModalProps {
-  onStartGame: (team: Team, mode: GameMode, roomCode?: string) => void;
+  onStartGame: (team: Team, mode: GameMode, roomCode?: string, mapId?: 'DELHI' | 'PARIS') => void;
   onOpenSupport?: () => void;
 }
 
@@ -38,7 +38,10 @@ export const TeamSelectModal: React.FC<TeamSelectModalProps> = ({
             <span>Protest-n-Chase: <strong className="text-white">World Tour</strong></span>
           </div>
           <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-white uppercase">
-            Chapter 1: <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-500 via-purple-400 to-cyan-400">Delhi</span>
+            {selectedMap === 'PARIS' ? 'Chapter 2: ' : 'Chapter 1: '}
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-500 via-purple-400 to-cyan-400">
+              {selectedMap === 'PARIS' ? 'Paris (Bastille)' : 'Delhi (Jantar Mantar)'}
+            </span>
           </h1>
           <p className="text-xs sm:text-sm text-slate-300 max-w-lg">
             Subway Surfers-style agile evasion, megaphone chants, and tactical crowd control across global iconic landmarks.
@@ -170,13 +173,13 @@ export const TeamSelectModal: React.FC<TeamSelectModalProps> = ({
               <MapPin className="w-4 h-4 text-pink-400" />
             </div>
 
-            {/* Map 2: Paris, France (Coming Soon Teaser) */}
+            {/* Map 2: Paris, France (Playable) */}
             <div
               onClick={() => setSelectedMap('PARIS')}
               className={`cursor-pointer p-3.5 rounded-2xl border-2 transition-all flex items-center justify-between relative overflow-hidden ${
                 selectedMap === 'PARIS'
-                  ? 'border-cyan-400 bg-cyan-500/15 shadow-lg shadow-cyan-400/20'
-                  : 'border-white/10 bg-slate-900/40 hover:border-white/20 opacity-80'
+                  ? 'border-cyan-400 bg-cyan-500/15 shadow-lg shadow-cyan-400/20 scale-[1.02]'
+                  : 'border-white/10 bg-slate-900/60 hover:border-white/20'
               }`}
             >
               <div className="flex items-center gap-2.5">
@@ -184,8 +187,8 @@ export const TeamSelectModal: React.FC<TeamSelectModalProps> = ({
                 <div>
                   <div className="text-xs font-black text-white flex items-center gap-1.5">
                     <span>Place de la Bastille</span>
-                    <span className="px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-[9px] uppercase font-bold animate-pulse">
-                      Teaser
+                    <span className="px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-[9px] uppercase font-bold">
+                      Playable
                     </span>
                   </div>
                   <div className="text-[10px] text-slate-400">
@@ -193,18 +196,22 @@ export const TeamSelectModal: React.FC<TeamSelectModalProps> = ({
                   </div>
                 </div>
               </div>
-              <span className="text-[10px] font-mono text-cyan-300 font-bold">Coming Soon</span>
+              <MapPin className="w-4 h-4 text-cyan-400" />
             </div>
           </div>
 
-          {selectedMap === 'PARIS' && (
-            <div className="p-3 rounded-xl bg-cyan-950/70 border border-cyan-500/30 text-xs text-cyan-200 flex items-center gap-2 animate-fade-in">
-              <Sparkles className="w-4 h-4 text-cyan-400 flex-shrink-0" />
-              <span>
-                <strong>Paris, France (Chapter 2)</strong> is in active production with Parisian cobblestones and French CRS tactical vans! Launching with Delhi Chapter 1.
+          <div className="p-3 rounded-xl bg-slate-900/80 border border-white/10 text-xs flex items-center gap-2 animate-fade-in">
+            <Sparkles className="w-4 h-4 text-amber-400 flex-shrink-0" />
+            {selectedMap === 'PARIS' ? (
+              <span className="text-slate-300">
+                <strong className="text-cyan-300">Place de la Bastille (Paris) Loaded:</strong> Featuring the 47m July Column (*Génie de la Liberté*), Parisian cafes, Guimard Metro station, and French CRS tactical riot vans!
               </span>
-            </div>
-          )}
+            ) : (
+              <span className="text-slate-300">
+                <strong className="text-pink-400">Jantar Mantar (Delhi) Loaded:</strong> Featuring the 30m Samrat Yantra sundial ramp, DTC green buses, Varun riot truck, and cutting chai boosts!
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Multiplayer Room Code Input (If selected) */}
@@ -230,12 +237,14 @@ export const TeamSelectModal: React.FC<TeamSelectModalProps> = ({
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            onStartGame(selectedTeam, selectedMode, roomCode || undefined);
+            onStartGame(selectedTeam, selectedMode, roomCode || undefined, selectedMap);
           }}
           className="w-full py-4 rounded-2xl bg-gradient-to-r from-pink-500 via-purple-600 to-cyan-500 text-white font-black text-lg tracking-wider uppercase shadow-xl shadow-purple-500/30 hover:brightness-110 active:scale-98 transition-all flex items-center justify-center gap-2.5 cursor-pointer z-10"
         >
           <Play className="w-5 h-5 fill-white" />
-          <span>ENTER THE SQUARE</span>
+          <span>
+            ENTER {selectedMap === 'PARIS' ? 'PLACE DE LA BASTILLE (PARIS)' : 'JANTAR MANTAR (DELHI)'}
+          </span>
         </button>
 
         {/* Quick Controls Reminder */}
