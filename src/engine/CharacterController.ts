@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { Team, PlayerState } from '../types/game';
 import { Collider } from './MapBuilder';
 import { audioManager } from './AudioManager';
+import { TextureGenerator } from './TextureGenerator';
 
 export interface MovementInput {
   moveForward: number; // -1 to 1
@@ -11,6 +12,11 @@ export interface MovementInput {
   slide: boolean;
 }
 
+/**
+ * AAA-Grade Stylized 3D Character Controller
+ * Features smooth anatomical proportions, PBR materials, detailed apparel,
+ * realistic streetwear/tactical gear, and dynamic articulated limb physics.
+ */
 export class CharacterController {
   public mesh: THREE.Group;
   public state: PlayerState;
@@ -20,10 +26,12 @@ export class CharacterController {
   public maxStamina: number = 100;
 
   // Visual Limbs for procedural animation
-  private leftArm?: THREE.Mesh;
-  private rightArm?: THREE.Mesh;
-  private leftLeg?: THREE.Mesh;
-  private rightLeg?: THREE.Mesh;
+  private leftArmGroup?: THREE.Group;
+  private rightArmGroup?: THREE.Group;
+  private leftLegGroup?: THREE.Group;
+  private rightLegGroup?: THREE.Group;
+  private headGroup?: THREE.Group;
+  private torsoGroup?: THREE.Group;
   private accessoryGroup?: THREE.Group;
   private placardMesh?: THREE.Mesh;
   private auraRing?: THREE.Mesh;
@@ -31,7 +39,7 @@ export class CharacterController {
 
   // Collision
   public radius: number = 0.55;
-  public height: number = 1.8;
+  public height: number = 1.85;
 
   constructor(scene: THREE.Scene, state: PlayerState) {
     this.state = state;
@@ -42,146 +50,337 @@ export class CharacterController {
   }
 
   /**
-   * Procedural stylized low-poly character model
+   * Builds an anatomically stylized, high-detail character model
    */
   private buildCharacterMesh(team: Team): THREE.Group {
-    const group = new THREE.Group();
+    const root = new THREE.Group();
+    const isProtestor = team === 'PROTESTOR';
 
-    const skinMat = new THREE.MeshStandardMaterial({ color: 0xdeb887, roughness: 0.8 });
-    const hairMat = new THREE.MeshStandardMaterial({ color: 0x1c1917, roughness: 0.9 });
+    // Materials with PBR textures
+    const fabricBump = TextureGenerator.getFabricBumpTexture();
+    const kevlarBump = TextureGenerator.getTacticalKevlarTexture();
 
-    let clothMat: THREE.MeshStandardMaterial;
+    // Skin Material with warm subsurface feel
+    const skinMat = new THREE.MeshStandardMaterial({
+      color: 0xdeb887,
+      roughness: 0.65,
+      metalness: 0.05,
+    });
+
+    // Hair Material with anisotropic sheen
+    const hairMat = new THREE.MeshStandardMaterial({
+      color: 0x18181b,
+      roughness: 0.45,
+      metalness: 0.1,
+    });
+
+    // Clothing Materials
+    let hoodieMat: THREE.MeshStandardMaterial;
     let pantsMat: THREE.MeshStandardMaterial;
 
-    if (team === 'PROTESTOR') {
-      clothMat = new THREE.MeshStandardMaterial({
-        color: 0xec4899, // Bright pink hoodie
-        roughness: 0.7,
+    if (isProtestor) {
+      hoodieMat = new THREE.MeshStandardMaterial({
+        color: 0xec4899, // Vibrant Electric Magenta
+        roughness: 0.75,
+        bumpMap: fabricBump,
+        bumpScale: 0.03,
       });
       pantsMat = new THREE.MeshStandardMaterial({
-        color: 0x1e293b, // Dark denim cargo pants
+        color: 0x1e293b, // Dark Navy Denim
         roughness: 0.8,
+        bumpMap: fabricBump,
+        bumpScale: 0.04,
       });
     } else {
-      clothMat = new THREE.MeshStandardMaterial({
-        color: 0x1e3a8a, // Tactical Police Blue
-        roughness: 0.5,
+      hoodieMat = new THREE.MeshStandardMaterial({
+        color: 0x1e3a8a, // Tactical Gendarmerie/Delhi Blue
+        roughness: 0.55,
+        bumpMap: fabricBump,
+        bumpScale: 0.02,
       });
       pantsMat = new THREE.MeshStandardMaterial({
-        color: 0x0f172a, // Dark Navy trousers
-        roughness: 0.7,
+        color: 0x0f172a, // Riot Black/Navy Cargo BDUs
+        roughness: 0.65,
+        bumpMap: fabricBump,
+        bumpScale: 0.03,
       });
     }
 
-    // 1. Torso
-    const torsoGeo = new THREE.BoxGeometry(0.7, 0.9, 0.45);
-    const torso = new THREE.Mesh(torsoGeo, clothMat);
-    torso.position.y = 1.05;
-    torso.castShadow = true;
-    group.add(torso);
+    // ==============================================================
+    // 1. Torso & Upper Body
+    // ==============================================================
+    const torsoGroup = new THREE.Group();
+    this.torsoGroup = torsoGroup;
+    torsoGroup.position.y = 1.05;
 
-    if (team === 'POLICE') {
-      const vestGeo = new THREE.BoxGeometry(0.74, 0.65, 0.5);
-      const vestMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.4 });
+    // Sculpted upper chest & belly (tapered cylinder for athletic build)
+    const chestGeo = new THREE.CylinderGeometry(0.35, 0.30, 0.62, 16);
+    const chest = new THREE.Mesh(chestGeo, hoodieMat);
+    chest.position.y = 0.31;
+    chest.castShadow = true;
+    chest.receiveShadow = true;
+    torsoGroup.add(chest);
+
+    // Rounded shoulders yoke
+    const shoulderYokeGeo = new THREE.SphereGeometry(0.36, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2);
+    const shoulderYoke = new THREE.Mesh(shoulderYokeGeo, hoodieMat);
+    shoulderYoke.position.y = 0.55;
+    shoulderYoke.scale.set(1.05, 0.5, 0.95);
+    torsoGroup.add(shoulderYoke);
+
+    // Hips / Pelvis
+    const hipsGeo = new THREE.CylinderGeometry(0.30, 0.28, 0.22, 14);
+    const hips = new THREE.Mesh(hipsGeo, pantsMat);
+    hips.position.y = -0.05;
+    hips.castShadow = true;
+    torsoGroup.add(hips);
+
+    if (isProtestor) {
+      // Kangaroo pocket on belly
+      const pocketGeo = new THREE.BoxGeometry(0.38, 0.22, 0.12);
+      const pocketMat = new THREE.MeshStandardMaterial({
+        color: 0xdb2777,
+        roughness: 0.7,
+      });
+      const pocket = new THREE.Mesh(pocketGeo, pocketMat);
+      pocket.position.set(0, 0.24, 0.26);
+      torsoGroup.add(pocket);
+
+      // Crossbody tactical streetwear sling bag
+      const strapGeo = new THREE.TorusGeometry(0.38, 0.03, 8, 24);
+      const strapMat = new THREE.MeshStandardMaterial({ color: 0x09090b, roughness: 0.5 });
+      const strap = new THREE.Mesh(strapGeo, strapMat);
+      strap.rotation.x = Math.PI / 3;
+      strap.rotation.y = Math.PI / 6;
+      strap.position.set(0, 0.32, 0);
+      torsoGroup.add(strap);
+
+      // Sling pouch on hip/back
+      const pouchGeo = new THREE.BoxGeometry(0.24, 0.28, 0.12);
+      const pouchMat = new THREE.MeshStandardMaterial({
+        color: 0x06b6d4, // Cyan utility pouch
+        roughness: 0.4,
+        metalness: 0.2,
+      });
+      const pouch = new THREE.Mesh(pouchGeo, pouchMat);
+      pouch.position.set(-0.25, 0.15, -0.22);
+      pouch.rotation.y = 0.4;
+      torsoGroup.add(pouch);
+    } else {
+      // Tactical Ballistic Plate Carrier / Body Armor
+      const vestGeo = new THREE.BoxGeometry(0.72, 0.56, 0.54);
+      const vestMat = new THREE.MeshStandardMaterial({
+        color: 0x1e293b,
+        roughness: 0.45,
+        metalness: 0.2,
+        bumpMap: kevlarBump,
+        bumpScale: 0.05,
+      });
       const vest = new THREE.Mesh(vestGeo, vestMat);
-      vest.position.y = 1.1;
-      group.add(vest);
+      vest.position.set(0, 0.34, 0);
+      vest.castShadow = true;
+      torsoGroup.add(vest);
 
-      const badgeGeo = new THREE.BoxGeometry(0.18, 0.18, 0.05);
-      const badgeMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.8 });
+      // MOLLE tactical webbing strips
+      const molleMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.6 });
+      [-0.08, 0.02, 0.12].forEach((offsetY) => {
+        const molleGeo = new THREE.BoxGeometry(0.56, 0.04, 0.02);
+        const molle = new THREE.Mesh(molleGeo, molleMat);
+        molle.position.set(0, 0.34 + offsetY, 0.28);
+        torsoGroup.add(molle);
+      });
+
+      // Polished Gold Police Badge
+      const badgeGeo = new THREE.CylinderGeometry(0.08, 0.06, 0.02, 6);
+      const badgeMat = new THREE.MeshStandardMaterial({
+        color: 0xfacc15,
+        metalness: 0.95,
+        roughness: 0.15,
+      });
       const badge = new THREE.Mesh(badgeGeo, badgeMat);
-      badge.position.set(0.18, 1.25, 0.28);
-      group.add(badge);
-    } else {
-      const badgeGeo = new THREE.BoxGeometry(0.35, 0.15, 0.05);
-      const badgeMat = new THREE.MeshStandardMaterial({ color: 0x00f0ff });
-      const badge = new THREE.Mesh(badgeGeo, badgeMat);
-      badge.position.set(0, 1.2, 0.25);
-      group.add(badge);
+      badge.rotation.x = Math.PI / 2;
+      badge.position.set(0.18, 0.46, 0.28);
+      torsoGroup.add(badge);
+
+      // Body-cam with blue blinking LED indicator
+      const camGeo = new THREE.BoxGeometry(0.09, 0.09, 0.04);
+      const camMat = new THREE.MeshStandardMaterial({ color: 0x0a0a0a, roughness: 0.2 });
+      const cam = new THREE.Mesh(camGeo, camMat);
+      cam.position.set(-0.18, 0.45, 0.28);
+      torsoGroup.add(cam);
+
+      const ledGeo = new THREE.SphereGeometry(0.015, 8, 8);
+      const ledMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
+      const led = new THREE.Mesh(ledGeo, ledMat);
+      led.position.set(-0.18, 0.47, 0.31);
+      torsoGroup.add(led);
     }
 
-    // 2. Head & Cap
-    const headGeo = new THREE.BoxGeometry(0.42, 0.42, 0.42);
-    const head = new THREE.Mesh(headGeo, skinMat);
-    head.position.y = 1.7;
-    head.castShadow = true;
-    group.add(head);
+    root.add(torsoGroup);
 
-    if (team === 'PROTESTOR') {
-      const capGeo = new THREE.BoxGeometry(0.46, 0.18, 0.5);
-      const capMat = new THREE.MeshStandardMaterial({ color: 0x06b6d4 });
-      const cap = new THREE.Mesh(capGeo, capMat);
-      cap.position.set(0, 1.88, -0.05);
-      group.add(cap);
+    // ==============================================================
+    // 2. Sculpted Head, Face, Hair & Headgear
+    // ==============================================================
+    this.headGroup = new THREE.Group();
+    this.headGroup.position.set(0, 1.72, 0);
 
-      const glassesGeo = new THREE.BoxGeometry(0.34, 0.1, 0.08);
-      const glassesMat = new THREE.MeshStandardMaterial({ color: 0x09090b, roughness: 0.1 });
-      const glasses = new THREE.Mesh(glassesGeo, glassesMat);
-      glasses.position.set(0, 1.7, 0.23);
-      group.add(glasses);
+    // Neck
+    const neckGeo = new THREE.CylinderGeometry(0.12, 0.14, 0.18, 12);
+    const neck = new THREE.Mesh(neckGeo, skinMat);
+    neck.position.y = -0.16;
+    this.headGroup.add(neck);
+
+    // Head Base (Curved stylized cranial geometry)
+    const headGeo = new THREE.SphereGeometry(0.24, 16, 16);
+    headGeo.scale(0.95, 1.1, 1.0);
+    const headMesh = new THREE.Mesh(headGeo, skinMat);
+    headMesh.castShadow = true;
+    this.headGroup.add(headMesh);
+
+    // Stylized Eyes with white sclera & pupil
+    const eyeWhiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2 });
+    const pupilMat = new THREE.MeshStandardMaterial({ color: 0x1e1b4b, roughness: 0.1 });
+
+    [-0.08, 0.08].forEach((eyeX) => {
+      const eyeWhite = new THREE.Mesh(new THREE.SphereGeometry(0.038, 10, 10), eyeWhiteMat);
+      eyeWhite.position.set(eyeX, 0.04, 0.22);
+      this.headGroup?.add(eyeWhite);
+
+      const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.02, 8, 8), pupilMat);
+      pupil.position.set(eyeX, 0.04, 0.245);
+      this.headGroup?.add(pupil);
+    });
+
+    if (isProtestor) {
+      // Layered Streetwear Hair
+      const hairGeo = new THREE.SphereGeometry(0.26, 16, 12, 0, Math.PI * 2, 0, Math.PI / 1.7);
+      const hair = new THREE.Mesh(hairGeo, hairMat);
+      hair.position.set(0, 0.06, -0.02);
+      this.headGroup.add(hair);
+
+      // Snapback Cap with curved visor
+      const capDomeGeo = new THREE.SphereGeometry(0.255, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2);
+      const capMat = new THREE.MeshStandardMaterial({
+        color: 0x06b6d4, // Cyan Streetwear Cap
+        roughness: 0.6,
+      });
+      const capDome = new THREE.Mesh(capDomeGeo, capMat);
+      capDome.position.set(0, 0.08, -0.01);
+      this.headGroup.add(capDome);
+
+      // Curved Cap Visor / Bill
+      const visorGeo = new THREE.BoxGeometry(0.28, 0.025, 0.22);
+      const visor = new THREE.Mesh(visorGeo, capMat);
+      visor.position.set(0, 0.1, 0.28);
+      visor.rotation.x = -0.15;
+      this.headGroup.add(visor);
+
+      // Chunky DJ / Streetwear Wireless Headphones around neck
+      const hpBandGeo = new THREE.TorusGeometry(0.22, 0.025, 8, 20, Math.PI * 1.3);
+      const hpMat = new THREE.MeshStandardMaterial({ color: 0x18181b, metalness: 0.8, roughness: 0.2 });
+      const hpBand = new THREE.Mesh(hpBandGeo, hpMat);
+      hpBand.rotation.x = Math.PI / 2;
+      hpBand.position.set(0, -0.1, 0.02);
+      this.headGroup.add(hpBand);
+
+      // Ear cups
+      [-0.23, 0.23].forEach((cupX) => {
+        const cupGeo = new THREE.CylinderGeometry(0.07, 0.07, 0.05, 12);
+        const cupMat = new THREE.MeshStandardMaterial({ color: 0xec4899, metalness: 0.85, roughness: 0.15 });
+        const cup = new THREE.Mesh(cupGeo, cupMat);
+        cup.rotation.z = Math.PI / 2;
+        cup.position.set(cupX, -0.08, 0.06);
+        this.headGroup?.add(cup);
+      });
     } else {
-      const capGeo = new THREE.CylinderGeometry(0.32, 0.28, 0.2, 16);
-      const capMat = new THREE.MeshStandardMaterial({ color: 0x854d0e });
-      const cap = new THREE.Mesh(capGeo, capMat);
-      cap.position.set(0, 1.95, 0);
-      group.add(cap);
+      // High-Detail Police Riot Helmet with ballistic visor
+      const helmetGeo = new THREE.SphereGeometry(0.28, 16, 14);
+      const helmetMat = new THREE.MeshStandardMaterial({
+        color: 0x0f172a,
+        roughness: 0.35,
+        metalness: 0.4,
+      });
+      const helmet = new THREE.Mesh(helmetGeo, helmetMat);
+      helmet.position.set(0, 0.08, -0.01);
+      helmet.castShadow = true;
+      this.headGroup.add(helmet);
+
+      // Helmet visor mount rim
+      const rimGeo = new THREE.TorusGeometry(0.27, 0.02, 8, 24, Math.PI);
+      const rimMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.7 });
+      const rim = new THREE.Mesh(rimGeo, rimMat);
+      rim.rotation.x = Math.PI / 2;
+      rim.position.set(0, 0.08, 0);
+      this.headGroup.add(rim);
+
+      // Transparent Curved Polycarbonate Ballistic Visor
+      const visorGeo = new THREE.CylinderGeometry(0.29, 0.29, 0.22, 16, 1, true, -Math.PI / 2.5, Math.PI / 1.25);
+      const visorMat = new THREE.MeshStandardMaterial({
+        color: 0x60a5fa,
+        transparent: true,
+        opacity: 0.52,
+        roughness: 0.08,
+        metalness: 0.85,
+      });
+      const visor = new THREE.Mesh(visorGeo, visorMat);
+      visor.position.set(0, 0.02, 0.02);
+      this.headGroup.add(visor);
     }
 
-    // 3. Arms
-    const armGeo = new THREE.BoxGeometry(0.2, 0.75, 0.2);
-    armGeo.translate(0, -0.3, 0);
+    root.add(this.headGroup);
 
-    this.leftArm = new THREE.Mesh(armGeo, clothMat);
-    this.leftArm.position.set(-0.48, 1.45, 0);
-    this.leftArm.castShadow = true;
-    group.add(this.leftArm);
+    // ==============================================================
+    // 3. Articulated Legs & Detailed Footwear
+    // ==============================================================
+    // Build Left Leg
+    this.leftLegGroup = this.buildArticulatedLeg(-0.18, pantsMat, isProtestor);
+    root.add(this.leftLegGroup);
 
-    this.rightArm = new THREE.Mesh(armGeo, clothMat);
-    this.rightArm.position.set(0.48, 1.45, 0);
-    this.rightArm.castShadow = true;
-    group.add(this.rightArm);
+    // Build Right Leg
+    this.rightLegGroup = this.buildArticulatedLeg(0.18, pantsMat, isProtestor);
+    root.add(this.rightLegGroup);
 
-    // 4. Held Items (Megaphone / Baton)
+    // ==============================================================
+    // 4. Articulated Arms & Detailed Handheld Gear
+    // ==============================================================
+    // Build Left Arm
+    this.leftArmGroup = this.buildArticulatedArm(-0.42, hoodieMat, skinMat, isProtestor);
+    root.add(this.leftArmGroup);
+
+    // Build Right Arm
+    this.rightArmGroup = this.buildArticulatedArm(0.42, hoodieMat, skinMat, isProtestor);
+    root.add(this.rightArmGroup);
+
+    // Held Accessories
     this.accessoryGroup = new THREE.Group();
-    if (team === 'PROTESTOR') {
-      // Megaphone
-      const megaCone = new THREE.ConeGeometry(0.18, 0.45, 12);
-      const megaMat = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.4 });
-      const megaphone = new THREE.Mesh(megaCone, megaMat);
-      megaphone.rotation.x = Math.PI / 2;
-      megaphone.position.set(0, -0.5, 0.25);
-      this.accessoryGroup.add(megaphone);
 
-      // Protest Placard in Left Hand
+    if (isProtestor) {
+      // 3D Realistic Megaphone
+      const megaGroup = this.createDetailedMegaphone();
+      megaGroup.position.set(0, -0.55, 0.22);
+      this.accessoryGroup.add(megaGroup);
+
+      // 3D Protest Placard in Left Hand
       this.placardMesh = this.createHeldPlacard(this.state.placardText || 'AWAAZ');
-      this.leftArm.add(this.placardMesh);
+      this.leftArmGroup.add(this.placardMesh);
     } else {
-      // Police Baton
-      const batonGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.8, 8);
-      const batonMat = new THREE.MeshStandardMaterial({ color: 0x27272a, roughness: 0.3 });
-      const baton = new THREE.Mesh(batonGeo, batonMat);
-      baton.rotation.x = Math.PI / 4;
-      baton.position.set(0, -0.4, 0.2);
-      this.accessoryGroup.add(baton);
+      // Police Ballistic Riot Shield
+      const shieldGroup = this.createBallisticRiotShield();
+      shieldGroup.position.set(0, -0.45, 0.25);
+      this.leftArmGroup.add(shieldGroup);
+
+      // Tactical Stun Baton in Right Hand
+      const batonGroup = this.createTacticalBaton();
+      batonGroup.position.set(0, -0.52, 0.18);
+      this.accessoryGroup.add(batonGroup);
     }
-    this.rightArm.add(this.accessoryGroup);
 
-    // 5. Legs
-    const legGeo = new THREE.BoxGeometry(0.24, 0.85, 0.24);
-    legGeo.translate(0, -0.4, 0);
+    this.rightArmGroup.add(this.accessoryGroup);
 
-    this.leftLeg = new THREE.Mesh(legGeo, pantsMat);
-    this.leftLeg.position.set(-0.2, 0.7, 0);
-    this.leftLeg.castShadow = true;
-    group.add(this.leftLeg);
-
-    this.rightLeg = new THREE.Mesh(legGeo, pantsMat);
-    this.rightLeg.position.set(0.2, 0.7, 0);
-    this.rightLeg.castShadow = true;
-    group.add(this.rightLeg);
-
-    // 6. Glowing Human Chain Ground Aura Ring (Hidden by default)
-    const ringGeo = new THREE.RingGeometry(0.8, 1.1, 24);
+    // ==============================================================
+    // 5. Glowing Human Chain Ground Resonance Aura Ring
+    // ==============================================================
+    const ringGeo = new THREE.RingGeometry(0.85, 1.25, 32);
     const ringMat = new THREE.MeshBasicMaterial({
       color: 0x00f0ff,
       side: THREE.DoubleSide,
@@ -190,47 +389,288 @@ export class CharacterController {
     });
     this.auraRing = new THREE.Mesh(ringGeo, ringMat);
     this.auraRing.rotation.x = -Math.PI / 2;
-    this.auraRing.position.y = 0.05;
-    group.add(this.auraRing);
+    this.auraRing.position.y = 0.04;
+    root.add(this.auraRing);
 
-    return group;
+    return root;
   }
 
+  /**
+   * Builds an articulated leg with thigh, knee, calf, and high-detail sneakers/combat boots
+   */
+  private buildArticulatedLeg(xPos: number, pantsMat: THREE.Material, isProtestor: boolean): THREE.Group {
+    const legGroup = new THREE.Group();
+    legGroup.position.set(xPos, 0.95, 0); // Pivoted at hip
+
+    // Upper Thigh
+    const thighGeo = new THREE.CylinderGeometry(0.13, 0.11, 0.44, 12);
+    thighGeo.translate(0, -0.22, 0);
+    const thigh = new THREE.Mesh(thighGeo, pantsMat);
+    thigh.castShadow = true;
+    legGroup.add(thigh);
+
+    // Knee Joint
+    const kneeGeo = new THREE.SphereGeometry(0.105, 10, 10);
+    kneeGeo.translate(0, -0.44, 0);
+    const knee = new THREE.Mesh(kneeGeo, pantsMat);
+    legGroup.add(knee);
+
+    // Hard-shell tactical knee pad for Police
+    if (!isProtestor) {
+      const padGeo = new THREE.BoxGeometry(0.18, 0.16, 0.08);
+      const padMat = new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.3, metalness: 0.4 });
+      const pad = new THREE.Mesh(padGeo, padMat);
+      pad.position.set(0, -0.44, 0.11);
+      legGroup.add(pad);
+    }
+
+    // Lower Calf / Shin
+    const calfGeo = new THREE.CylinderGeometry(0.11, 0.09, 0.42, 12);
+    calfGeo.translate(0, -0.65, 0);
+    const calf = new THREE.Mesh(calfGeo, pantsMat);
+    calf.castShadow = true;
+    legGroup.add(calf);
+
+    // High-Detail Footwear: Parkour Sneakers or Tactical Combat Boots
+    if (isProtestor) {
+      // Parkour High-Top Sneaker
+      const soleGeo = new THREE.BoxGeometry(0.24, 0.08, 0.44);
+      const soleMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6 });
+      const sole = new THREE.Mesh(soleGeo, soleMat);
+      sole.position.set(0, -0.91, 0.06);
+      sole.castShadow = true;
+      legGroup.add(sole);
+
+      const upperGeo = new THREE.BoxGeometry(0.22, 0.14, 0.40);
+      const upperMat = new THREE.MeshStandardMaterial({ color: 0xdb2777, roughness: 0.7 });
+      const upper = new THREE.Mesh(upperGeo, upperMat);
+      upper.position.set(0, -0.83, 0.06);
+      legGroup.add(upper);
+
+      // White Toe Cap
+      const toeGeo = new THREE.CylinderGeometry(0.11, 0.11, 0.12, 12, 1, false, 0, Math.PI);
+      const toe = new THREE.Mesh(toeGeo, soleMat);
+      toe.rotation.x = Math.PI / 2;
+      toe.position.set(0, -0.83, 0.22);
+      legGroup.add(toe);
+    } else {
+      // Tactical Combat Assault Boot
+      const bootGeo = new THREE.BoxGeometry(0.25, 0.22, 0.46);
+      const bootMat = new THREE.MeshStandardMaterial({
+        color: 0x111827,
+        roughness: 0.4,
+        metalness: 0.3,
+      });
+      const boot = new THREE.Mesh(bootGeo, bootMat);
+      boot.position.set(0, -0.84, 0.06);
+      boot.castShadow = true;
+      legGroup.add(boot);
+
+      // Deep Lugged Rubber Sole
+      const lugSoleGeo = new THREE.BoxGeometry(0.26, 0.07, 0.48);
+      const lugSoleMat = new THREE.MeshStandardMaterial({ color: 0x030712, roughness: 0.9 });
+      const lugSole = new THREE.Mesh(lugSoleGeo, lugSoleMat);
+      lugSole.position.set(0, -0.92, 0.06);
+      legGroup.add(lugSole);
+    }
+
+    return legGroup;
+  }
+
+  /**
+   * Builds an articulated arm with shoulder, biceps, forearm, and detailed hands/gloves
+   */
+  private buildArticulatedArm(
+    xPos: number,
+    clothMat: THREE.Material,
+    skinMat: THREE.Material,
+    isProtestor: boolean
+  ): THREE.Group {
+    const armGroup = new THREE.Group();
+    armGroup.position.set(xPos, 1.48, 0); // Pivoted at shoulder
+
+    // Shoulder Cap Deltoid
+    const shoulderGeo = new THREE.SphereGeometry(0.12, 12, 10);
+    const shoulder = new THREE.Mesh(shoulderGeo, clothMat);
+    armGroup.add(shoulder);
+
+    // Upper Bicep Arm
+    const upperGeo = new THREE.CylinderGeometry(0.10, 0.085, 0.38, 12);
+    upperGeo.translate(0, -0.19, 0);
+    const upper = new THREE.Mesh(upperGeo, clothMat);
+    upper.castShadow = true;
+    armGroup.add(upper);
+
+    // Elbow Joint
+    const elbowGeo = new THREE.SphereGeometry(0.08, 10, 10);
+    elbowGeo.translate(0, -0.38, 0);
+    const elbow = new THREE.Mesh(elbowGeo, clothMat);
+    armGroup.add(elbow);
+
+    // Forearm
+    const foreGeo = new THREE.CylinderGeometry(0.085, 0.075, 0.34, 12);
+    foreGeo.translate(0, -0.55, 0);
+    const forearm = new THREE.Mesh(foreGeo, isProtestor ? skinMat : clothMat);
+    forearm.castShadow = true;
+    armGroup.add(forearm);
+
+    // Hand & Tactical Fingerless Gloves
+    const handGeo = new THREE.BoxGeometry(0.13, 0.15, 0.11);
+    const gloveMat = isProtestor
+      ? new THREE.MeshStandardMaterial({ color: 0x09090b, roughness: 0.7 })
+      : new THREE.MeshStandardMaterial({ color: 0x1f2937, roughness: 0.4, metalness: 0.3 });
+    const hand = new THREE.Mesh(handGeo, gloveMat);
+    hand.position.set(0, -0.74, 0.02);
+    armGroup.add(hand);
+
+    return armGroup;
+  }
+
+  /**
+   * Creates a high-detail 3D Megaphone with flared horn, acoustic cone, handle, and trigger
+   */
+  private createDetailedMegaphone(): THREE.Group {
+    const mega = new THREE.Group();
+
+    // Flared acoustic horn
+    const hornGeo = new THREE.ConeGeometry(0.19, 0.48, 16, 1, true);
+    const hornMat = new THREE.MeshStandardMaterial({
+      color: 0xef4444, // Red Body
+      roughness: 0.3,
+      metalness: 0.2,
+    });
+    const horn = new THREE.Mesh(hornGeo, hornMat);
+    horn.rotation.x = Math.PI / 2;
+    mega.add(horn);
+
+    // Chrome front rim ring
+    const rimGeo = new THREE.TorusGeometry(0.19, 0.015, 8, 24);
+    const rimMat = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.9, roughness: 0.1 });
+    const rim = new THREE.Mesh(rimGeo, rimMat);
+    rim.position.set(0, 0, 0.24);
+    mega.add(rim);
+
+    // Rear battery enclosure
+    const rearGeo = new THREE.CylinderGeometry(0.09, 0.09, 0.18, 16);
+    const rearMat = new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.4 });
+    const rear = new THREE.Mesh(rearGeo, rearMat);
+    rear.rotation.x = Math.PI / 2;
+    rear.position.set(0, 0, -0.16);
+    mega.add(rear);
+
+    // Pistol grip handle
+    const handleGeo = new THREE.CylinderGeometry(0.035, 0.035, 0.22, 10);
+    const handle = new THREE.Mesh(handleGeo, rearMat);
+    handle.position.set(0, -0.16, -0.08);
+    handle.rotation.x = -0.2;
+    mega.add(handle);
+
+    return mega;
+  }
+
+  /**
+   * Creates a curved ballistic riot shield with aluminum border & POLICE stencil
+   */
+  private createBallisticRiotShield(): THREE.Group {
+    const shield = new THREE.Group();
+
+    // Curved transparent polycarbonate shield body
+    const bodyGeo = new THREE.CylinderGeometry(0.65, 0.65, 1.25, 20, 1, true, -Math.PI / 3.5, Math.PI / 1.75);
+    const bodyMat = new THREE.MeshStandardMaterial({
+      color: 0x38bdf8,
+      transparent: true,
+      opacity: 0.55,
+      roughness: 0.1,
+      metalness: 0.85,
+      side: THREE.DoubleSide,
+    });
+    const body = new THREE.Mesh(bodyGeo, bodyMat);
+    body.rotation.y = Math.PI;
+    body.position.set(0, 0, 0);
+    shield.add(body);
+
+    // Aluminum reinforced border
+    const borderMat = new THREE.MeshStandardMaterial({ color: 0xd1d5db, metalness: 0.9, roughness: 0.2 });
+    [-0.62, 0.62].forEach((offsetY) => {
+      const bGeo = new THREE.CylinderGeometry(0.66, 0.66, 0.04, 20, 1, true, -Math.PI / 3.5, Math.PI / 1.75);
+      const b = new THREE.Mesh(bGeo, borderMat);
+      b.rotation.y = Math.PI;
+      b.position.y = offsetY;
+      shield.add(b);
+    });
+
+    return shield;
+  }
+
+  /**
+   * Creates a tactical stun baton with ribbed grip
+   */
+  private createTacticalBaton(): THREE.Group {
+    const baton = new THREE.Group();
+
+    const shaftGeo = new THREE.CylinderGeometry(0.03, 0.03, 0.85, 12);
+    const shaftMat = new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.3, metalness: 0.5 });
+    const shaft = new THREE.Mesh(shaftGeo, shaftMat);
+    shaft.rotation.x = Math.PI / 3.5;
+    baton.add(shaft);
+
+    const gripGeo = new THREE.CylinderGeometry(0.038, 0.038, 0.24, 12);
+    const gripMat = new THREE.MeshStandardMaterial({ color: 0x27272a, roughness: 0.8 });
+    const grip = new THREE.Mesh(gripGeo, gripMat);
+    grip.position.set(0, -0.25, -0.15);
+    grip.rotation.x = Math.PI / 3.5;
+    baton.add(grip);
+
+    return baton;
+  }
+
+  /**
+   * Creates held protest placard with wood pole and high-res canvas poster
+   */
   private createHeldPlacard(text: string): THREE.Mesh {
     const canvas = document.createElement('canvas');
-    canvas.width = 256;
-    canvas.height = 160;
+    canvas.width = 512;
+    canvas.height = 320;
     const ctx = canvas.getContext('2d');
     if (ctx) {
       ctx.fillStyle = '#fef08a';
-      ctx.fillRect(0, 0, 256, 160);
+      ctx.fillRect(0, 0, 512, 320);
+
+      // Weathered border
+      ctx.strokeStyle = '#eab308';
+      ctx.lineWidth = 12;
+      ctx.strokeRect(8, 8, 496, 304);
+
       ctx.fillStyle = '#090d16';
-      ctx.font = 'bold 24px Outfit, sans-serif';
+      ctx.font = '900 48px Outfit, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(text, 128, 85);
+      ctx.fillText(text, 256, 175);
     }
     const tex = new THREE.CanvasTexture(canvas);
-    const boardGeo = new THREE.BoxGeometry(0.8, 0.55, 0.02);
-    const boardMat = new THREE.MeshStandardMaterial({ map: tex });
+    const boardGeo = new THREE.BoxGeometry(0.85, 0.58, 0.025);
+    const boardMat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.8 });
     const board = new THREE.Mesh(boardGeo, boardMat);
-    board.position.set(0, -0.45, 0.3);
-    board.rotation.y = Math.PI / 6;
+    board.position.set(0, -0.48, 0.32);
+    board.rotation.y = Math.PI / 5;
     return board;
   }
 
   public updatePlacardText(newText: string) {
     if (!this.placardMesh) return;
     const canvas = document.createElement('canvas');
-    canvas.width = 256;
-    canvas.height = 160;
+    canvas.width = 512;
+    canvas.height = 320;
     const ctx = canvas.getContext('2d');
     if (ctx) {
       ctx.fillStyle = '#fef08a';
-      ctx.fillRect(0, 0, 256, 160);
+      ctx.fillRect(0, 0, 512, 320);
+      ctx.strokeStyle = '#eab308';
+      ctx.lineWidth = 12;
+      ctx.strokeRect(8, 8, 496, 304);
       ctx.fillStyle = '#090d16';
-      ctx.font = 'bold 24px Outfit, sans-serif';
+      ctx.font = '900 48px Outfit, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(newText, 128, 85);
+      ctx.fillText(newText, 256, 175);
     }
     const tex = new THREE.CanvasTexture(canvas);
     (this.placardMesh.material as THREE.MeshStandardMaterial).map = tex;
@@ -249,12 +689,12 @@ export class CharacterController {
   }
 
   /**
-   * Updates player physics, movement, and animations
+   * Updates player physics, movement, and procedural animations
    */
   public update(delta: number, input: MovementInput, colliders: Collider[]) {
     if (this.state.isDetained) {
       this.animTimer += delta * 2;
-      if (this.leftArm) this.leftArm.rotation.x = Math.sin(this.animTimer) * 0.2;
+      if (this.leftArmGroup) this.leftArmGroup.rotation.x = Math.sin(this.animTimer) * 0.2;
       return;
     }
 
@@ -263,14 +703,14 @@ export class CharacterController {
       return;
     }
 
-    // In Human Chain: reduced movement, immovable stance
+    // In Human Chain: interlocked arms stance
     if (this.state.isInHumanChain) {
-      if (this.leftArm) this.leftArm.rotation.z = -Math.PI / 2.3;
-      if (this.rightArm) this.rightArm.rotation.z = Math.PI / 2.3;
+      if (this.leftArmGroup) this.leftArmGroup.rotation.z = -Math.PI / 2.3;
+      if (this.rightArmGroup) this.rightArmGroup.rotation.z = Math.PI / 2.3;
       return;
     } else {
-      if (this.leftArm) this.leftArm.rotation.z = 0;
-      if (this.rightArm) this.rightArm.rotation.z = 0;
+      if (this.leftArmGroup) this.leftArmGroup.rotation.z = 0;
+      if (this.rightArmGroup) this.rightArmGroup.rotation.z = 0;
     }
 
     const isProtestor = this.state.team === 'PROTESTOR';
@@ -390,39 +830,53 @@ export class CharacterController {
     return new THREE.Vector3(resolvedX, targetY, resolvedZ);
   }
 
+  /**
+   * Procedural articulated limb animations for run, sprint, slide, and jump
+   */
   private animateLimbs(delta: number, isMoving: boolean, currentSpeed: number) {
     if (this.state.isSliding) {
       this.mesh.rotation.x = -Math.PI / 4;
-      if (this.leftLeg) this.leftLeg.rotation.x = -Math.PI / 3;
-      if (this.rightLeg) this.rightLeg.rotation.x = -Math.PI / 3;
+      if (this.leftLegGroup) this.leftLegGroup.rotation.x = -Math.PI / 3;
+      if (this.rightLegGroup) this.rightLegGroup.rotation.x = -Math.PI / 3;
       return;
     }
 
     this.mesh.rotation.x = 0;
 
     if (!this.isGrounded) {
-      if (this.leftLeg) this.leftLeg.rotation.x = -Math.PI / 6;
-      if (this.rightLeg) this.rightLeg.rotation.x = Math.PI / 6;
-      if (this.leftArm) this.leftArm.rotation.x = Math.PI / 4;
+      // In air jump pose
+      if (this.leftLegGroup) this.leftLegGroup.rotation.x = -Math.PI / 5;
+      if (this.rightLegGroup) this.rightLegGroup.rotation.x = Math.PI / 5;
+      if (this.leftArmGroup) this.leftArmGroup.rotation.x = Math.PI / 3;
+      if (this.rightArmGroup) this.rightArmGroup.rotation.x = -Math.PI / 4;
       return;
     }
 
     if (isMoving) {
-      const animRate = currentSpeed * 0.9;
+      const animRate = currentSpeed * 0.85;
       this.animTimer += delta * animRate;
 
-      const swing = Math.sin(this.animTimer) * 0.75;
-      if (this.leftLeg) this.leftLeg.rotation.x = swing;
-      if (this.rightLeg) this.rightLeg.rotation.x = -swing;
-      if (this.leftArm) this.leftArm.rotation.x = -swing;
-      if (this.rightArm) this.rightArm.rotation.x = swing * 0.5;
+      const swing = Math.sin(this.animTimer) * 0.72;
+      if (this.leftLegGroup) this.leftLegGroup.rotation.x = swing;
+      if (this.rightLegGroup) this.rightLegGroup.rotation.x = -swing;
+      if (this.leftArmGroup) this.leftArmGroup.rotation.x = -swing;
+      if (this.rightArmGroup) this.rightArmGroup.rotation.x = swing * 0.55;
+
+      // Subtle hip & spine bounce while running
+      if (this.torsoGroup) {
+        this.torsoGroup.position.y = 1.05 + Math.abs(Math.sin(this.animTimer * 2)) * 0.05;
+      }
     } else {
       this.animTimer += delta * 2;
-      const breathe = Math.sin(this.animTimer) * 0.08;
-      if (this.leftLeg) this.leftLeg.rotation.x = 0;
-      if (this.rightLeg) this.rightLeg.rotation.x = 0;
-      if (this.leftArm) this.leftArm.rotation.x = breathe;
-      if (this.rightArm) this.rightArm.rotation.x = -breathe;
+      const breathe = Math.sin(this.animTimer) * 0.06;
+      if (this.leftLegGroup) this.leftLegGroup.rotation.x = 0;
+      if (this.rightLegGroup) this.rightLegGroup.rotation.x = 0;
+      if (this.leftArmGroup) this.leftArmGroup.rotation.x = breathe;
+      if (this.rightArmGroup) this.rightArmGroup.rotation.x = -breathe;
+
+      if (this.torsoGroup) {
+        this.torsoGroup.position.y = 1.05 + breathe * 0.3;
+      }
     }
   }
 

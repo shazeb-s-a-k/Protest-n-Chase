@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { TimeOfDay } from '../types/game';
+import { TextureGenerator } from './TextureGenerator';
 
 export interface Collider {
   box: THREE.Box3;
@@ -35,11 +36,13 @@ export class MapBuilder {
     this.busDoors.clear();
     this.policeLights = [];
 
-    // Textures & Materials
-    const pavementTex = this.generateFlagstoneTexture();
+    // High-Resolution PBR Textures & Materials
+    const { map: pavementTex, bumpMap: pavementBump } = TextureGenerator.getSandstoneFlagstoneTexture();
     const pavementMat = new THREE.MeshStandardMaterial({
       map: pavementTex,
-      roughness: 0.85,
+      bumpMap: pavementBump,
+      bumpScale: 0.08,
+      roughness: 0.72,
       metalness: 0.05,
     });
 
@@ -604,85 +607,212 @@ export class MapBuilder {
     busGroup.position.set(x, 0, z);
     busGroup.rotation.y = rot;
 
-    const busLength = 11;
-    const busWidth = 3.2;
+    const busLength = 11.2;
+    const busWidth = 3.3;
     const busHeight = 3.6;
 
-    // Bus Body (Deep Police Blue)
-    const bodyGeo = new THREE.BoxGeometry(busWidth, busHeight, busLength);
+    // 1. Lower Chassis (Dark Metallic Steel)
+    const chassisGeo = new THREE.BoxGeometry(busWidth - 0.2, 0.4, busLength);
+    const chassisMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.7, metalness: 0.8 });
+    const chassis = new THREE.Mesh(chassisGeo, chassisMat);
+    chassis.position.y = 0.55;
+    busGroup.add(chassis);
+
+    // 2. Main Bus Body (Deep Police Blue with subtle metallic car lacquer)
+    const bodyGeo = new THREE.BoxGeometry(busWidth, busHeight - 0.4, busLength);
     const bodyMat = new THREE.MeshStandardMaterial({
       color: 0x1d4ed8,
-      roughness: 0.35,
-      metalness: 0.3,
+      roughness: 0.25,
+      metalness: 0.45,
     });
     const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
     bodyMesh.position.y = busHeight / 2 + 0.6;
     bodyMesh.castShadow = true;
+    bodyMesh.receiveShadow = true;
     busGroup.add(bodyMesh);
 
-    // Yellow stripe
-    const stripeGeo = new THREE.BoxGeometry(busWidth + 0.05, 0.45, busLength);
-    const stripeMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.4 });
-    const stripeMesh = new THREE.Mesh(stripeGeo, stripeMat);
-    stripeMesh.position.y = 2.1;
-    busGroup.add(stripeMesh);
+    // 3. Curved Aerodynamic Roof Cap with Roof Ribs
+    const roofGeo = new THREE.CylinderGeometry(busWidth / 2, busWidth / 2, busLength, 16, 1, false, 0, Math.PI);
+    const roofMat = new THREE.MeshStandardMaterial({ color: 0x1e40af, roughness: 0.3, metalness: 0.4 });
+    const roof = new THREE.Mesh(roofGeo, roofMat);
+    roof.rotation.x = Math.PI / 2;
+    roof.rotation.z = Math.PI / 2;
+    roof.position.set(0, busHeight + 0.35, 0);
+    busGroup.add(roof);
 
-    // Barred Windows
-    const windowGeo = new THREE.BoxGeometry(busWidth + 0.1, 1.1, busLength * 0.7);
-    const windowMat = new THREE.MeshStandardMaterial({
-      color: 0x0f172a,
-      roughness: 0.1,
-      metalness: 0.9,
+    // Roof AC & Ventilation Pods
+    [-2, 1.5].forEach((offsetZ) => {
+      const acGeo = new THREE.BoxGeometry(1.8, 0.35, 1.6);
+      const acMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.5 });
+      const ac = new THREE.Mesh(acGeo, acMat);
+      ac.position.set(0, busHeight + 0.65, offsetZ);
+      busGroup.add(ac);
     });
-    const windowMesh = new THREE.Mesh(windowGeo, windowMat);
-    windowMesh.position.y = 2.8;
-    busGroup.add(windowMesh);
 
-    // Wheels
-    const wheelGeo = new THREE.CylinderGeometry(0.65, 0.65, 0.6, 16);
-    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.9 });
+    // 4. Slanted Aerodynamic Windshield with Black Rubber Framing
+    const windGeo = new THREE.BoxGeometry(busWidth - 0.25, 1.25, 0.2);
+    const windMat = new THREE.MeshStandardMaterial({
+      color: 0x0f172a,
+      roughness: 0.05,
+      metalness: 0.95,
+    });
+    const windshield = new THREE.Mesh(windGeo, windMat);
+    windshield.position.set(0, 2.7, busLength / 2 + 0.02);
+    windshield.rotation.x = -0.15;
+    busGroup.add(windshield);
+
+    // Steel Riot Mesh Wire Guard on Windshield
+    const wireMat = new THREE.MeshStandardMaterial({ color: 0x000000, wireframe: true });
+    const wireMesh = new THREE.Mesh(new THREE.BoxGeometry(busWidth - 0.28, 1.22, 0.22), wireMat);
+    wireMesh.position.set(0, 2.7, busLength / 2 + 0.04);
+    wireMesh.rotation.x = -0.15;
+    busGroup.add(wireMesh);
+
+    // 5. Front Chrome Grille & High-Intensity Headlights
+    const grilleGeo = new THREE.BoxGeometry(2.2, 0.7, 0.15);
+    const grilleMat = new THREE.MeshStandardMaterial({ color: 0x18181b, metalness: 0.85, roughness: 0.2 });
+    const grille = new THREE.Mesh(grilleGeo, grilleMat);
+    grille.position.set(0, 1.35, busLength / 2 + 0.05);
+    busGroup.add(grille);
+
+    // Headlight Assemblies (Chrome bezel + Glowing Emissive lens)
+    [-1.25, 1.25].forEach((hx) => {
+      const bezelGeo = new THREE.BoxGeometry(0.5, 0.38, 0.12);
+      const bezelMat = new THREE.MeshStandardMaterial({ color: 0xd1d5db, metalness: 0.95, roughness: 0.1 });
+      const bezel = new THREE.Mesh(bezelGeo, bezelMat);
+      bezel.position.set(hx, 1.45, busLength / 2 + 0.04);
+      busGroup.add(bezel);
+
+      const lensGeo = new THREE.BoxGeometry(0.42, 0.3, 0.05);
+      const lensMat = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        emissive: 0xfff7ed,
+        emissiveIntensity: 0.9,
+      });
+      const lens = new THREE.Mesh(lensGeo, lensMat);
+      lens.position.set(hx, 1.45, busLength / 2 + 0.09);
+      busGroup.add(lens);
+
+      const indGeo = new THREE.BoxGeometry(0.15, 0.3, 0.04);
+      const indMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0xf59e0b, emissiveIntensity: 0.6 });
+      const ind = new THREE.Mesh(indGeo, indMat);
+      ind.position.set(hx > 0 ? hx + 0.32 : hx - 0.32, 1.45, busLength / 2 + 0.08);
+      busGroup.add(ind);
+    });
+
+    // 6. Heavy-Duty Steel Bull-Bar Push Bumper
+    const bumperGeo = new THREE.BoxGeometry(busWidth + 0.2, 0.5, 0.4);
+    const bumperMat = new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.4, metalness: 0.8 });
+    const bumper = new THREE.Mesh(bumperGeo, bumperMat);
+    bumper.position.set(0, 0.75, busLength / 2 + 0.2);
+    busGroup.add(bumper);
+
+    // 7. Dual Aerodynamic Rearview Mirrors
+    [-busWidth / 2 - 0.25, busWidth / 2 + 0.25].forEach((mx) => {
+      const mirrorPost = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.03, 0.03, 0.4, 8),
+        bumperMat
+      );
+      mirrorPost.rotation.z = mx > 0 ? -Math.PI / 3 : Math.PI / 3;
+      mirrorPost.position.set(mx * 0.9, 2.5, busLength / 2 - 0.4);
+      busGroup.add(mirrorPost);
+
+      const mirrorHousing = new THREE.Mesh(
+        new THREE.BoxGeometry(0.12, 0.45, 0.22),
+        bumperMat
+      );
+      mirrorHousing.position.set(mx, 2.65, busLength / 2 - 0.25);
+      busGroup.add(mirrorHousing);
+    });
+
+    // 8. High-Detail Wheels with Steel Rims, Lug Nuts & Deep Tire Tread
     const wheelOffsets = [
-      { x: -busWidth / 2 - 0.1, z: 3.2 },
-      { x: busWidth / 2 + 0.1, z: 3.2 },
-      { x: -busWidth / 2 - 0.1, z: -3.2 },
-      { x: busWidth / 2 + 0.1, z: -3.2 },
+      { x: -busWidth / 2 - 0.12, z: 3.3 },
+      { x: busWidth / 2 + 0.12, z: 3.3 },
+      { x: -busWidth / 2 - 0.12, z: -3.3 },
+      { x: busWidth / 2 + 0.12, z: -3.3 },
     ];
     wheelOffsets.forEach((w) => {
-      const wheel = new THREE.Mesh(wheelGeo, wheelMat);
-      wheel.rotation.z = Math.PI / 2;
-      wheel.position.set(w.x, 0.65, w.z);
-      busGroup.add(wheel);
+      const wheelGroup = new THREE.Group();
+      wheelGroup.position.set(w.x, 0.68, w.z);
+      wheelGroup.rotation.z = Math.PI / 2;
+
+      const tireGeo = new THREE.CylinderGeometry(0.68, 0.68, 0.48, 20);
+      const tireMat = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.9 });
+      const tire = new THREE.Mesh(tireGeo, tireMat);
+      wheelGroup.add(tire);
+
+      const rimGeo = new THREE.CylinderGeometry(0.48, 0.48, 0.50, 16);
+      const rimMat = new THREE.MeshStandardMaterial({ color: 0xd1d5db, metalness: 0.9, roughness: 0.2 });
+      const rim = new THREE.Mesh(rimGeo, rimMat);
+      wheelGroup.add(rim);
+
+      const hubGeo = new THREE.CylinderGeometry(0.18, 0.18, 0.52, 10);
+      const hubMat = new THREE.MeshStandardMaterial({ color: 0x18181b, metalness: 0.95 });
+      const hub = new THREE.Mesh(hubGeo, hubMat);
+      wheelGroup.add(hub);
+
+      busGroup.add(wheelGroup);
     });
 
-    // Rear Emergency Door (Can swing open on Jailbreak)
-    const doorHinge = new THREE.Group();
-    doorHinge.position.set(busWidth / 2 - 0.1, 1.8, -busLength / 2 - 0.05);
+    // 9. Reflective Yellow Stencil Stripe with "DELHI POLICE"
+    const stripeGeo = new THREE.BoxGeometry(busWidth + 0.06, 0.5, busLength - 0.4);
+    const stripeMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.35 });
+    const stripe = new THREE.Mesh(stripeGeo, stripeMat);
+    stripe.position.set(0, 2.05, -0.1);
+    busGroup.add(stripe);
 
-    const doorGeo = new THREE.BoxGeometry(1.6, 2.4, 0.15);
-    doorGeo.translate(-0.8, 0, 0); // pivot at hinge edge
+    // 10. Barred Security Windows along sides
+    const winGeo = new THREE.BoxGeometry(busWidth + 0.08, 1.15, busLength * 0.68);
+    const winMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.05, metalness: 0.95 });
+    const windows = new THREE.Mesh(winGeo, winMat);
+    windows.position.set(0, 2.75, -0.6);
+    busGroup.add(windows);
+
+    // 11. Rear Emergency Door (Can swing open on Jailbreak)
+    const doorHinge = new THREE.Group();
+    doorHinge.position.set(busWidth / 2 - 0.15, 1.8, -busLength / 2 - 0.05);
+
+    const doorGeo = new THREE.BoxGeometry(1.6, 2.4, 0.18);
+    doorGeo.translate(-0.8, 0, 0);
     const doorMat = new THREE.MeshStandardMaterial({
-      color: 0xef4444, // Red emergency hatch
+      color: 0xef4444,
       roughness: 0.3,
+      metalness: 0.2,
     });
     const doorMesh = new THREE.Mesh(doorGeo, doorMat);
+    doorMesh.castShadow = true;
     doorHinge.add(doorMesh);
     busGroup.add(doorHinge);
     this.busDoors.set(busId, doorHinge);
 
-    // Flashing Dual Siren Lightbar (Red and Blue)
-    const lightBarGeo = new THREE.BoxGeometry(1.4, 0.3, 0.4);
-    const lightBarMat = new THREE.MeshStandardMaterial({ color: 0x27272a });
+    // 12. Rear LED Brake Lights
+    [-1.25, 1.25].forEach((rx) => {
+      const brakeGeo = new THREE.BoxGeometry(0.35, 0.55, 0.06);
+      const brakeMat = new THREE.MeshStandardMaterial({
+        color: 0xef4444,
+        emissive: 0xef4444,
+        emissiveIntensity: 0.8,
+      });
+      const brake = new THREE.Mesh(brakeGeo, brakeMat);
+      brake.position.set(rx, 1.6, -busLength / 2 - 0.02);
+      busGroup.add(brake);
+    });
+
+    // 13. Flashing Dual Siren Lightbar
+    const lightBarGeo = new THREE.BoxGeometry(1.6, 0.28, 0.38);
+    const lightBarMat = new THREE.MeshStandardMaterial({ color: 0x18181b, metalness: 0.8 });
     const lightBar = new THREE.Mesh(lightBarGeo, lightBarMat);
-    lightBar.position.set(0, busHeight + 0.75, 3.5);
+    lightBar.position.set(0, busHeight + 0.82, 3.2);
     busGroup.add(lightBar);
 
-    const redLight = new THREE.PointLight(0xef4444, 2.5, 12);
-    redLight.position.set(-0.5, busHeight + 0.85, 3.5);
+    const redLight = new THREE.PointLight(0xef4444, 2.8, 14);
+    redLight.position.set(-0.55, busHeight + 0.95, 3.2);
     busGroup.add(redLight);
     this.policeLights.push(redLight);
 
-    const blueLight = new THREE.PointLight(0x3b82f6, 2.5, 12);
-    blueLight.position.set(0.5, busHeight + 0.85, 3.5);
+    const blueLight = new THREE.PointLight(0x00f0ff, 2.8, 14);
+    blueLight.position.set(0.55, busHeight + 0.95, 3.2);
     busGroup.add(blueLight);
     this.policeLights.push(blueLight);
 
@@ -703,40 +833,94 @@ export class MapBuilder {
   public openBusDoor(busId: string) {
     const door = this.busDoors.get(busId);
     if (door) {
-      door.rotation.y = -Math.PI / 1.8; // Swing open
+      door.rotation.y = -Math.PI / 1.8;
       setTimeout(() => {
-        door.rotation.y = 0; // Close after 4s
+        door.rotation.y = 0;
       }, 4000);
     }
   }
 
   /**
-   * Water Cannon Truck "Varun"
+   * High-Detail Water Cannon Truck "Varun" with armored cab & dual roof turrets
    */
   private createWaterCannonTruck(scene: THREE.Scene, x: number, z: number) {
     const truckGroup = new THREE.Group();
     truckGroup.position.set(x, 0, z);
 
-    const truckGeo = new THREE.BoxGeometry(3.5, 3.2, 9);
-    const truckMat = new THREE.MeshStandardMaterial({ color: 0x1e3a8a, metalness: 0.5, roughness: 0.4 });
-    const truckMesh = new THREE.Mesh(truckGeo, truckMat);
-    truckMesh.position.y = 2.2;
-    truckMesh.castShadow = true;
-    truckGroup.add(truckMesh);
+    // 1. Armored Chassis & Slanted Heavy Cab
+    const cabGeo = new THREE.BoxGeometry(3.6, 3.4, 9.6);
+    const cabMat = new THREE.MeshStandardMaterial({
+      color: 0x1e3a8a,
+      metalness: 0.65,
+      roughness: 0.35,
+    });
+    const cab = new THREE.Mesh(cabGeo, cabMat);
+    cab.position.y = 2.4;
+    cab.castShadow = true;
+    cab.receiveShadow = true;
+    truckGroup.add(cab);
 
-    // Roof-Mounted Water Cannon Turret
-    const turretGeo = new THREE.CylinderGeometry(0.4, 0.4, 1.8, 12);
-    const turretMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, metalness: 0.8, roughness: 0.2 });
-    const turret = new THREE.Mesh(turretGeo, turretMat);
-    turret.rotation.x = Math.PI / 4;
-    turret.position.set(0, 4.3, 2);
-    truckGroup.add(turret);
+    // Front Hydraulic Heavy Dozer Push-Plow / Obstacle Blade
+    const plowGeo = new THREE.BoxGeometry(3.8, 1.1, 0.4);
+    const plowMat = new THREE.MeshStandardMaterial({ color: 0x18181b, metalness: 0.85, roughness: 0.3 });
+    const plow = new THREE.Mesh(plowGeo, plowMat);
+    plow.position.set(0, 0.75, 5.0);
+    truckGroup.add(plow);
+
+    // 2. Dual High-Pressure Water Cannon Turrets on Roof
+    [-0.9, 0.9].forEach((tx) => {
+      const baseGeo = new THREE.CylinderGeometry(0.35, 0.42, 0.3, 12);
+      const turretMat = new THREE.MeshStandardMaterial({ color: 0xd1d5db, metalness: 0.9, roughness: 0.2 });
+      const base = new THREE.Mesh(baseGeo, turretMat);
+      base.position.set(tx, 4.25, 2.2);
+      truckGroup.add(base);
+
+      const barrelGeo = new THREE.CylinderGeometry(0.12, 0.16, 1.8, 12);
+      const barrel = new THREE.Mesh(barrelGeo, turretMat);
+      barrel.rotation.x = Math.PI / 3.2;
+      barrel.position.set(tx, 4.75, 2.6);
+      barrel.castShadow = true;
+      truckGroup.add(barrel);
+    });
+
+    // 3. Heavy-Duty Armored Wheels
+    const truckWheelOffsets = [
+      { x: -1.9, z: 2.8 },
+      { x: 1.9, z: 2.8 },
+      { x: -1.9, z: -2.8 },
+      { x: 1.9, z: -2.8 },
+    ];
+    truckWheelOffsets.forEach((tw) => {
+      const wGroup = new THREE.Group();
+      wGroup.position.set(tw.x, 0.75, tw.z);
+      wGroup.rotation.z = Math.PI / 2;
+
+      const tire = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.75, 0.75, 0.55, 18),
+        new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.9 })
+      );
+      wGroup.add(tire);
+
+      const rim = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.52, 0.52, 0.57, 14),
+        new THREE.MeshStandardMaterial({ color: 0x64748b, metalness: 0.85, roughness: 0.25 })
+      );
+      wGroup.add(rim);
+
+      truckGroup.add(wGroup);
+    });
+
+    // 4. Roof Emergency Blue Siren Light
+    const siren = new THREE.PointLight(0x00f0ff, 3.2, 16);
+    siren.position.set(0, 4.6, 0);
+    truckGroup.add(siren);
+    this.policeLights.push(siren);
 
     scene.add(truckGroup);
 
     const box = new THREE.Box3().setFromCenterAndSize(
-      new THREE.Vector3(x, 2, z),
-      new THREE.Vector3(3.5, 4, 9)
+      new THREE.Vector3(x, 2.4, z),
+      new THREE.Vector3(3.8, 4.2, 10)
     );
     this.colliders.push({ box, type: 'WALL' });
   }
@@ -817,22 +1001,36 @@ export class MapBuilder {
   /**
    * Plaza Lighting and Environment Atmosphere
    */
+  /**
+   * Plaza Lighting and Environment Atmosphere
+   */
   private createPlazaLighting(scene: THREE.Scene) {
-    this.sunLight = new THREE.DirectionalLight(0xfff1dc, 1.8);
-    this.sunLight.position.set(45, 50, 35);
+    // 1. High-Precision Key Sunlight with 2048x2048 Shadows & NormalBias (eliminates shadow acne)
+    this.sunLight = new THREE.DirectionalLight(0xfff1dc, 2.0);
+    this.sunLight.position.set(45, 55, 35);
     this.sunLight.castShadow = true;
-    this.sunLight.shadow.mapSize.width = 1024;
-    this.sunLight.shadow.mapSize.height = 1024;
+    this.sunLight.shadow.mapSize.width = 2048;
+    this.sunLight.shadow.mapSize.height = 2048;
     this.sunLight.shadow.camera.near = 0.5;
     this.sunLight.shadow.camera.far = 160;
     this.sunLight.shadow.camera.left = -65;
     this.sunLight.shadow.camera.right = 65;
     this.sunLight.shadow.camera.top = 65;
     this.sunLight.shadow.camera.bottom = -65;
-    this.sunLight.shadow.bias = -0.0005;
+    this.sunLight.shadow.bias = -0.0003;
+    this.sunLight.shadow.normalBias = 0.04;
     scene.add(this.sunLight);
 
-    this.ambientLight = new THREE.AmbientLight(0x718096, 0.7);
+    // 2. Natural Sky / Ground Bounce Hemisphere Lighting (Softens black shadows)
+    const hemiLight = new THREE.HemisphereLight(0xdbeafe, 0x1e293b, 1.25);
+    scene.add(hemiLight);
+
+    // 3. Cool Cinematic Rim Light (Pops character silhouettes from background)
+    const rimLight = new THREE.DirectionalLight(0x38bdf8, 0.95);
+    rimLight.position.set(-35, 30, -45);
+    scene.add(rimLight);
+
+    this.ambientLight = new THREE.AmbientLight(0x718096, 0.65);
     scene.add(this.ambientLight);
 
     // Stage Spotlights
@@ -908,11 +1106,13 @@ export class MapBuilder {
     this.policeLights = [];
 
     // Textures & Materials
-    const cobblestoneTex = this.generateParisCobblestoneTexture();
+    const cobblestonePBR = TextureGenerator.getParisCobblestoneTexture();
     const cobblestoneMat = new THREE.MeshStandardMaterial({
-      map: cobblestoneTex,
-      roughness: 0.8,
-      metalness: 0.1,
+      map: cobblestonePBR.map,
+      bumpMap: cobblestonePBR.bumpMap,
+      bumpScale: 0.12,
+      roughness: 0.72,
+      metalness: 0.15,
     });
 
     const creamStoneMat = new THREE.MeshStandardMaterial({
@@ -1393,6 +1593,9 @@ export class MapBuilder {
   /**
    * French CRS Riot Tactical Van (Fourgon CRS) with escape rear hatch
    */
+  /**
+   * French CRS Riot Tactical Van (Fourgon CRS) with escape rear hatch
+   */
   public createFrenchCRSRiotVan(
     scene: THREE.Scene,
     x: number,
@@ -1404,101 +1607,194 @@ export class MapBuilder {
     busGroup.position.set(x, 0, z);
     busGroup.rotation.y = rot;
 
-    const busLength = 10.5;
-    const busWidth = 3.2;
-    const busHeight = 3.5;
+    const busLength = 10.8;
+    const busWidth = 3.3;
+    const busHeight = 3.4;
 
-    // CRS Body (Deep French Tactical Navy Blue)
-    const bodyGeo = new THREE.BoxGeometry(busWidth, busHeight, busLength);
+    // 1. Lower Chassis with undercarriage trim
+    const chassisGeo = new THREE.BoxGeometry(busWidth - 0.2, 0.5, busLength);
+    const chassisMat = new THREE.MeshStandardMaterial({ color: 0x18181b, metalness: 0.8, roughness: 0.6 });
+    const chassis = new THREE.Mesh(chassisGeo, chassisMat);
+    chassis.position.y = 0.65;
+    busGroup.add(chassis);
+
+    // 2. French CRS Main Coach Body (Deep French Tactical Navy Blue Lacquer)
+    const bodyGeo = new THREE.BoxGeometry(busWidth, busHeight - 0.6, busLength);
     const bodyMat = new THREE.MeshStandardMaterial({
       color: 0x0f2852, // Authentic French CRS Dark Blue
       roughness: 0.35,
-      metalness: 0.3,
+      metalness: 0.4,
     });
     const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
-    bodyMesh.position.y = busHeight / 2 + 0.6;
+    bodyMesh.position.y = (busHeight - 0.6) / 2 + 0.7;
     bodyMesh.castShadow = true;
+    bodyMesh.receiveShadow = true;
     busGroup.add(bodyMesh);
 
-    // Reflective White Side Stripe with French CRS markings
-    const stripeGeo = new THREE.BoxGeometry(busWidth + 0.05, 0.45, busLength);
+    // 3. Aerodynamic Curved Roof
+    const roofGeo = new THREE.CylinderGeometry(busWidth / 2, busWidth / 2, busLength - 0.2, 16, 1, false, 0, Math.PI);
+    const roofMat = new THREE.MeshStandardMaterial({ color: 0x091c3d, roughness: 0.4, metalness: 0.3 });
+    const roof = new THREE.Mesh(roofGeo, roofMat);
+    roof.rotation.x = Math.PI / 2;
+    roof.rotation.y = -Math.PI / 2;
+    roof.position.set(0, busHeight + 0.4, 0);
+    roof.castShadow = true;
+    busGroup.add(roof);
+
+    // 4. Front Cab Slope & Ballistic Windshield with protective cage mesh
+    const windshieldGeo = new THREE.PlaneGeometry(busWidth * 0.86, 1.4);
+    const glassMat = new THREE.MeshStandardMaterial({
+      color: 0x0f172a,
+      roughness: 0.1,
+      metalness: 0.9,
+    });
+    const windshield = new THREE.Mesh(windshieldGeo, glassMat);
+    windshield.position.set(0, 2.3, busLength / 2 + 0.02);
+    busGroup.add(windshield);
+
+    // Ballistic wire cage mesh over windshield
+    const cageGeo = new THREE.BoxGeometry(busWidth * 0.88, 1.45, 0.08);
+    const cageMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.9, roughness: 0.4, wireframe: true });
+    const cage = new THREE.Mesh(cageGeo, cageMat);
+    cage.position.set(0, 2.3, busLength / 2 + 0.08);
+    busGroup.add(cage);
+
+    // 5. Heavy-Duty Steel Bull-Bar / Push Bumper
+    const bullBarGeo = new THREE.BoxGeometry(busWidth + 0.3, 0.8, 0.4);
+    const bullBarMat = new THREE.MeshStandardMaterial({ color: 0x18181b, metalness: 0.85, roughness: 0.3 });
+    const bullBar = new THREE.Mesh(bullBarGeo, bullBarMat);
+    bullBar.position.set(0, 0.9, busLength / 2 + 0.25);
+    busGroup.add(bullBar);
+
+    // 6. Glowing Xenon Headlights + Amber Turn Signals
+    [-1.2, 1.2].forEach((hx) => {
+      const headGeo = new THREE.BoxGeometry(0.5, 0.35, 0.1);
+      const headMat = new THREE.MeshStandardMaterial({
+        color: 0xf8fafc,
+        emissive: 0xf8fafc,
+        emissiveIntensity: 1.0,
+      });
+      const head = new THREE.Mesh(headGeo, headMat);
+      head.position.set(hx, 1.35, busLength / 2 + 0.05);
+      busGroup.add(head);
+
+      const turnGeo = new THREE.BoxGeometry(0.18, 0.35, 0.1);
+      const turnMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0xf59e0b, emissiveIntensity: 0.8 });
+      const turn = new THREE.Mesh(turnGeo, turnMat);
+      turn.position.set(hx > 0 ? hx + 0.38 : hx - 0.38, 1.35, busLength / 2 + 0.05);
+      busGroup.add(turn);
+    });
+
+    // 7. Reflective White Stripe with French CRS Markings
+    const stripeGeo = new THREE.BoxGeometry(busWidth + 0.06, 0.48, busLength - 0.4);
     const stripeMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 });
-    const stripeMesh = new THREE.Mesh(stripeGeo, stripeMat);
-    stripeMesh.position.y = 2.1;
-    busGroup.add(stripeMesh);
+    const stripe = new THREE.Mesh(stripeGeo, stripeMat);
+    stripe.position.set(0, 2.05, -0.1);
+    busGroup.add(stripe);
 
     // French Tricolor Flag Cockade on Sides (Blue / White / Red)
-    const flagGeo = new THREE.BoxGeometry(busWidth + 0.08, 0.4, 0.8);
-    const flagMat = new THREE.MeshStandardMaterial({ color: 0x002395 });
-    const flagMesh = new THREE.Mesh(flagGeo, flagMat);
-    flagMesh.position.set(0, 2.1, 3.2);
-    busGroup.add(flagMesh);
-
-    // Reinforced Wire-Mesh Windows
-    const windowGeo = new THREE.BoxGeometry(busWidth + 0.1, 1.1, busLength * 0.65);
-    const windowMat = new THREE.MeshStandardMaterial({
-      color: 0x1e293b,
-      roughness: 0.2,
-      metalness: 0.8,
+    [-busWidth / 2 - 0.04, busWidth / 2 + 0.04].forEach((fx) => {
+      const tricolorGeo = new THREE.BoxGeometry(0.04, 0.4, 0.9);
+      const tricolorCanvas = document.createElement('canvas');
+      tricolorCanvas.width = 90;
+      tricolorCanvas.height = 40;
+      const tctx = tricolorCanvas.getContext('2d');
+      if (tctx) {
+        tctx.fillStyle = '#002395';
+        tctx.fillRect(0, 0, 30, 40);
+        tctx.fillStyle = '#ffffff';
+        tctx.fillRect(30, 0, 30, 40);
+        tctx.fillStyle = '#ed2939';
+        tctx.fillRect(60, 0, 30, 40);
+      }
+      const tTex = new THREE.CanvasTexture(tricolorCanvas);
+      const tMat = new THREE.MeshStandardMaterial({ map: tTex });
+      const tricolorMesh = new THREE.Mesh(tricolorGeo, tMat);
+      tricolorMesh.position.set(fx, 2.05, 3.2);
+      busGroup.add(tricolorMesh);
     });
-    const windowMesh = new THREE.Mesh(windowGeo, windowMat);
-    windowMesh.position.y = 2.7;
-    busGroup.add(windowMesh);
 
-    // Wheels
-    const wheelGeo = new THREE.CylinderGeometry(0.65, 0.65, 0.6, 16);
-    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.9 });
+    // 8. Barred Security Windows along sides
+    const winGeo = new THREE.BoxGeometry(busWidth + 0.08, 1.15, busLength * 0.68);
+    const winMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.05, metalness: 0.95 });
+    const windows = new THREE.Mesh(winGeo, winMat);
+    windows.position.set(0, 2.75, -0.6);
+    busGroup.add(windows);
+
+    // 9. Realistic Multi-Spoke Wheels with Deep-Tread Tires
     const wheelOffsets = [
-      { x: -busWidth / 2 - 0.1, z: 3.2 },
-      { x: busWidth / 2 + 0.1, z: 3.2 },
-      { x: -busWidth / 2 - 0.1, z: -3.2 },
-      { x: busWidth / 2 + 0.1, z: -3.2 },
+      { x: -busWidth / 2 - 0.12, z: 3.4 },
+      { x: busWidth / 2 + 0.12, z: 3.4 },
+      { x: -busWidth / 2 - 0.12, z: -3.4 },
+      { x: busWidth / 2 + 0.12, z: -3.4 },
     ];
     wheelOffsets.forEach((w) => {
-      const wheel = new THREE.Mesh(wheelGeo, wheelMat);
-      wheel.rotation.z = Math.PI / 2;
-      wheel.position.set(w.x, 0.65, w.z);
-      busGroup.add(wheel);
+      const wheelGroup = new THREE.Group();
+      wheelGroup.position.set(w.x, 0.68, w.z);
+      wheelGroup.rotation.z = Math.PI / 2;
+
+      const tire = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.68, 0.68, 0.48, 20),
+        new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.9 })
+      );
+      wheelGroup.add(tire);
+
+      const rim = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.48, 0.48, 0.50, 16),
+        new THREE.MeshStandardMaterial({ color: 0xd1d5db, metalness: 0.9, roughness: 0.2 })
+      );
+      wheelGroup.add(rim);
+
+      const hub = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.18, 0.18, 0.52, 10),
+        new THREE.MeshStandardMaterial({ color: 0x18181b, metalness: 0.95 })
+      );
+      wheelGroup.add(hub);
+
+      busGroup.add(wheelGroup);
     });
 
-    // Rear Escape Door (Hinged for Jailbreak Rescue)
+    // 10. Rear Escape Door (Hinged for Jailbreak Rescue)
     const doorHinge = new THREE.Group();
-    doorHinge.position.set(busWidth / 2 - 0.1, 1.8, -busLength / 2 - 0.05);
+    doorHinge.position.set(busWidth / 2 - 0.15, 1.8, -busLength / 2 - 0.05);
 
-    const doorGeo = new THREE.BoxGeometry(1.6, 2.4, 0.15);
+    const doorGeo = new THREE.BoxGeometry(1.6, 2.4, 0.18);
     doorGeo.translate(-0.8, 0, 0); // pivot on edge
     const doorMat = new THREE.MeshStandardMaterial({
-      color: 0xbe123c, // High-contrast Red emergency release door
+      color: 0xef4444, // High-contrast Red emergency release door
       roughness: 0.3,
+      metalness: 0.2,
     });
     const doorMesh = new THREE.Mesh(doorGeo, doorMat);
+    doorMesh.castShadow = true;
     doorHinge.add(doorMesh);
     busGroup.add(doorHinge);
     this.busDoors.set(busId, doorHinge);
 
-    // Flashing French Blue Beacons (Gyrophare Bleu)
-    const beaconGeo = new THREE.CylinderGeometry(0.2, 0.25, 0.35, 12);
-    const beaconMat = new THREE.MeshStandardMaterial({
-      color: 0x0055ff,
-      emissive: 0x0055ff,
-      emissiveIntensity: 0.8,
+    // 11. Rear LED Brake Lights
+    [-1.25, 1.25].forEach((rx) => {
+      const brake = new THREE.Mesh(
+        new THREE.BoxGeometry(0.35, 0.55, 0.06),
+        new THREE.MeshStandardMaterial({ color: 0xef4444, emissive: 0xef4444, emissiveIntensity: 0.85 })
+      );
+      brake.position.set(rx, 1.6, -busLength / 2 - 0.02);
+      busGroup.add(brake);
     });
 
-    const beacon1 = new THREE.Mesh(beaconGeo, beaconMat);
-    beacon1.position.set(-0.8, busHeight + 0.78, 3.5);
-    busGroup.add(beacon1);
+    // 12. Flashing French Blue Beacons (Gyrophare Bleu)
+    const lightBarGeo = new THREE.BoxGeometry(1.6, 0.28, 0.38);
+    const lightBarMat = new THREE.MeshStandardMaterial({ color: 0x18181b, metalness: 0.8 });
+    const lightBar = new THREE.Mesh(lightBarGeo, lightBarMat);
+    lightBar.position.set(0, busHeight + 0.82, 3.2);
+    busGroup.add(lightBar);
 
-    const beacon2 = new THREE.Mesh(beaconGeo, beaconMat);
-    beacon2.position.set(0.8, busHeight + 0.78, 3.5);
-    busGroup.add(beacon2);
-
-    const blueLight1 = new THREE.PointLight(0x0066ff, 3.0, 14);
-    blueLight1.position.set(-0.8, busHeight + 0.9, 3.5);
+    const blueLight1 = new THREE.PointLight(0x0066ff, 3.2, 16);
+    blueLight1.position.set(-0.6, busHeight + 0.95, 3.2);
     busGroup.add(blueLight1);
     this.policeLights.push(blueLight1);
 
-    const blueLight2 = new THREE.PointLight(0x0088ff, 3.0, 14);
-    blueLight2.position.set(0.8, busHeight + 0.9, 3.5);
+    const blueLight2 = new THREE.PointLight(0x0088ff, 3.2, 16);
+    blueLight2.position.set(0.6, busHeight + 0.95, 3.2);
     busGroup.add(blueLight2);
     this.policeLights.push(blueLight2);
 
@@ -1520,42 +1816,93 @@ export class MapBuilder {
     const truckGroup = new THREE.Group();
     truckGroup.position.set(x, 0, z);
 
-    // Armored Cab
-    const cabGeo = new THREE.BoxGeometry(3.6, 3.8, 11);
+    // 1. Armored Chassis & Slanted Heavy Cab
+    const cabGeo = new THREE.BoxGeometry(3.6, 3.4, 9.6);
     const cabMat = new THREE.MeshStandardMaterial({
       color: 0x0a192f, // Dark tactical navy
       metalness: 0.7,
-      roughness: 0.3,
+      roughness: 0.35,
     });
     const cab = new THREE.Mesh(cabGeo, cabMat);
     cab.position.y = 2.4;
     cab.castShadow = true;
+    cab.receiveShadow = true;
     truckGroup.add(cab);
 
-    // Dual Roof Water Cannon Monitors
-    const cannonGeo = new THREE.CylinderGeometry(0.18, 0.22, 1.6, 12);
-    const cannonMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.9 });
-    const cannonL = new THREE.Mesh(cannonGeo, cannonMat);
-    cannonL.rotation.x = Math.PI / 3;
-    cannonL.position.set(-0.8, 4.6, 3.5);
-    truckGroup.add(cannonL);
+    // Front Dozer Push-Plow (Armored CRS Crowd Dispersal Blade)
+    const bladeGeo = new THREE.BoxGeometry(4.2, 1.4, 0.4);
+    const bladeMat = new THREE.MeshStandardMaterial({ color: 0x1f2937, metalness: 0.85, roughness: 0.3 });
+    const blade = new THREE.Mesh(bladeGeo, bladeMat);
+    blade.position.set(0, 1.1, 5.1);
+    blade.rotation.x = -Math.PI / 18;
+    blade.castShadow = true;
+    truckGroup.add(blade);
 
-    const cannonR = new THREE.Mesh(cannonGeo, cannonMat);
-    cannonR.rotation.x = Math.PI / 3;
-    cannonR.position.set(0.8, 4.6, 3.5);
-    truckGroup.add(cannonR);
+    // Ballistic Windshield with wire protection
+    const windshield = new THREE.Mesh(
+      new THREE.PlaneGeometry(3.0, 1.2),
+      new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.9, roughness: 0.1 })
+    );
+    windshield.position.set(0, 3.2, 4.82);
+    truckGroup.add(windshield);
 
-    // Flashing CRS Lightbar
-    const beacon = new THREE.PointLight(0x0066ff, 3.5, 16);
-    beacon.position.set(0, 4.8, 4.0);
-    truckGroup.add(beacon);
-    this.policeLights.push(beacon);
+    // 2. High-Pressure Dual Water Cannon Turrets
+    [-1.0, 1.0].forEach((tx) => {
+      const turretBase = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.42, 0.48, 0.4, 16),
+        new THREE.MeshStandardMaterial({ color: 0x374151, metalness: 0.85 })
+      );
+      turretBase.position.set(tx, 4.3, 2.4);
+      truckGroup.add(turretBase);
+
+      const barrel = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.14, 0.18, 1.8, 12),
+        new THREE.MeshStandardMaterial({ color: 0x64748b, metalness: 0.9, roughness: 0.2 })
+      );
+      barrel.rotation.x = Math.PI / 3.2;
+      barrel.position.set(tx, 4.75, 2.6);
+      barrel.castShadow = true;
+      truckGroup.add(barrel);
+    });
+
+    // 3. Heavy-Duty Armored Wheels
+    const truckWheelOffsets = [
+      { x: -1.9, z: 2.8 },
+      { x: 1.9, z: 2.8 },
+      { x: -1.9, z: -2.8 },
+      { x: 1.9, z: -2.8 },
+    ];
+    truckWheelOffsets.forEach((tw) => {
+      const wGroup = new THREE.Group();
+      wGroup.position.set(tw.x, 0.75, tw.z);
+      wGroup.rotation.z = Math.PI / 2;
+
+      const tire = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.75, 0.75, 0.55, 18),
+        new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.9 })
+      );
+      wGroup.add(tire);
+
+      const rim = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.52, 0.52, 0.57, 14),
+        new THREE.MeshStandardMaterial({ color: 0x64748b, metalness: 0.85, roughness: 0.25 })
+      );
+      wGroup.add(rim);
+
+      truckGroup.add(wGroup);
+    });
+
+    // 4. Roof Emergency Blue Siren Light
+    const siren = new THREE.PointLight(0x0088ff, 3.5, 18);
+    siren.position.set(0, 4.8, 0);
+    truckGroup.add(siren);
+    this.policeLights.push(siren);
 
     scene.add(truckGroup);
 
     const box = new THREE.Box3().setFromCenterAndSize(
       new THREE.Vector3(x, 2.4, z),
-      new THREE.Vector3(3.6, 4, 11)
+      new THREE.Vector3(3.8, 4.2, 10)
     );
     this.colliders.push({ box, type: 'WALL' });
   }
@@ -1845,19 +2192,27 @@ export class MapBuilder {
     });
 
     // Sun & Ambient Lighting for Paris Twilight / Blue-Hour
-    this.ambientLight = new THREE.AmbientLight(0x718096, 0.8);
+    const hemiLight = new THREE.HemisphereLight(0x93c5fd, 0x0f172a, 1.25);
+    scene.add(hemiLight);
+
+    const rimLight = new THREE.DirectionalLight(0x38bdf8, 0.95);
+    rimLight.position.set(-35, 35, -45);
+    scene.add(rimLight);
+
+    this.ambientLight = new THREE.AmbientLight(0x718096, 0.7);
     scene.add(this.ambientLight);
 
-    this.sunLight = new THREE.DirectionalLight(0xffedd5, 1.8);
+    this.sunLight = new THREE.DirectionalLight(0xffedd5, 1.9);
     this.sunLight.position.set(35, 60, 45);
     this.sunLight.castShadow = true;
-    this.sunLight.shadow.mapSize.width = 1024;
-    this.sunLight.shadow.mapSize.height = 1024;
-    this.sunLight.shadow.camera.near = 10;
+    this.sunLight.shadow.mapSize.width = 2048;
+    this.sunLight.shadow.mapSize.height = 2048;
+    this.sunLight.shadow.camera.near = 0.5;
     this.sunLight.shadow.camera.far = 160;
-    this.sunLight.shadow.bias = -0.0005;
+    this.sunLight.shadow.bias = -0.0003;
+    this.sunLight.shadow.normalBias = 0.04;
 
-    const d = 60;
+    const d = 65;
     this.sunLight.shadow.camera.left = -d;
     this.sunLight.shadow.camera.right = d;
     this.sunLight.shadow.camera.top = d;
