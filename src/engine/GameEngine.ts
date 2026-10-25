@@ -28,7 +28,9 @@ import { TextureGenerator } from './TextureGenerator';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/examples/jsm/postprocessing/SMAAPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 export class GameEngine {
   public scene: THREE.Scene;
@@ -208,6 +210,18 @@ export class GameEngine {
       this.composer = new EffectComposer(this.renderer);
       this.composer.addPass(renderPass);
       this.composer.addPass(bloomPass);
+
+      // On PC and high-end hardware, add SMAAPass for crisp, edge-perfect anti-aliasing
+      if (!isMobile) {
+        try {
+          const pixelRatio = this.renderer.getPixelRatio();
+          const smaaPass = new SMAAPass(width * pixelRatio, height * pixelRatio);
+          this.composer.addPass(smaaPass);
+        } catch (smaaErr) {
+          console.warn('SMAAPass fallback:', smaaErr);
+        }
+      }
+
       this.composer.addPass(outputPass);
     } catch (compErr) {
       console.warn('EffectComposer fallback to standard WebGL renderer:', compErr);
@@ -288,6 +302,87 @@ export class GameEngine {
       this.colliders = colliders;
       this.busPositions = busPositions;
     }
+
+    this.setupEnvironmentLighting();
+    this.loadHighFidelityProps();
+  }
+
+  private setupEnvironmentLighting() {
+    try {
+      const cubeLoader = new THREE.CubeTextureLoader();
+      const isParis = this.selectedMap === 'PARIS';
+      cubeLoader.setPath(isParis ? '/textures/cube/pisa/' : '/textures/cube/park/');
+      const files = isParis
+        ? ['px.png', 'nx.png', 'py.png', 'ny.png', 'pz.png', 'nz.png']
+        : ['px.jpg', 'nx.jpg', 'py.jpg', 'ny.jpg', 'pz.jpg', 'nz.jpg'];
+      cubeLoader.load(
+        files,
+        (cubeTexture) => {
+          cubeTexture.colorSpace = THREE.SRGBColorSpace;
+          this.scene.environment = cubeTexture;
+        },
+        undefined,
+        (err) => console.warn('Cubemap environment load failed:', err)
+      );
+    } catch (e) {
+      console.warn('CubeTextureLoader setup error:', e);
+    }
+  }
+
+  private loadHighFidelityProps() {
+    const gltfLoader = new GLTFLoader();
+
+    // 1. High-Detail Retro Boombox on Protest Rally Stage (GLTF)
+    gltfLoader.load(
+      '/models/BoomBox.glb',
+      (gltf) => {
+        const boombox = gltf.scene;
+        // Bounding box indicates ~0.02m native dimensions, scale by 75 to reach ~1.5m realistic stage monitor
+        boombox.scale.set(75, 75, 75);
+        boombox.traverse((child) => {
+          if ((child as THREE.Mesh).isMesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+          }
+        });
+
+        if (this.selectedMap === 'PARIS') {
+          boombox.position.set(0, 1.2, 34);
+          boombox.rotation.y = 0;
+        } else {
+          boombox.position.set(0, 1.2, 0);
+          boombox.rotation.y = Math.PI;
+        }
+        this.scene.add(boombox);
+      },
+      undefined,
+      (err) => console.warn('BoomBox.glb load skipped:', err)
+    );
+
+    // 2. High-Detail Ceramic Chai / Coffee Mug on Tapri Counter (GLTF)
+    gltfLoader.load(
+      '/models/coffeeMug.glb',
+      (gltf) => {
+        const mug = gltf.scene;
+        // Bounding box is ~10 units, scale by 0.04 to reach ~0.4m mug
+        mug.scale.set(0.04, 0.04, 0.04);
+        mug.traverse((child) => {
+          if ((child as THREE.Mesh).isMesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+          }
+        });
+
+        if (this.selectedMap === 'PARIS') {
+          mug.position.set(22, 0.9, -15);
+        } else {
+          mug.position.set(-46, 1.0, -14);
+        }
+        this.scene.add(mug);
+      },
+      undefined,
+      (err) => console.warn('coffeeMug.glb load skipped:', err)
+    );
   }
 
   public cameraSensitivity: number = 1.0;

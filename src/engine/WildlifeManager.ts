@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 interface Pigeon {
   mesh: THREE.Group;
@@ -9,13 +10,77 @@ interface Pigeon {
   timer: number;
 }
 
+interface SoaringBird {
+  mesh: THREE.Object3D;
+  mixer?: THREE.AnimationMixer;
+  angle: number;
+  radius: number;
+  speed: number;
+  altitude: number;
+  waveFreq: number;
+}
+
 export class WildlifeManager {
   private scene: THREE.Scene;
   private pigeons: Pigeon[] = [];
+  private soaringBirds: SoaringBird[] = [];
 
   constructor(scene: THREE.Scene) {
     this.scene = scene;
     this.spawnPigeonFlock();
+    this.spawnSoaringBirds();
+  }
+
+  private spawnSoaringBirds() {
+    const gltfLoader = new GLTFLoader();
+    gltfLoader.load(
+      '/models/Flamingo.glb',
+      (gltf) => {
+        const specs = [
+          { radius: 36, altitude: 28, speed: 0.24, waveFreq: 2.2, startAngle: 0.0 },
+          { radius: 48, altitude: 34, speed: 0.19, waveFreq: 1.8, startAngle: 2.1 },
+          { radius: 60, altitude: 31, speed: 0.22, waveFreq: 2.5, startAngle: 4.2 },
+        ];
+
+        specs.forEach((s) => {
+          // Clone hierarchy
+          const bird = gltf.scene.clone(true);
+          bird.scale.set(0.038, 0.038, 0.038);
+          bird.traverse((child) => {
+            if ((child as THREE.Mesh).isMesh) {
+              child.castShadow = true;
+            }
+          });
+
+          let mixer: THREE.AnimationMixer | undefined;
+          if (gltf.animations && gltf.animations.length > 0) {
+            mixer = new THREE.AnimationMixer(bird);
+            const action = mixer.clipAction(gltf.animations[0]);
+            action.setDuration(1.2 + Math.random() * 0.4);
+            action.play();
+          }
+
+          const initX = Math.cos(s.startAngle) * s.radius;
+          const initZ = Math.sin(s.startAngle) * s.radius;
+          bird.position.set(initX, s.altitude, initZ);
+          bird.rotation.y = -s.startAngle + Math.PI / 2;
+
+          this.scene.add(bird);
+
+          this.soaringBirds.push({
+            mesh: bird,
+            mixer,
+            angle: s.startAngle,
+            radius: s.radius,
+            speed: s.speed,
+            altitude: s.altitude,
+            waveFreq: s.waveFreq,
+          });
+        });
+      },
+      undefined,
+      (err) => console.warn('Flamingo.glb load skipped:', err)
+    );
   }
 
   private spawnPigeonFlock() {
@@ -95,7 +160,7 @@ export class WildlifeManager {
   }
 
   public update(delta: number, playerPos: THREE.Vector3) {
-    // Check if player runs close
+    // 1. Check if player runs close to pigeons
     this.scareNearbyPigeons(playerPos, 4.5);
 
     for (const p of this.pigeons) {
@@ -136,10 +201,27 @@ export class WildlifeManager {
         }
       }
     }
+
+    // 2. Animate 3D Soaring Birds across Sky Skyline
+    for (const b of this.soaringBirds) {
+      b.angle += delta * b.speed;
+      b.mixer?.update(delta);
+
+      const x = Math.cos(b.angle) * b.radius;
+      const z = Math.sin(b.angle) * b.radius;
+      const y = b.altitude + Math.sin(b.angle * b.waveFreq) * 2.2;
+
+      b.mesh.position.set(x, y, z);
+      b.mesh.rotation.y = -b.angle + Math.PI / 2;
+      b.mesh.rotation.z = Math.sin(b.angle * 2) * 0.14; // Banking turn
+    }
   }
 
   public destroy() {
     this.pigeons.forEach((p) => this.scene.remove(p.mesh));
     this.pigeons = [];
+    this.soaringBirds.forEach((b) => this.scene.remove(b.mesh));
+    this.soaringBirds = [];
   }
 }
+

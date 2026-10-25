@@ -1,21 +1,141 @@
 import * as THREE from 'three';
 
+export interface PBRTextureSet {
+  map: THREE.CanvasTexture;
+  bumpMap: THREE.CanvasTexture;
+  normalMap?: THREE.CanvasTexture;
+  roughnessMap?: THREE.CanvasTexture;
+}
+
 /**
  * Procedural PBR Texture Generator for AAA-Grade Stylized Realism
- * Produces detailed diffuse maps, bump maps, and material presets
+ * Produces detailed diffuse maps, bump maps, normal maps (via 3x3 Sobel kernel),
+ * roughness maps, and material presets.
  */
 export class TextureGenerator {
   private static cache: Map<string, THREE.CanvasTexture> = new Map();
 
   /**
+   * Generates a tangent-space Normal Map (RGB encoding dx, dy, dz) from a grayscale height canvas
+   * using a 3x3 Sobel convolution kernel with seamless toroidal edge wrapping.
+   */
+  public static generateNormalMapFromHeightmap(
+    heightCanvas: HTMLCanvasElement,
+    repeatX: number = 1,
+    repeatY: number = 1,
+    strength: number = 2.5
+  ): THREE.CanvasTexture {
+    const w = heightCanvas.width;
+    const h = heightCanvas.height;
+    const srcCtx = heightCanvas.getContext('2d')!;
+    const srcData = srcCtx.getImageData(0, 0, w, h).data;
+
+    const normCanvas = document.createElement('canvas');
+    normCanvas.width = w;
+    normCanvas.height = h;
+    const nCtx = normCanvas.getContext('2d')!;
+    const nImg = nCtx.createImageData(w, h);
+    const nData = nImg.data;
+
+    const getL = (x: number, y: number): number => {
+      const wx = ((x % w) + w) % w;
+      const wy = ((y % h) + h) % h;
+      const idx = (wy * w + wx) * 4;
+      return (srcData[idx] * 0.299 + srcData[idx + 1] * 0.587 + srcData[idx + 2] * 0.114) / 255.0;
+    };
+
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const tl = getL(x - 1, y - 1);
+        const l  = getL(x - 1, y);
+        const bl = getL(x - 1, y + 1);
+        const tr = getL(x + 1, y - 1);
+        const r  = getL(x + 1, y);
+        const br = getL(x + 1, y + 1);
+        const dx = (tr + 2.0 * r + br) - (tl + 2.0 * l + bl);
+
+        const t  = getL(x, y - 1);
+        const b  = getL(x, y + 1);
+        const dy = (bl + 2.0 * b + br) - (tl + 2.0 * t + tr);
+
+        const nx = -dx * strength;
+        const ny = -dy * strength;
+        const nz = 1.0;
+        const len = Math.hypot(nx, ny, nz) || 1.0;
+
+        const idx = (y * w + x) * 4;
+        nData[idx]     = Math.floor(((nx / len) * 0.5 + 0.5) * 255);
+        nData[idx + 1] = Math.floor(((ny / len) * 0.5 + 0.5) * 255);
+        nData[idx + 2] = Math.floor(((nz / len) * 0.5 + 0.5) * 255);
+        nData[idx + 3] = 255;
+      }
+    }
+    nCtx.putImageData(nImg, 0, 0);
+
+    const normTex = new THREE.CanvasTexture(normCanvas);
+    normTex.wrapS = THREE.RepeatWrapping;
+    normTex.wrapT = THREE.RepeatWrapping;
+    normTex.repeat.set(repeatX, repeatY);
+    return normTex;
+  }
+
+  /**
+   * Generates a PBR Roughness Map from diffuse/height canvas, mapping luminance to roughness values
+   */
+  public static generateRoughnessMap(
+    sourceCanvas: HTMLCanvasElement,
+    repeatX: number = 1,
+    repeatY: number = 1,
+    minRough: number = 0.45,
+    maxRough: number = 0.85,
+    invert: boolean = false
+  ): THREE.CanvasTexture {
+    const w = sourceCanvas.width;
+    const h = sourceCanvas.height;
+    const srcCtx = sourceCanvas.getContext('2d')!;
+    const srcData = srcCtx.getImageData(0, 0, w, h).data;
+
+    const rCanvas = document.createElement('canvas');
+    rCanvas.width = w;
+    rCanvas.height = h;
+    const rCtx = rCanvas.getContext('2d')!;
+    const rImg = rCtx.createImageData(w, h);
+    const rData = rImg.data;
+
+    for (let i = 0; i < srcData.length; i += 4) {
+      const lum = (srcData[i] * 0.299 + srcData[i + 1] * 0.587 + srcData[i + 2] * 0.114) / 255.0;
+      const factor = invert ? (1.0 - lum) : lum;
+      const roughVal = Math.floor((minRough + factor * (maxRough - minRough)) * 255);
+      rData[i] = roughVal;
+      rData[i + 1] = roughVal;
+      rData[i + 2] = roughVal;
+      rData[i + 3] = 255;
+    }
+    rCtx.putImageData(rImg, 0, 0);
+
+    const rTex = new THREE.CanvasTexture(rCanvas);
+    rTex.wrapS = THREE.RepeatWrapping;
+    rTex.wrapT = THREE.RepeatWrapping;
+    rTex.repeat.set(repeatX, repeatY);
+    return rTex;
+  }
+
+  /**
    * Generates a rich, textured Asphalt Road surface with tar seams & aggregate noise
    */
-  public static getAsphaltTexture(): { map: THREE.CanvasTexture; bumpMap: THREE.CanvasTexture } {
+  public static getAsphaltTexture(): PBRTextureSet {
     const mapKey = 'asphalt_diffuse';
     const bumpKey = 'asphalt_bump';
+    const normKey = 'asphalt_normal';
+    const roughKey = 'asphalt_roughness';
 
-    if (this.cache.has(mapKey) && this.cache.has(bumpKey)) {
-      return { map: this.cache.get(mapKey)!, bumpMap: this.cache.get(bumpKey)! };
+    if (this.cache.has(mapKey) && this.cache.has(bumpKey) && this.cache.has(normKey) && this.cache.has(roughKey)) {
+      return {
+        map: this.cache.get(mapKey)!,
+        bumpMap: this.cache.get(bumpKey)!,
+        normalMap: this.cache.get(normKey)!,
+        roughnessMap: this.cache.get(roughKey)!,
+      };
     }
 
     const size = 512;
@@ -85,21 +205,33 @@ export class TextureGenerator {
     bumpTex.wrapT = THREE.RepeatWrapping;
     bumpTex.repeat.set(16, 16);
 
+    const normTex = this.generateNormalMapFromHeightmap(bumpCanvas, 16, 16, 2.8);
+    const roughTex = this.generateRoughnessMap(canvas, 16, 16, 0.7, 0.95, false);
+
     this.cache.set(mapKey, diffuseTex);
     this.cache.set(bumpKey, bumpTex);
+    this.cache.set(normKey, normTex);
+    this.cache.set(roughKey, roughTex);
 
-    return { map: diffuseTex, bumpMap: bumpTex };
+    return { map: diffuseTex, bumpMap: bumpTex, normalMap: normTex, roughnessMap: roughTex };
   }
 
   /**
    * Generates authentic Delhi sandstone & flagstone texture with stone blocks and mortar
    */
-  public static getSandstoneFlagstoneTexture(): { map: THREE.CanvasTexture; bumpMap: THREE.CanvasTexture } {
+  public static getSandstoneFlagstoneTexture(): PBRTextureSet {
     const mapKey = 'sandstone_diffuse';
     const bumpKey = 'sandstone_bump';
+    const normKey = 'sandstone_normal';
+    const roughKey = 'sandstone_roughness';
 
-    if (this.cache.has(mapKey) && this.cache.has(bumpKey)) {
-      return { map: this.cache.get(mapKey)!, bumpMap: this.cache.get(bumpKey)! };
+    if (this.cache.has(mapKey) && this.cache.has(bumpKey) && this.cache.has(normKey) && this.cache.has(roughKey)) {
+      return {
+        map: this.cache.get(mapKey)!,
+        bumpMap: this.cache.get(bumpKey)!,
+        normalMap: this.cache.get(normKey)!,
+        roughnessMap: this.cache.get(roughKey)!,
+      };
     }
 
     const size = 512;
@@ -183,21 +315,33 @@ export class TextureGenerator {
     bumpTex.wrapT = THREE.RepeatWrapping;
     bumpTex.repeat.set(12, 12);
 
+    const normTex = this.generateNormalMapFromHeightmap(bumpCanvas, 12, 12, 2.5);
+    const roughTex = this.generateRoughnessMap(canvas, 12, 12, 0.65, 0.88, false);
+
     this.cache.set(mapKey, diffuseTex);
     this.cache.set(bumpKey, bumpTex);
+    this.cache.set(normKey, normTex);
+    this.cache.set(roughKey, roughTex);
 
-    return { map: diffuseTex, bumpMap: bumpTex };
+    return { map: diffuseTex, bumpMap: bumpTex, normalMap: normTex, roughnessMap: roughTex };
   }
 
   /**
    * Generates high-detail Parisian cobblestones with rounded convex stones & deep mortar
    */
-  public static getParisCobblestoneTexture(): { map: THREE.CanvasTexture; bumpMap: THREE.CanvasTexture } {
+  public static getParisCobblestoneTexture(): PBRTextureSet {
     const mapKey = 'paris_cobble_diffuse';
     const bumpKey = 'paris_cobble_bump';
+    const normKey = 'paris_cobble_normal';
+    const roughKey = 'paris_cobble_roughness';
 
-    if (this.cache.has(mapKey) && this.cache.has(bumpKey)) {
-      return { map: this.cache.get(mapKey)!, bumpMap: this.cache.get(bumpKey)! };
+    if (this.cache.has(mapKey) && this.cache.has(bumpKey) && this.cache.has(normKey) && this.cache.has(roughKey)) {
+      return {
+        map: this.cache.get(mapKey)!,
+        bumpMap: this.cache.get(bumpKey)!,
+        normalMap: this.cache.get(normKey)!,
+        roughnessMap: this.cache.get(roughKey)!,
+      };
     }
 
     const size = 512;
@@ -296,10 +440,15 @@ export class TextureGenerator {
     bumpTex.wrapT = THREE.RepeatWrapping;
     bumpTex.repeat.set(18, 18);
 
+    const normTex = this.generateNormalMapFromHeightmap(bumpCanvas, 18, 18, 3.2);
+    const roughTex = this.generateRoughnessMap(canvas, 18, 18, 0.45, 0.82, true);
+
     this.cache.set(mapKey, diffuseTex);
     this.cache.set(bumpKey, bumpTex);
+    this.cache.set(normKey, normTex);
+    this.cache.set(roughKey, roughTex);
 
-    return { map: diffuseTex, bumpMap: bumpTex };
+    return { map: diffuseTex, bumpMap: bumpTex, normalMap: normTex, roughnessMap: roughTex };
   }
 
   /**
@@ -629,12 +778,19 @@ export class TextureGenerator {
   /**
    * Generates authentic Dholpur Red Sandstone (Jaipur/Delhi heritage monument stone)
    */
-  public static getIndianRedSandstoneTexture(): { map: THREE.CanvasTexture; bumpMap: THREE.CanvasTexture } {
+  public static getIndianRedSandstoneTexture(): PBRTextureSet {
     const mapKey = 'indian_red_sandstone_diffuse';
     const bumpKey = 'indian_red_sandstone_bump';
+    const normKey = 'indian_red_sandstone_normal';
+    const roughKey = 'indian_red_sandstone_roughness';
 
-    if (this.cache.has(mapKey) && this.cache.has(bumpKey)) {
-      return { map: this.cache.get(mapKey)!, bumpMap: this.cache.get(bumpKey)! };
+    if (this.cache.has(mapKey) && this.cache.has(bumpKey) && this.cache.has(normKey) && this.cache.has(roughKey)) {
+      return {
+        map: this.cache.get(mapKey)!,
+        bumpMap: this.cache.get(bumpKey)!,
+        normalMap: this.cache.get(normKey)!,
+        roughnessMap: this.cache.get(roughKey)!,
+      };
     }
 
     const size = 512;
@@ -721,20 +877,33 @@ export class TextureGenerator {
     bumpTex.wrapT = THREE.RepeatWrapping;
     bumpTex.repeat.set(4, 4);
 
+    const normTex = this.generateNormalMapFromHeightmap(bumpCanvas, 4, 4, 2.4);
+    const roughTex = this.generateRoughnessMap(canvas, 4, 4, 0.62, 0.82, false);
+
     this.cache.set(mapKey, diffuseTex);
     this.cache.set(bumpKey, bumpTex);
-    return { map: diffuseTex, bumpMap: bumpTex };
+    this.cache.set(normKey, normTex);
+    this.cache.set(roughKey, roughTex);
+
+    return { map: diffuseTex, bumpMap: bumpTex, normalMap: normTex, roughnessMap: roughTex };
   }
 
   /**
    * Generates Dholpur Cream/Buff Sandstone for Parliament Colonnades & Cornices
    */
-  public static getDholpurBuffSandstoneTexture(): { map: THREE.CanvasTexture; bumpMap: THREE.CanvasTexture } {
+  public static getDholpurBuffSandstoneTexture(): PBRTextureSet {
     const mapKey = 'dholpur_buff_diffuse';
     const bumpKey = 'dholpur_buff_bump';
+    const normKey = 'dholpur_buff_normal';
+    const roughKey = 'dholpur_buff_roughness';
 
-    if (this.cache.has(mapKey) && this.cache.has(bumpKey)) {
-      return { map: this.cache.get(mapKey)!, bumpMap: this.cache.get(bumpKey)! };
+    if (this.cache.has(mapKey) && this.cache.has(bumpKey) && this.cache.has(normKey) && this.cache.has(roughKey)) {
+      return {
+        map: this.cache.get(mapKey)!,
+        bumpMap: this.cache.get(bumpKey)!,
+        normalMap: this.cache.get(normKey)!,
+        roughnessMap: this.cache.get(roughKey)!,
+      };
     }
 
     const size = 512;
@@ -798,20 +967,33 @@ export class TextureGenerator {
     bumpTex.wrapT = THREE.RepeatWrapping;
     bumpTex.repeat.set(4, 4);
 
+    const normTex = this.generateNormalMapFromHeightmap(bumpCanvas, 2, 6, 1.8);
+    const roughTex = this.generateRoughnessMap(canvas, 2, 6, 0.22, 0.42, true);
+
     this.cache.set(mapKey, diffuseTex);
     this.cache.set(bumpKey, bumpTex);
-    return { map: diffuseTex, bumpMap: bumpTex };
+    this.cache.set(normKey, normTex);
+    this.cache.set(roughKey, roughTex);
+
+    return { map: diffuseTex, bumpMap: bumpTex, normalMap: normTex, roughnessMap: roughTex };
   }
 
   /**
    * Generates Makrana White Marble with Astronomical Calibration Engravings
    */
-  public static getMakranaMarbleTexture(): { map: THREE.CanvasTexture; bumpMap: THREE.CanvasTexture } {
+  public static getMakranaMarbleTexture(): PBRTextureSet {
     const mapKey = 'makrana_marble_diffuse';
     const bumpKey = 'makrana_marble_bump';
+    const normKey = 'makrana_marble_normal';
+    const roughKey = 'makrana_marble_roughness';
 
-    if (this.cache.has(mapKey) && this.cache.has(bumpKey)) {
-      return { map: this.cache.get(mapKey)!, bumpMap: this.cache.get(bumpKey)! };
+    if (this.cache.has(mapKey) && this.cache.has(bumpKey) && this.cache.has(normKey) && this.cache.has(roughKey)) {
+      return {
+        map: this.cache.get(mapKey)!,
+        bumpMap: this.cache.get(bumpKey)!,
+        normalMap: this.cache.get(normKey)!,
+        roughnessMap: this.cache.get(roughKey)!,
+      };
     }
 
     const size = 512;
@@ -881,20 +1063,33 @@ export class TextureGenerator {
     bumpTex.wrapT = THREE.RepeatWrapping;
     bumpTex.repeat.set(2, 6);
 
+    const normTex = this.generateNormalMapFromHeightmap(bumpCanvas, 12, 12, 2.2);
+    const roughTex = this.generateRoughnessMap(canvas, 12, 12, 0.82, 0.96, false);
+
     this.cache.set(mapKey, diffuseTex);
     this.cache.set(bumpKey, bumpTex);
-    return { map: diffuseTex, bumpMap: bumpTex };
+    this.cache.set(normKey, normTex);
+    this.cache.set(roughKey, roughTex);
+
+    return { map: diffuseTex, bumpMap: bumpTex, normalMap: normTex, roughnessMap: roughTex };
   }
 
   /**
    * Generates Manicured Mughal Charbagh Garden Lawn Texture with Mowing Stripes
    */
-  public static getMughalGardenLawnTexture(): { map: THREE.CanvasTexture; bumpMap: THREE.CanvasTexture } {
+  public static getMughalGardenLawnTexture(): PBRTextureSet {
     const mapKey = 'mughal_lawn_diffuse';
     const bumpKey = 'mughal_lawn_bump';
+    const normKey = 'mughal_lawn_normal';
+    const roughKey = 'mughal_lawn_roughness';
 
-    if (this.cache.has(mapKey) && this.cache.has(bumpKey)) {
-      return { map: this.cache.get(mapKey)!, bumpMap: this.cache.get(bumpKey)! };
+    if (this.cache.has(mapKey) && this.cache.has(bumpKey) && this.cache.has(normKey) && this.cache.has(roughKey)) {
+      return {
+        map: this.cache.get(mapKey)!,
+        bumpMap: this.cache.get(bumpKey)!,
+        normalMap: this.cache.get(normKey)!,
+        roughnessMap: this.cache.get(roughKey)!,
+      };
     }
 
     const size = 512;
@@ -948,9 +1143,15 @@ export class TextureGenerator {
     bumpTex.wrapT = THREE.RepeatWrapping;
     bumpTex.repeat.set(12, 12);
 
+    const normTex = this.generateNormalMapFromHeightmap(bumpCanvas, 12, 1, 2.8);
+    const roughTex = this.generateRoughnessMap(canvas, 12, 1, 0.55, 0.85, false);
+
     this.cache.set(mapKey, diffuseTex);
     this.cache.set(bumpKey, bumpTex);
-    return { map: diffuseTex, bumpMap: bumpTex };
+    this.cache.set(normKey, normTex);
+    this.cache.set(roughKey, roughTex);
+
+    return { map: diffuseTex, bumpMap: bumpTex, normalMap: normTex, roughnessMap: roughTex };
   }
 
   /**
@@ -1181,11 +1382,19 @@ export class TextureGenerator {
    * Features Lutetian limestone coursing, French arched windows with wrought-iron balconies,
    * ground floor rustication, and Parisian cafe awnings
    */
-  public static getHaussmannFacadeTexture(): { map: THREE.CanvasTexture; bumpMap: THREE.CanvasTexture } {
+  public static getHaussmannFacadeTexture(): PBRTextureSet {
     const mapKey = 'haussmann_facade_diffuse';
     const bumpKey = 'haussmann_facade_bump';
-    if (this.cache.has(mapKey) && this.cache.has(bumpKey)) {
-      return { map: this.cache.get(mapKey)!, bumpMap: this.cache.get(bumpKey)! };
+    const normKey = 'haussmann_facade_normal';
+    const roughKey = 'haussmann_facade_roughness';
+
+    if (this.cache.has(mapKey) && this.cache.has(bumpKey) && this.cache.has(normKey) && this.cache.has(roughKey)) {
+      return {
+        map: this.cache.get(mapKey)!,
+        bumpMap: this.cache.get(bumpKey)!,
+        normalMap: this.cache.get(normKey)!,
+        roughnessMap: this.cache.get(roughKey)!,
+      };
     }
 
     const width = 512;
@@ -1328,21 +1537,34 @@ export class TextureGenerator {
     bumpTex.wrapT = THREE.RepeatWrapping;
     bumpTex.repeat.set(12, 1);
 
+    const normTex = this.generateNormalMapFromHeightmap(bumpCanvas, 4, 4, 2.6);
+    const roughTex = this.generateRoughnessMap(canvas, 4, 4, 0.68, 0.86, false);
+
     this.cache.set(mapKey, diffuseTex);
     this.cache.set(bumpKey, bumpTex);
+    this.cache.set(normKey, normTex);
+    this.cache.set(roughKey, roughTex);
 
-    return { map: diffuseTex, bumpMap: bumpTex };
+    return { map: diffuseTex, bumpMap: bumpTex, normalMap: normTex, roughnessMap: roughTex };
   }
 
   /**
    * Generates Modernist Opéra Bastille Architectural Glass Curtain Wall
    * Features fine graphite steel mullions, reflective glazing, and warm interior foyer lights
    */
-  public static getOperaBastilleGlassTexture(): { map: THREE.CanvasTexture; bumpMap: THREE.CanvasTexture } {
+  public static getOperaBastilleGlassTexture(): PBRTextureSet {
     const mapKey = 'opera_bastille_glass_diffuse';
     const bumpKey = 'opera_bastille_glass_bump';
-    if (this.cache.has(mapKey) && this.cache.has(bumpKey)) {
-      return { map: this.cache.get(mapKey)!, bumpMap: this.cache.get(bumpKey)! };
+    const normKey = 'opera_bastille_glass_normal';
+    const roughKey = 'opera_bastille_glass_roughness';
+
+    if (this.cache.has(mapKey) && this.cache.has(bumpKey) && this.cache.has(normKey) && this.cache.has(roughKey)) {
+      return {
+        map: this.cache.get(mapKey)!,
+        bumpMap: this.cache.get(bumpKey)!,
+        normalMap: this.cache.get(normKey)!,
+        roughnessMap: this.cache.get(roughKey)!,
+      };
     }
 
     const width = 512;
@@ -1430,9 +1652,15 @@ export class TextureGenerator {
     bumpTex.wrapT = THREE.RepeatWrapping;
     bumpTex.repeat.set(4, 3);
 
+    const normTex = this.generateNormalMapFromHeightmap(bumpCanvas, 4, 3, 1.5);
+    const roughTex = this.generateRoughnessMap(canvas, 4, 3, 0.12, 0.35, true);
+
     this.cache.set(mapKey, diffuseTex);
     this.cache.set(bumpKey, bumpTex);
-    return { map: diffuseTex, bumpMap: bumpTex };
+    this.cache.set(normKey, normTex);
+    this.cache.set(roughKey, roughTex);
+
+    return { map: diffuseTex, bumpMap: bumpTex, normalMap: normTex, roughnessMap: roughTex };
   }
 
   /**

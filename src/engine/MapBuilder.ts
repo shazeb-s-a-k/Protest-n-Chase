@@ -90,48 +90,63 @@ export class MapBuilder {
     this.policeLights = [];
     this.animatedFlags = [];
 
-    // 1. High-Resolution Authentic PBR Textures & Materials
-    const { map: pavementTex, bumpMap: pavementBump } = TextureGenerator.getSandstoneFlagstoneTexture();
+    // 1. High-Resolution Authentic PBR Textures & Materials (with Tangent-Space Normal Maps & Roughness Maps)
+    const pavementPBR = TextureGenerator.getSandstoneFlagstoneTexture();
     const pavementMat = new THREE.MeshStandardMaterial({
-      map: pavementTex,
-      bumpMap: pavementBump,
+      map: pavementPBR.map,
+      bumpMap: pavementPBR.bumpMap,
       bumpScale: 0.08,
+      normalMap: pavementPBR.normalMap,
+      normalScale: new THREE.Vector2(0.85, 0.85),
+      roughnessMap: pavementPBR.roughnessMap,
       roughness: 0.75,
       metalness: 0.05,
     });
 
-    const { map: redSandstoneTex, bumpMap: redSandstoneBump } = TextureGenerator.getIndianRedSandstoneTexture();
+    const redSandstonePBR = TextureGenerator.getIndianRedSandstoneTexture();
     const sandstoneRedMat = new THREE.MeshStandardMaterial({
-      map: redSandstoneTex,
-      bumpMap: redSandstoneBump,
+      map: redSandstonePBR.map,
+      bumpMap: redSandstonePBR.bumpMap,
       bumpScale: 0.12,
+      normalMap: redSandstonePBR.normalMap,
+      normalScale: new THREE.Vector2(0.9, 0.9),
+      roughnessMap: redSandstonePBR.roughnessMap,
       roughness: 0.78,
       metalness: 0.08,
     });
 
-    const { map: buffTex, bumpMap: buffBump } = TextureGenerator.getDholpurBuffSandstoneTexture();
+    const buffPBR = TextureGenerator.getDholpurBuffSandstoneTexture();
     const dholpurBuffMat = new THREE.MeshStandardMaterial({
-      map: buffTex,
-      bumpMap: buffBump,
+      map: buffPBR.map,
+      bumpMap: buffPBR.bumpMap,
       bumpScale: 0.08,
+      normalMap: buffPBR.normalMap,
+      normalScale: new THREE.Vector2(0.8, 0.8),
+      roughnessMap: buffPBR.roughnessMap,
       roughness: 0.72,
       metalness: 0.05,
     });
 
-    const { map: marbleTex, bumpMap: marbleBump } = TextureGenerator.getMakranaMarbleTexture();
+    const marblePBR = TextureGenerator.getMakranaMarbleTexture();
     const marbleWhiteMat = new THREE.MeshStandardMaterial({
-      map: marbleTex,
-      bumpMap: marbleBump,
+      map: marblePBR.map,
+      bumpMap: marblePBR.bumpMap,
       bumpScale: 0.04,
-      roughness: 0.32,
-      metalness: 0.1,
+      normalMap: marblePBR.normalMap,
+      normalScale: new THREE.Vector2(0.6, 0.6),
+      roughnessMap: marblePBR.roughnessMap,
+      roughness: 0.28,
+      metalness: 0.12,
     });
 
-    const { map: lawnTex, bumpMap: lawnBump } = TextureGenerator.getMughalGardenLawnTexture();
+    const lawnPBR = TextureGenerator.getMughalGardenLawnTexture();
     const lawnMat = new THREE.MeshStandardMaterial({
-      map: lawnTex,
-      bumpMap: lawnBump,
+      map: lawnPBR.map,
+      bumpMap: lawnPBR.bumpMap,
       bumpScale: 0.12,
+      normalMap: lawnPBR.normalMap,
+      normalScale: new THREE.Vector2(0.7, 0.7),
+      roughnessMap: lawnPBR.roughnessMap,
       roughness: 0.88,
     });
 
@@ -2459,8 +2474,11 @@ export class MapBuilder {
       map: cobblestonePBR.map,
       bumpMap: cobblestonePBR.bumpMap,
       bumpScale: 0.12,
-      roughness: 0.72,
-      metalness: 0.15,
+      normalMap: cobblestonePBR.normalMap,
+      normalScale: new THREE.Vector2(1.1, 1.1),
+      roughnessMap: cobblestonePBR.roughnessMap,
+      roughness: 0.68,
+      metalness: 0.18,
     });
 
     const creamStoneMat = new THREE.MeshStandardMaterial({
@@ -2587,11 +2605,14 @@ export class MapBuilder {
   }
 
   private createParisianBuildings(scene: THREE.Scene, stoneMat: THREE.Material, roofMat: THREE.Material) {
-    const { map: facadeTex, bumpMap: facadeBump } = TextureGenerator.getHaussmannFacadeTexture();
+    const facadePBR = TextureGenerator.getHaussmannFacadeTexture();
     const haussmannMat = new THREE.MeshStandardMaterial({
-      map: facadeTex,
-      bumpMap: facadeBump,
+      map: facadePBR.map,
+      bumpMap: facadePBR.bumpMap,
       bumpScale: 0.08,
+      normalMap: facadePBR.normalMap,
+      normalScale: new THREE.Vector2(0.75, 0.75),
+      roughnessMap: facadePBR.roughnessMap,
       roughness: 0.72,
       metalness: 0.08,
     });
@@ -3209,8 +3230,11 @@ export class MapBuilder {
       map: glassPBR.map,
       bumpMap: glassPBR.bumpMap,
       bumpScale: 0.06,
-      roughness: 0.1,
-      metalness: 0.85,
+      normalMap: glassPBR.normalMap,
+      normalScale: new THREE.Vector2(0.6, 0.6),
+      roughnessMap: glassPBR.roughnessMap,
+      roughness: 0.15,
+      metalness: 0.75,
     });
     const steelDarkMat = new THREE.MeshStandardMaterial({
       color: 0x0f172a,
