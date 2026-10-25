@@ -690,26 +690,56 @@ class AudioManager {
     });
   }
 
+  private ambientTempoMs: number = 620;
+  private currentBeatCount: number = 0;
+
   /**
-   * Ambient Rhythm Loop (protest beat every 700ms)
+   * Ambient Rhythm Loop: Syncopated authentic Dhol & Tasha folk rally cadence
    */
   public startAmbientProtestLoop() {
     if (this.chantInterval) return;
-    let beatCount = 0;
-    this.chantInterval = window.setInterval(() => {
-      beatCount++;
-      if (beatCount % 2 === 0) {
-        this.playDrumBeat();
+    this.currentBeatCount = 0;
+    this.scheduleNextBeat();
+  }
+
+  private scheduleNextBeat = () => {
+    if (this.chantInterval) {
+      clearTimeout(this.chantInterval);
+    }
+    this.chantInterval = window.setTimeout(() => {
+      this.currentBeatCount = (this.currentBeatCount + 1) % 16;
+      const b = this.currentBeatCount;
+
+      // Authentic syncopated Dhol-Tasha rhythm
+      if (b % 4 === 0) {
+        this.playDholBass(0.32);
+      } else if (b % 4 === 2) {
+        this.playDholBass(0.22);
       }
-      if (beatCount % 8 === 0) {
-        this.playCrowdCheer(0.2);
+
+      if (b % 2 === 1) {
+        this.playTashaRimshot(0.16 + (b % 4 === 3 ? 0.08 : 0));
       }
-    }, 700);
+
+      if (b === 0) {
+        this.playCrowdCheer(0.15);
+      }
+
+      this.scheduleNextBeat();
+    }, this.ambientTempoMs);
+  };
+
+  /**
+   * Dynamically accelerates ambient rally rhythm as awareness climbs toward 100%
+   */
+  public updateRallyIntensity(awarenessPct: number) {
+    const clamped = Math.max(0, Math.min(100, awarenessPct));
+    this.ambientTempoMs = Math.round(620 - (clamped / 100) * 190);
   }
 
   public stopAmbientProtestLoop() {
     if (this.chantInterval) {
-      clearInterval(this.chantInterval);
+      clearTimeout(this.chantInterval);
       this.chantInterval = null;
     }
   }

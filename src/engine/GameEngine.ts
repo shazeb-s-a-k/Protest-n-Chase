@@ -1463,6 +1463,7 @@ export class GameEngine {
 
   private addAwareness(amount: number) {
     this.matchState.awarenessScore = Math.min(100, this.matchState.awarenessScore + amount);
+    audioManager.updateRallyIntensity(this.matchState.awarenessScore);
     this.checkVictoryConditions();
   }
 

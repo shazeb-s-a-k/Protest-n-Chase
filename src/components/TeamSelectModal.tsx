@@ -15,11 +15,13 @@ import {
   Maximize,
   Minimize,
   Smartphone,
+  Trophy,
 } from 'lucide-react';
 
 interface TeamSelectModalProps {
   onStartGame: (team: Team, mode: GameMode, roomCode?: string, mapId?: 'DELHI' | 'PARIS') => void;
   onOpenSupport?: () => void;
+  onOpenCareerStats?: () => void;
   isFullscreen?: boolean;
   onToggleFullscreen?: () => void;
 }
@@ -27,6 +29,7 @@ interface TeamSelectModalProps {
 export const TeamSelectModal: React.FC<TeamSelectModalProps> = ({
   onStartGame,
   onOpenSupport,
+  onOpenCareerStats,
   isFullscreen = false,
   onToggleFullscreen,
 }) => {
@@ -295,16 +298,29 @@ export const TeamSelectModal: React.FC<TeamSelectModalProps> = ({
             <span className="text-white font-bold">Shazeb Anwar Khan</span>
           </div>
 
-          {onOpenSupport && (
-            <button
-              type="button"
-              onClick={onOpenSupport}
-              className="px-3.5 py-1.5 rounded-xl bg-pink-500/15 hover:bg-pink-500/25 border border-pink-500/30 text-pink-300 hover:text-pink-200 text-xs font-bold transition-all flex items-center gap-1.5 shadow-md active:scale-95 cursor-pointer"
-            >
-              <Heart className="w-3.5 h-3.5 text-pink-400 fill-pink-400" />
-              <span>Support via UPI: <strong className="font-mono text-white">shazeb26@fam</strong></span>
-            </button>
-          )}
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            {onOpenCareerStats && (
+              <button
+                type="button"
+                onClick={onOpenCareerStats}
+                className="px-3.5 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 hover:text-amber-200 text-xs font-bold transition-all flex items-center gap-1.5 shadow-md active:scale-95 cursor-pointer"
+              >
+                <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                <span>Career & Trophies</span>
+              </button>
+            )}
+
+            {onOpenSupport && (
+              <button
+                type="button"
+                onClick={onOpenSupport}
+                className="px-3.5 py-1.5 rounded-xl bg-pink-500/15 hover:bg-pink-500/25 border border-pink-500/30 text-pink-300 hover:text-pink-200 text-xs font-bold transition-all flex items-center gap-1.5 shadow-md active:scale-95 cursor-pointer"
+              >
+                <Heart className="w-3.5 h-3.5 text-pink-400 fill-pink-400" />
+                <span>Support via UPI: <strong className="font-mono text-white">shazeb26@fam</strong></span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

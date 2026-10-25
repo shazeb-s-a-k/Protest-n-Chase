@@ -325,10 +325,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <div><strong className="text-white">Q:</strong> Megaphone / Barricade</div>
             <div><strong className="text-white">F:</strong> Viral Hype / Water Cannon</div>
             <div><strong className="text-white">E:</strong> Bus Jailbreak / Canister Kick</div>
+            <div><strong className="text-white">G / T:</strong> Kafila Horde Command</div>
+            <div><strong className="text-white">X:</strong> Scatter Leaflet Decoys</div>
+            <div><strong className="text-white">R / Dbl-Tap:</strong> Recenter Camera</div>
             <div><strong className="text-white">H:</strong> Form Human Chain</div>
             <div><strong className="text-white">P:</strong> Photo Mode / Poster</div>
             <div><strong className="text-white">V:</strong> Camera View Mode</div>
-            <div><strong className="text-white">Right-Drag:</strong> Free Orbit Camera</div>
+            <div><strong className="text-white">Mouse:</strong> Free 360 Look</div>
           </div>
         </div>
 

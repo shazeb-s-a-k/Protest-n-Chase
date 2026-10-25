@@ -25,6 +25,7 @@ import {
   MousePointer,
   Target,
   KeyRound,
+  Trophy,
 } from 'lucide-react';
 import { GameMatchState, CameraViewMode } from '../types/game';
 import { Radar } from './Radar';
@@ -48,6 +49,7 @@ interface HUDProps {
   onOpenSettings: () => void;
   onOpenPhotoBooth: () => void;
   onOpenSupport?: () => void;
+  onOpenCareerStats?: () => void;
   onUseAbility: (ability: string) => void;
   onInteractStation?: () => void;
   onTapDetained?: () => void;
@@ -74,6 +76,7 @@ export const HUD: React.FC<HUDProps> = ({
   onOpenSettings,
   onOpenPhotoBooth,
   onOpenSupport,
+  onOpenCareerStats,
   onUseAbility,
   onInteractStation,
   onTapDetained,
@@ -346,15 +349,24 @@ export const HUD: React.FC<HUDProps> = ({
 
             <button
               onClick={onOpenSettings}
-              className="glass-panel p-1.5 sm:p-2 rounded-lg sm:rounded-xl hover:bg-white/15 transition-all text-slate-200 active:scale-95 border border-white/10 shadow-lg"
+              className="glass-panel p-1.5 sm:p-2 rounded-lg sm:rounded-xl hover:bg-white/15 transition-all text-slate-200 active:scale-95 border border-white/10 shadow-lg cursor-pointer"
               title="Settings & Quality"
             >
               <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-400" />
             </button>
+            {onOpenCareerStats && (
+              <button
+                onClick={onOpenCareerStats}
+                className="glass-panel p-1.5 sm:p-2 rounded-lg sm:rounded-xl hover:bg-amber-500/20 transition-all text-slate-200 active:scale-95 border border-amber-500/30 bg-amber-500/10 shadow-lg cursor-pointer"
+                title="Career Stats & Trophies"
+              >
+                <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" />
+              </button>
+            )}
             {onOpenSupport && (
               <button
                 onClick={onOpenSupport}
-                className="glass-panel p-1.5 sm:p-2 rounded-lg sm:rounded-xl hover:bg-pink-500/20 transition-all text-slate-200 active:scale-95 border border-pink-500/30 bg-pink-500/10 shadow-lg"
+                className="glass-panel p-1.5 sm:p-2 rounded-lg sm:rounded-xl hover:bg-pink-500/20 transition-all text-slate-200 active:scale-95 border border-pink-500/30 bg-pink-500/10 shadow-lg cursor-pointer"
                 title="Support Shazeb Anwar Khan (UPI: shazeb26@fam)"
               >
                 <Heart className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-pink-400 fill-pink-400" />

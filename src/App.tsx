@@ -21,6 +21,7 @@ import { VictoryModal } from './components/VictoryModal';
 import { SettingsModal } from './components/SettingsModal';
 import { PhotoBoothModal } from './components/PhotoBoothModal';
 import { SupportModal } from './components/SupportModal';
+import { CareerStatsModal } from './components/CareerStatsModal';
 import { LoadingOverlay } from './components/LoadingOverlay';
 import { audioManager } from './engine/AudioManager';
 import { Smartphone } from 'lucide-react';
@@ -37,6 +38,7 @@ export const App: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isPhotoBoothOpen, setIsPhotoBoothOpen] = useState(false);
   const [isSupportOpen, setIsSupportOpen] = useState(false);
+  const [isCareerStatsOpen, setIsCareerStatsOpen] = useState(false);
   const [launchError, setLaunchError] = useState<string | null>(null);
   const [isPointerLocked, setIsPointerLocked] = useState(false);
 
@@ -626,6 +628,7 @@ export const App: React.FC = () => {
             onOpenSettings={() => setIsSettingsOpen(true)}
             onOpenPhotoBooth={() => setIsPhotoBoothOpen(true)}
             onOpenSupport={() => setIsSupportOpen(true)}
+            onOpenCareerStats={() => setIsCareerStatsOpen(true)}
             onUseAbility={handleUseAbility}
             onInteractStation={() => engineRef.current?.interactWithStation()}
             onTapDetained={() => engineRef.current?.handleMinigameTap()}
@@ -708,6 +711,7 @@ export const App: React.FC = () => {
         <TeamSelectModal
           onStartGame={handleStartGame}
           onOpenSupport={() => setIsSupportOpen(true)}
+          onOpenCareerStats={() => setIsCareerStatsOpen(true)}
           isFullscreen={isFullscreen}
           onToggleFullscreen={toggleFullscreen}
         />
@@ -715,8 +719,18 @@ export const App: React.FC = () => {
 
       {/* Victory / Defeat Modal */}
       {isPlaying && matchState.isGameOver && (
-        <VictoryModal matchState={matchState} onRestart={handleRestart} />
+        <VictoryModal
+          matchState={matchState}
+          onRestart={handleRestart}
+          onOpenCareerStats={() => setIsCareerStatsOpen(true)}
+        />
       )}
+
+      {/* Career Stats & Trophies Modal */}
+      <CareerStatsModal
+        isOpen={isCareerStatsOpen}
+        onClose={() => setIsCareerStatsOpen(false)}
+      />
 
       {/* Global Support Modal */}
       <SupportModal
