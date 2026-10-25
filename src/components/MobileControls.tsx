@@ -11,6 +11,7 @@ import {
   Users,
   Zap,
   Siren,
+  Compass,
 } from 'lucide-react';
 import { MovementInput } from '../engine/CharacterController';
 import { Team } from '../types/game';
@@ -22,6 +23,7 @@ interface MobileControlsProps {
   onUseAbility: (ability: string) => void;
   onRotateCamera?: (deltaX: number, deltaY: number) => void;
   onZoomCamera?: (deltaZoom: number) => void;
+  onRecenterCamera?: () => void;
   abilityCooldowns?: Map<string, number>;
   isUIIdle?: boolean;
   forceVisible?: boolean;
@@ -35,6 +37,7 @@ export const MobileControls: React.FC<MobileControlsProps> = ({
   onUseAbility,
   onRotateCamera,
   onZoomCamera,
+  onRecenterCamera,
   abilityCooldowns,
   isUIIdle = false,
   forceVisible = false,
@@ -49,6 +52,7 @@ export const MobileControls: React.FC<MobileControlsProps> = ({
   const activeCameraTouchIdRef = useRef<number | null>(null);
   const lastCameraTouchPosRef = useRef<{ x: number; y: number } | null>(null);
   const pinchStartDistRef = useRef<number | null>(null);
+  const lastCameraTapTimeRef = useRef<number>(0);
 
   const [knobPos, setKnobPos] = useState({ x: 0, y: 0 });
   const [floatingBasePos, setFloatingBasePos] = useState<{ x: number; y: number } | null>(null);
@@ -257,6 +261,17 @@ export const MobileControls: React.FC<MobileControlsProps> = ({
       if (touch.clientX < window.innerWidth * 0.38 && touch.clientY > window.innerHeight * 0.45) {
         continue;
       }
+
+      // Quick double-tap anywhere in camera view recenters camera directly behind player
+      const now = Date.now();
+      if (now - lastCameraTapTimeRef.current < 280) {
+        triggerHaptic(30);
+        onRecenterCamera?.();
+        lastCameraTapTimeRef.current = 0;
+      } else {
+        lastCameraTapTimeRef.current = now;
+      }
+
       activeCameraTouchIdRef.current = touch.identifier;
       lastCameraTouchPosRef.current = { x: touch.clientX, y: touch.clientY };
       break;
@@ -665,8 +680,32 @@ export const MobileControls: React.FC<MobileControlsProps> = ({
           )}
         </div>
 
-        {/* Primary Action Buttons: Sprint, Slide, Jump */}
+        {/* Primary Action Buttons: Recenter, Sprint, Slide, Jump */}
         <div className="flex items-end gap-2.5">
+          {/* Recenter Camera Button */}
+          {onRecenterCamera && (
+            <button
+              type="button"
+              style={{ touchAction: 'none' }}
+              onTouchStart={(e) => {
+                e.preventDefault();
+                triggerHaptic(30);
+                onRecenterCamera();
+              }}
+              onClick={() => {
+                triggerHaptic(30);
+                onRecenterCamera();
+              }}
+              className={`${
+                isLandscape ? 'w-10 h-10' : 'w-11 h-11'
+              } rounded-2xl glass-panel border border-emerald-400/40 bg-emerald-950/40 flex flex-col items-center justify-center active:scale-90 text-emerald-300 shadow-xl`}
+              title="Recenter Camera Behind Player"
+            >
+              <Compass className={isLandscape ? 'w-4 h-4' : 'w-5 h-5'} />
+              <span className="text-[6px] font-bold tracking-tighter uppercase">CAM</span>
+            </button>
+          )}
+
           {/* Sprint Toggle */}
           <button
             type="button"

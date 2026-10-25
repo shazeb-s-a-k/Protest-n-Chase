@@ -16,6 +16,7 @@ import {
   Heart,
   Copy,
   Check,
+  Compass,
 } from 'lucide-react';
 
 interface SettingsModalProps {
@@ -29,6 +30,10 @@ interface SettingsModalProps {
   onSelectWeather: (w: WeatherCondition) => void;
   isMuted: boolean;
   onToggleMute: () => void;
+  volume?: number;
+  onSelectVolume?: (vol: number) => void;
+  cameraSensitivity?: number;
+  onSelectCameraSensitivity?: (sens: number) => void;
   placardText: string;
   onUpdatePlacard: (text: string) => void;
 }
@@ -44,6 +49,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onSelectWeather,
   isMuted,
   onToggleMute,
+  volume = 0.75,
+  onSelectVolume,
+  cameraSensitivity = 1.0,
+  onSelectCameraSensitivity,
   placardText,
   onUpdatePlacard,
 }) => {
@@ -150,30 +159,78 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
         </div>
 
-        {/* 3. Audio & Voice Settings */}
-        <div className="flex items-center justify-between p-3 rounded-2xl bg-white/5 border border-white/10">
-          <div className="flex items-center gap-2.5">
-            {isMuted ? (
-              <VolumeX className="w-5 h-5 text-red-400" />
-            ) : (
-              <Volume2 className="w-5 h-5 text-emerald-400" />
-            )}
-            <div>
-              <div className="text-xs font-bold text-white">Synthesized Audio & Chants</div>
-              <div className="text-[10px] text-slate-400">Web Audio API megaphones, sirens & drumbeats</div>
+        {/* 3. Audio & Voice Settings with Volume Slider */}
+        <div className="flex flex-col gap-2.5 p-3 rounded-2xl bg-white/5 border border-white/10">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              {isMuted ? (
+                <VolumeX className="w-5 h-5 text-red-400" />
+              ) : (
+                <Volume2 className="w-5 h-5 text-emerald-400" />
+              )}
+              <div>
+                <div className="text-xs font-bold text-white">Synthesized Audio & Chants</div>
+                <div className="text-[10px] text-slate-400">Web Audio API megaphones, sirens & drumbeats</div>
+              </div>
+            </div>
+            <button
+              onClick={onToggleMute}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
+                isMuted
+                  ? 'bg-red-500/20 text-red-300 border-red-500/30'
+                  : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+              }`}
+            >
+              {isMuted ? 'MUTED' : 'ACTIVE'}
+            </button>
+          </div>
+
+          {onSelectVolume && (
+            <div className="flex items-center gap-3 pt-1 border-t border-white/5">
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider w-16">
+                Vol: {Math.round(volume * 100)}%
+              </span>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                value={isMuted ? 0 : volume}
+                onChange={(e) => onSelectVolume(parseFloat(e.target.value))}
+                className="flex-1 accent-cyan-400 h-1.5 bg-slate-800 rounded-lg cursor-pointer"
+              />
+            </div>
+          )}
+        </div>
+
+        {/* 4. Camera Look Sensitivity */}
+        {onSelectCameraSensitivity && (
+          <div className="flex flex-col gap-2 p-3 rounded-2xl bg-white/5 border border-white/10">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                <Compass className="w-4 h-4 text-emerald-400" />
+                Camera Look Sensitivity
+              </label>
+              <span className="text-xs font-mono font-bold text-emerald-300">
+                {cameraSensitivity.toFixed(2)}x
+              </span>
+            </div>
+            <input
+              type="range"
+              min="0.3"
+              max="2.5"
+              step="0.05"
+              value={cameraSensitivity}
+              onChange={(e) => onSelectCameraSensitivity(parseFloat(e.target.value))}
+              className="w-full accent-emerald-400 h-1.5 bg-slate-800 rounded-lg cursor-pointer"
+            />
+            <div className="flex justify-between text-[9px] text-slate-500 font-mono">
+              <span>0.3x (Slow & Smooth)</span>
+              <span>1.0x (Default)</span>
+              <span>2.5x (Fast Twitch)</span>
             </div>
           </div>
-          <button
-            onClick={onToggleMute}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
-              isMuted
-                ? 'bg-red-500/20 text-red-300 border-red-500/30'
-                : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-            }`}
-          >
-            {isMuted ? 'MUTED' : 'ACTIVE'}
-          </button>
-        </div>
+        )}
 
         {/* 4. Customize Placard Slogan */}
         <form onSubmit={handleSavePlacard} className="flex flex-col gap-2">

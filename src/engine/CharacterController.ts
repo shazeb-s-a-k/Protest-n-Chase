@@ -1131,14 +1131,17 @@ export class CharacterController {
       const animRate = currentSpeed * 0.85;
       this.animTimer += delta * animRate;
 
-      // Tactile footstep sound when foot touches down
-      if (this.state.isLocal && this.isGrounded) {
-        if (Math.sin(prevTimer) * Math.sin(this.animTimer) < 0) {
+      // Tactile footstep sound & puddle splash when foot touches down
+      if (this.isGrounded && Math.sin(prevTimer) * Math.sin(this.animTimer) < 0) {
+        if (this.state.isLocal) {
           audioManager.playFootstep(this.state.isSprinting);
           if (this.isInPuddle) {
             audioManager.playPuddleSplash();
             this.particleSystem?.spawnPuddleSplash(this.mesh.position);
           }
+        } else if (this.isInPuddle && this.particleSystem) {
+          // AI running through wet pavement or rain creates water ripple splashes
+          this.particleSystem.spawnPuddleSplash(this.mesh.position);
         }
       }
 

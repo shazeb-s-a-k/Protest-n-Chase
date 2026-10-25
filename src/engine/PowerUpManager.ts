@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { PowerUpType, PowerUpItem } from '../types/game';
+import { PowerUpType, PowerUpItem, MapId } from '../types/game';
 import { audioManager } from './AudioManager';
 
 interface PowerUpInstance {
@@ -12,20 +12,30 @@ export class PowerUpManager {
   private scene: THREE.Scene;
   public powerUps: PowerUpInstance[] = [];
 
-  constructor(scene: THREE.Scene) {
+  constructor(scene: THREE.Scene, mapId: MapId = 'DELHI') {
     this.scene = scene;
-    this.spawnDefaultPowerUps();
+    this.spawnDefaultPowerUps(mapId);
   }
 
-  private spawnDefaultPowerUps() {
-    const locations: { type: PowerUpType; x: number; z: number }[] = [
-      { type: 'ENERGY_CHAI', x: -18, z: 22 }, // Near Samrat Yantra ramp
-      { type: 'AMP_BOOST', x: 0, z: 31 },    // In front of Protest stage
-      { type: 'WIFI_HOTSPOT', x: 22, z: 18 },  // East lawn
-      { type: 'PEACE_AURA', x: -30, z: -8 },   // Near Ram Yantra
-      { type: 'CONE_TRAP', x: 0, z: 46 },     // Near Police barricade line
-      { type: 'ENERGY_CHAI', x: 30, z: -8 },   // Near Ram Yantra East
-    ];
+  private spawnDefaultPowerUps(mapId: MapId = 'DELHI') {
+    const locations: { type: PowerUpType; x: number; z: number }[] =
+      mapId === 'PARIS'
+        ? [
+            { type: 'ENERGY_CHAI', x: -24, z: 28 }, // Near Fontaine Wallace North
+            { type: 'ENERGY_CHAI', x: 24, z: -28 }, // Near Fontaine Wallace South
+            { type: 'AMP_BOOST', x: 0, z: -16 },    // North Plaza towards Rue de la Roquette
+            { type: 'WIFI_HOTSPOT', x: 48, z: 0 },  // In front of Opéra Bastille entrance
+            { type: 'PEACE_AURA', x: 0, z: 0 },     // Base of Colonne de Juillet
+            { type: 'CONE_TRAP', x: -36, z: 0 },    // Rue Saint-Antoine barricade line
+          ]
+        : [
+            { type: 'ENERGY_CHAI', x: -44, z: -13 }, // Right at the roadside Chai Tapri stall!
+            { type: 'ENERGY_CHAI', x: -18, z: 22 },  // Near Samrat Yantra ramp
+            { type: 'AMP_BOOST', x: 0, z: 31 },     // In front of Protest stage
+            { type: 'WIFI_HOTSPOT', x: 22, z: 18 },   // East lawn
+            { type: 'PEACE_AURA', x: -30, z: -8 },    // Near Ram Yantra
+            { type: 'CONE_TRAP', x: 0, z: 46 },      // Near Police barricade line
+          ];
 
     locations.forEach((loc, idx) => {
       const item: PowerUpItem = {

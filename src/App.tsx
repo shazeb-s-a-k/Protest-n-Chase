@@ -190,6 +190,8 @@ export const App: React.FC = () => {
   const [stamina, setStamina] = useState(100);
   const [cameraMode, setCameraMode] = useState<CameraViewMode>('CHASE');
   const [isMuted, setIsMuted] = useState(false);
+  const [volume, setVolume] = useState(0.75);
+  const [cameraSensitivity, setCameraSensitivity] = useState(1.0);
   const [comments, setComments] = useState<LiveStreamComment[]>([
     { id: '1', user: 'DelhiEcho', text: 'Peaceful protest starting at Jantar Mantar! 📢', emoji: '✊', timestamp: Date.now() },
     { id: '2', user: 'Aarav_Z', text: 'Stand strong! Raise our voices!', emoji: '🔥', timestamp: Date.now() },
@@ -365,7 +367,12 @@ export const App: React.FC = () => {
         case 'KeyR':
           if (matchState.localTeam === 'POLICE') {
             engineRef.current.throwSmokeCanister();
+          } else {
+            engineRef.current.recenterCamera();
           }
+          break;
+        case 'KeyB':
+          engineRef.current.recenterCamera();
           break;
         case 'KeyE':
           if (matchState.localTeam === 'PROTESTOR') {
@@ -512,6 +519,18 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleSelectVolume = (vol: number) => {
+    setVolume(vol);
+    audioManager.setVolume(vol);
+  };
+
+  const handleSelectCameraSensitivity = (sens: number) => {
+    setCameraSensitivity(sens);
+    if (engineRef.current) {
+      engineRef.current.setCameraSensitivity(sens);
+    }
+  };
+
   const handleRestart = () => {
     if (engineRef.current) {
       engineRef.current.destroy();
@@ -579,6 +598,7 @@ export const App: React.FC = () => {
             isUIHidden={isUIIdle}
             abilityCooldowns={engineRef.current?.abilityCooldowns}
             onToggleCamera={handleToggleCamera}
+            onRecenterCamera={() => engineRef.current?.recenterCamera()}
             onToggleMute={handleToggleMute}
             onToggleFullscreen={toggleFullscreen}
             onToggleImmersiveMode={() => setIsImmersiveMode(!isImmersiveMode)}
@@ -602,6 +622,7 @@ export const App: React.FC = () => {
             onUseAbility={handleUseAbility}
             onRotateCamera={(dx, dy) => engineRef.current?.rotateCamera(dx, dy)}
             onZoomCamera={(dz) => engineRef.current?.zoomCamera(dz)}
+            onRecenterCamera={() => engineRef.current?.recenterCamera()}
             abilityCooldowns={engineRef.current?.abilityCooldowns}
             isUIIdle={isUIIdle}
             onUserInteraction={resetUIIdleTimer}
@@ -627,6 +648,10 @@ export const App: React.FC = () => {
             onSelectWeather={handleSelectWeather}
             isMuted={isMuted}
             onToggleMute={handleToggleMute}
+            volume={volume}
+            onSelectVolume={handleSelectVolume}
+            cameraSensitivity={cameraSensitivity}
+            onSelectCameraSensitivity={handleSelectCameraSensitivity}
             placardText={matchState.placardText}
             onUpdatePlacard={handleUpdatePlacard}
           />

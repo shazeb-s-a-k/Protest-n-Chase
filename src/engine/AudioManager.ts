@@ -67,10 +67,23 @@ class AudioManager {
     }
   }
 
+  private currentVolume: number = 0.75;
+
+  public setVolume(volume: number) {
+    this.currentVolume = Math.max(0, Math.min(1.0, volume));
+    if (this.masterGain && this.ctx) {
+      this.masterGain.gain.setValueAtTime(this.isMuted ? 0 : this.currentVolume, this.ctx.currentTime);
+    }
+  }
+
+  public getVolume(): number {
+    return this.currentVolume;
+  }
+
   public setMuted(muted: boolean) {
     this.isMuted = muted;
     if (this.masterGain && this.ctx) {
-      this.masterGain.gain.setValueAtTime(muted ? 0 : 0.75, this.ctx.currentTime);
+      this.masterGain.gain.setValueAtTime(muted ? 0 : this.currentVolume, this.ctx.currentTime);
     }
     if (muted && this.speechAvailable) {
       window.speechSynthesis.cancel();
@@ -258,6 +271,19 @@ class AudioManager {
     lfo.start(t);
     this.sirenOsc1.start(t);
     this.sirenOsc2.start(t);
+  }
+
+  public setSirenIntensity(intensity: number) {
+    if (this.sirenGain && this.ctx && this.isSirenActive) {
+      const clamped = Math.max(0.01, Math.min(1.0, intensity));
+      this.sirenGain.gain.setTargetAtTime(0.18 * clamped, this.ctx.currentTime, 0.1);
+    }
+  }
+
+  public calculateAttenuation(distance: number, maxDistance: number = 40): number {
+    if (distance <= 0) return 1.0;
+    if (distance >= maxDistance) return 0.0;
+    return Math.max(0, 1.0 - (distance / maxDistance));
   }
 
   public stopSiren() {
@@ -514,7 +540,7 @@ class AudioManager {
   /**
    * Sound 13: Tactical Procedural Footstep Crunch / Tap
    */
-  public playFootstep(isSprinting: boolean = false) {
+  public playFootstep(isSprinting: boolean = false, volMultiplier: number = 1.0) {
     if (this.isMuted) return;
     this.init();
     if (!this.ctx || !this.sfxGain) return;
@@ -528,7 +554,8 @@ class AudioManager {
     osc.frequency.setValueAtTime(baseFreq, t);
     osc.frequency.exponentialRampToValueAtTime(32, t + 0.045);
 
-    const vol = isSprinting ? 0.16 : 0.09;
+    const baseVol = isSprinting ? 0.16 : 0.09;
+    const vol = baseVol * Math.max(0, Math.min(2.0, volMultiplier));
     gain.gain.setValueAtTime(vol, t);
     gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
 
@@ -541,7 +568,7 @@ class AudioManager {
   /**
    * Sound 14: Liquid Puddle Splash / Rain Water Touchdown
    */
-  public playPuddleSplash() {
+  public playPuddleSplash(volMultiplier: number = 1.0) {
     if (this.isMuted) return;
     this.init();
     if (!this.ctx || !this.sfxGain) return;
@@ -554,7 +581,8 @@ class AudioManager {
     osc.frequency.setValueAtTime(380 + Math.random() * 80, t);
     osc.frequency.exponentialRampToValueAtTime(95, t + 0.08);
 
-    gain.gain.setValueAtTime(0.18, t);
+    const vol = 0.18 * Math.max(0, Math.min(2.0, volMultiplier));
+    gain.gain.setValueAtTime(vol, t);
     gain.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
 
     osc.connect(gain);

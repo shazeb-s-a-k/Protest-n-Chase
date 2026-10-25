@@ -103,12 +103,14 @@ export interface LiveStreamComment {
 
 export interface RadarEntity {
   id: string;
-  type: 'LOCAL' | 'PROTESTOR' | 'POLICE' | 'BUS' | 'DRONE' | 'POWERUP';
+  type: 'LOCAL' | 'PROTESTOR' | 'POLICE' | 'BUS' | 'DRONE' | 'POWERUP' | 'LANDMARK';
   x: number;
   z: number;
   rotation?: number;
   isDetained?: boolean;
   powerUpType?: PowerUpType;
+  label?: string;
+  icon?: string;
 }
 
 export interface GameMatchState {

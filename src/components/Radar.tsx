@@ -102,12 +102,37 @@ export const Radar: React.FC<RadarProps> = ({ entities, localPlayerId }) => {
           );
         }
 
-        if (e.type === 'POWERUP') {
+        if (e.type === 'LANDMARK') {
           return (
             <div
               key={e.id}
-              className="absolute w-2 h-2 -ml-1 -mt-1 rotate-45 bg-amber-300 shadow-sm shadow-amber-400 animate-bounce pointer-events-none"
+              className="absolute w-4 h-4 -ml-2 -mt-2 flex items-center justify-center text-[10px] pointer-events-none filter drop-shadow(0 0 3px rgba(0,0,0,0.9)) select-none z-10"
               style={{ left: screenX, top: screenY }}
+              title={e.label}
+            >
+              <span className="leading-none">{e.icon || '📍'}</span>
+            </div>
+          );
+        }
+
+        if (e.type === 'POWERUP') {
+          let pColor = '#facc15';
+          if (e.powerUpType === 'ENERGY_CHAI') pColor = '#f97316';
+          else if (e.powerUpType === 'AMP_BOOST') pColor = '#ff007a';
+          else if (e.powerUpType === 'WIFI_HOTSPOT') pColor = '#00f0ff';
+          else if (e.powerUpType === 'PEACE_AURA') pColor = '#10b981';
+
+          return (
+            <div
+              key={e.id}
+              className="absolute w-2 h-2 -ml-1 -mt-1 rotate-45 animate-bounce pointer-events-none rounded-[1px]"
+              style={{
+                left: screenX,
+                top: screenY,
+                backgroundColor: pColor,
+                boxShadow: `0 0 5px ${pColor}`,
+              }}
+              title={e.powerUpType}
             />
           );
         }

@@ -21,6 +21,7 @@ import {
   Minimize,
   Zap,
   Siren,
+  Compass,
 } from 'lucide-react';
 import { GameMatchState, CameraViewMode } from '../types/game';
 import { Radar } from './Radar';
@@ -35,6 +36,7 @@ interface HUDProps {
   isUIHidden?: boolean;
   abilityCooldowns?: Map<string, number>;
   onToggleCamera: () => void;
+  onRecenterCamera?: () => void;
   onToggleMute: () => void;
   onToggleFullscreen?: () => void;
   onToggleImmersiveMode?: () => void;
@@ -54,6 +56,7 @@ export const HUD: React.FC<HUDProps> = ({
   isUIHidden = false,
   abilityCooldowns,
   onToggleCamera,
+  onRecenterCamera,
   onToggleMute,
   onToggleFullscreen,
   onToggleImmersiveMode,
@@ -196,6 +199,15 @@ export const HUD: React.FC<HUDProps> = ({
             >
               <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-cyan-400" />
             </button>
+            {onRecenterCamera && (
+              <button
+                onClick={onRecenterCamera}
+                className="glass-panel p-1.5 sm:p-2 rounded-lg sm:rounded-xl hover:bg-white/15 transition-all text-slate-200 active:scale-95 border border-white/10 shadow-lg"
+                title="Recenter Camera Behind Player (R)"
+              >
+                <Compass className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400" />
+              </button>
+            )}
             <button
               onClick={onOpenPhotoBooth}
               className="glass-panel p-1.5 sm:p-2 rounded-lg sm:rounded-xl hover:bg-white/15 transition-all text-slate-200 active:scale-95 border border-white/10 shadow-lg"

@@ -95,6 +95,18 @@ export class GameEngine {
   private static readonly _hitPoint = new THREE.Vector3();
   private droneFlashTimer: number = 0;
   private _radarEntitiesPool: RadarEntity[] = [];
+  public screenShakeIntensity: number = 0;
+
+  public addScreenShake(intensity: number) {
+    this.screenShakeIntensity = Math.min(1.2, this.screenShakeIntensity + intensity);
+  }
+
+  public recenterCamera() {
+    if (!this.localPlayer) return;
+    this.cameraYaw = this.localPlayer.mesh.rotation.y + Math.PI;
+    this.cameraPitch = 0.28;
+    this.snapCameraToPlayer();
+  }
 
   constructor(
     container: HTMLElement,
@@ -173,7 +185,7 @@ export class GameEngine {
     this.particleSystem = new ParticleSystem(this.scene);
     this.aiController = new AIController();
     this.networkManager = new NetworkManager();
-    this.powerUpManager = new PowerUpManager(this.scene);
+    this.powerUpManager = new PowerUpManager(this.scene, this.selectedMap);
     this.weatherManager = new WeatherManager(this.scene);
     this.wildlifeManager = new WildlifeManager(this.scene);
     this.skyAtmosphere = new SkyAtmosphere(this.scene);
@@ -278,9 +290,15 @@ export class GameEngine {
     }
   }
 
+  public cameraSensitivity: number = 1.0;
+
+  public setCameraSensitivity(val: number) {
+    this.cameraSensitivity = THREE.MathUtils.clamp(val, 0.25, 2.5);
+  }
+
   public rotateCamera(deltaX: number, deltaY: number = 0) {
-    this.cameraYaw -= deltaX * 0.007;
-    this.cameraPitch = THREE.MathUtils.clamp(this.cameraPitch + deltaY * 0.005, -0.22, 0.72);
+    this.cameraYaw -= deltaX * 0.007 * this.cameraSensitivity;
+    this.cameraPitch = THREE.MathUtils.clamp(this.cameraPitch + deltaY * 0.005 * this.cameraSensitivity, -0.22, 0.72);
   }
 
   public zoomCamera(deltaZoom: number) {
@@ -518,21 +536,18 @@ export class GameEngine {
 
   // --- GRAPHICS & WEATHER ---
 
+  private getTargetDPR(): number {
+    const isMobile = typeof navigator !== 'undefined' && /Mobi|Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent || '');
+    const quality = this.matchState?.graphicsQuality || 'HIGH';
+    if (quality === 'ULTRA') return isMobile ? 2.0 : 2.5;
+    if (quality === 'HIGH') return isMobile ? 1.45 : 2.0;
+    if (quality === 'MEDIUM') return 1.0;
+    return 0.85;
+  }
+
   public setGraphicsQuality(quality: GraphicsQuality) {
     this.matchState.graphicsQuality = quality;
-    if (quality === 'ULTRA') {
-      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio * 1.5, 3.0));
-      this.renderer.shadowMap.enabled = true;
-    } else if (quality === 'HIGH') {
-      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2.0));
-      this.renderer.shadowMap.enabled = true;
-    } else if (quality === 'MEDIUM') {
-      this.renderer.setPixelRatio(1.0);
-      this.renderer.shadowMap.enabled = true;
-    } else {
-      this.renderer.setPixelRatio(0.85);
-      this.renderer.shadowMap.enabled = false;
-    }
+    this.renderer.shadowMap.enabled = quality !== 'LOW';
     this.onResize();
   }
 
@@ -611,6 +626,7 @@ export class GameEngine {
     if (this.matchState.activePowerUp === 'WIFI_HOTSPOT') boost *= 2.5;
 
     this.addAwareness(boost);
+    this.addScreenShake(0.35);
     this.particleSystem.spawnLiveStreamEmoji(pos, '📢');
     if (this.onLiveStreamComment) {
       this.onLiveStreamComment(
@@ -650,6 +666,7 @@ export class GameEngine {
     ).normalize();
 
     this.localPlayer.triggerParkourDash(camForward);
+    this.addScreenShake(0.28);
     const pos = this.localPlayer.mesh.position.clone();
     this.particleSystem.spawnLiveStreamEmoji(pos, '⚡️');
 
@@ -677,6 +694,7 @@ export class GameEngine {
     this.setAbilityCooldown('PURSUIT_BOOST', 6.0);
 
     this.localPlayer.triggerPursuitBoost(3.5);
+    this.addScreenShake(0.3);
     audioManager.playPoliceRadioChatter();
     const pos = this.localPlayer.mesh.position.clone();
     this.particleSystem.spawnLiveStreamEmoji(pos, '🚨');
@@ -802,6 +820,7 @@ export class GameEngine {
     const forward = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), rot);
 
     audioManager.playWaterCannonSpray();
+    this.addScreenShake(0.42);
     this.particleSystem.spawnWaterSurge(pos, forward);
 
     this.aiPlayers.forEach((p) => {
@@ -830,6 +849,7 @@ export class GameEngine {
     this.matchState.activeMinigame = 'STRUGGLE';
     this.matchState.minigameProgress = 40;
 
+    this.addScreenShake(0.55);
     audioManager.startSiren(0.2);
     audioManager.playPoliceRadioChatter();
     audioManager.playTensionHeartbeat();
@@ -840,6 +860,7 @@ export class GameEngine {
   }
 
   public handleMinigameTap() {
+    this.addScreenShake(0.08);
     if (this.matchState.activeMinigame === 'STRUGGLE') {
       this.matchState.minigameProgress += 8.5;
       audioManager.playTensionHeartbeat();
@@ -903,6 +924,7 @@ export class GameEngine {
       const busVec = new THREE.Vector3(bus.x, 0, bus.z);
       if (this.localPlayer.mesh.position.distanceTo(busVec) < 6.5) {
         this.mapBuilder.openBusDoor(bus.id);
+        this.addScreenShake(0.5);
 
         this.aiPlayers.forEach((ai) => {
           if (ai.state.isDetained) {
@@ -1174,6 +1196,8 @@ export class GameEngine {
 
       // 10. Update AI Units
       const allUnits = this.localPlayer ? [this.localPlayer, ...this.aiPlayers] : this.aiPlayers;
+      const isRain = this.weatherManager.currentWeather === 'MONSOON_RAIN';
+      const isParisWet = this.selectedMap === 'PARIS';
       this.aiController.update(
         delta,
         allUnits,
@@ -1190,8 +1214,29 @@ export class GameEngine {
               if (bus) protestor.mesh.position.set(bus.x, 1, bus.z);
             }
           }
-        }
+        },
+        isRain || isParisWet
       );
+
+      // Dynamic distance-attenuated police sirens for immersive tactical tension
+      if (this.localPlayer && this.localPlayer.state.team === 'PROTESTOR' && !this.localPlayer.state.isDetained) {
+        let minCopDist = Infinity;
+        const pPos = this.localPlayer.mesh.position;
+        for (let i = 0; i < this.aiPlayers.length; i++) {
+          const ai = this.aiPlayers[i];
+          if (ai.state.team === 'POLICE') {
+            const d = pPos.distanceTo(ai.mesh.position);
+            if (d < minCopDist) minCopDist = d;
+          }
+        }
+        if (minCopDist < 42) {
+          const intensity = Math.max(0.12, 1.0 - minCopDist / 42);
+          audioManager.startSiren(intensity);
+          audioManager.setSirenIntensity(intensity);
+        } else if (this.matchState.activeMinigame !== 'STRUGGLE') {
+          audioManager.stopSiren();
+        }
+      }
 
       // 11. Update Active Canisters
       for (let i = this.activeCanisters.length - 1; i >= 0; i--) {
@@ -1221,6 +1266,7 @@ export class GameEngine {
 
         if (c.timer <= 0) {
           this.particleSystem.spawnSmokePlume(c.mesh.position);
+          this.addScreenShake(0.45);
           audioManager.playCanisterKick();
           this.scene.remove(c.mesh);
           this.activeCanisters.splice(i, 1);
@@ -1324,6 +1370,67 @@ export class GameEngine {
       }
     });
 
+    // Add Key Map Landmarks to Radar
+    if (this.selectedMap === 'DELHI') {
+      entities.push({
+        id: 'lm_samrat_yantra',
+        type: 'LANDMARK',
+        x: 0,
+        z: -25,
+        icon: '🏛️',
+        label: 'Samrat Yantra',
+      });
+      entities.push({
+        id: 'lm_stage',
+        type: 'LANDMARK',
+        x: 0,
+        z: 15,
+        icon: '📢',
+        label: 'Main Stage',
+      });
+      entities.push({
+        id: 'lm_chai_tapri',
+        type: 'LANDMARK',
+        x: -46,
+        z: -14,
+        icon: '☕',
+        label: 'Chai Tapri',
+      });
+    } else {
+      entities.push({
+        id: 'lm_colonne',
+        type: 'LANDMARK',
+        x: 0,
+        z: 0,
+        icon: '🗼',
+        label: 'Colonne Bastille',
+      });
+      entities.push({
+        id: 'lm_opera',
+        type: 'LANDMARK',
+        x: 58,
+        z: 0,
+        icon: '🎭',
+        label: 'Opéra Bastille',
+      });
+      entities.push({
+        id: 'lm_wallace_north',
+        type: 'LANDMARK',
+        x: -26,
+        z: 30,
+        icon: '💧',
+        label: 'Fontaine Wallace',
+      });
+      entities.push({
+        id: 'lm_wallace_south',
+        type: 'LANDMARK',
+        x: 26,
+        z: -30,
+        icon: '💧',
+        label: 'Fontaine Wallace',
+      });
+    }
+
     this.matchState.radarEntities = entities;
   }
 
@@ -1409,6 +1516,17 @@ export class GameEngine {
       );
       this.camera.lookAt(GameEngine._frontDir);
     }
+
+    // Visceral AAA Screen Shake with high-frequency decaying jitter
+    if (this.screenShakeIntensity > 0.001) {
+      const shakeX = (Math.random() - 0.5) * this.screenShakeIntensity * 0.45;
+      const shakeY = (Math.random() - 0.5) * this.screenShakeIntensity * 0.35;
+      const shakeZ = (Math.random() - 0.5) * this.screenShakeIntensity * 0.45;
+      this.camera.position.x += shakeX;
+      this.camera.position.y += shakeY;
+      this.camera.position.z += shakeZ;
+      this.screenShakeIntensity = Math.max(0, this.screenShakeIntensity - delta * 3.2);
+    }
   }
 
   public toggleCameraMode(): CameraViewMode {
@@ -1420,8 +1538,7 @@ export class GameEngine {
 
   private onResize = () => {
     if (!this.container) return;
-    const isMobile = typeof navigator !== 'undefined' && /Mobi|Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent || '');
-    const maxDPR = isMobile ? 1.45 : 2.0;
+    const maxDPR = this.getTargetDPR();
 
     this.camera.aspect = this.container.clientWidth / this.container.clientHeight;
     this.camera.updateProjectionMatrix();

@@ -43,13 +43,15 @@ export class AIController {
     allPlayers: CharacterController[],
     colliders: Collider[],
     busPositions: { x: number; y: number; z: number; id: string }[],
-    onTriggerGrapple: (cop: CharacterController, protestor: CharacterController) => void
+    onTriggerGrapple: (cop: CharacterController, protestor: CharacterController) => void,
+    isWetEnvironment: boolean = false
   ) {
     for (const ai of this.aiUnits) {
       if (ai.controller.state.isDetained || ai.controller.state.isGrappled) {
         continue;
       }
 
+      ai.controller.isInPuddle = isWetEnvironment;
       ai.timer += delta;
       const isPolice = ai.controller.state.team === 'POLICE';
       const myPos = ai.controller.mesh.position;
