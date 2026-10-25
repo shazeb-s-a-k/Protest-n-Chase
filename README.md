@@ -52,11 +52,15 @@ If you love playing **Protest-n-Chase**, consider supporting the creator to fund
 
 ## 🚀 Key Features
 
-### 1. 🏛️ Authentic 3D Jantar Mantar Architecture (Chapter 1: New Delhi)
-- **Samrat Yantra**: Colossal 30-meter high sundial ramp with steps and observation platform.
-- **Ram Yantra**: Open-columned cylindrical astronomical structures with interior pillars.
-- **Jai Prakash Yantra**: Sunken hemisphere bowl observatories with marble stairways.
-- **Delhi Transit Vehicles**: DTC green-and-orange detainment buses and "Varun" riot water cannon trucks.
+### 1. 🏛️ Authentic 3D Jantar Mantar & Central Vista Architecture (Chapter 1: New Delhi)
+- **Samvidhan Sadan (The Historic Circular Parliament House)**: Majestic circular edifice with 72-144 classical buff sandstone colonnades, grand central dome, and an illuminated 14m mast flying the Indian National Flag (Tiranga) visible across Sansad Marg.
+- **Sansad Bhavan (The Modern Triangular New Parliament House)**: Triangular sandstone mega-structure with intricate stone jali screens and golden Ashoka Lion Capital sculpture crowning the central spire.
+- **Mishra Yantra (The Composite Instrument)**: The signature heart-shaped winged monument unique to Delhi Jantar Mantar, featuring the Niyat Chakra semicircular dials and inlaid Makrana marble calibration strips.
+- **Samrat Yantra**: Colossal 24-meter high triangular red sandstone sundial with central stone staircase, apex octagonal chhatri pavilion, and sweeping marble quadrant arcs.
+- **Ram Yantra & Jai Prakash Yantra**: Cylindrical altitude-azimuth stone drums with radial sectors, alongside twin sunken hemispherical marble calibration bowls.
+- **Raisina Hill & India Gate Skyline**: Distant red sandstone Secretariat palaces and India Gate ceremonial arch silhouette framing the horizon.
+- **Sansad Marg (Parliament Street) Avenue**: 6-lane ceremonial avenue with ASI heritage plaques, Delhi municipal road signs, cast-iron Ashoka streetlights, and red sandstone curbs.
+- **Authentic Delhi Vehicles & Native Trees**: Delhi Police "Vajra" armored riot carrier with wire-mesh windshield, Delhi Police patrol SUVs, VIP Ambassador sedans, and native Lutyens' Neem, Jamun, and Ashoka shade trees.
 
 ### 2. 🗼 Authentic 3D Place de la Bastille Architecture (Chapter 2: Paris)
 - **Colonne de Juillet (July Column)**: Colossal stepped circular marble plinth, square pedestal with bronze medallions, 24m fluted verdigris column, Corinthian capital, and golden balustrade gallery.

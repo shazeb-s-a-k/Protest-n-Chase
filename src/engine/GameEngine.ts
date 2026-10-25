@@ -100,7 +100,7 @@ export class GameEngine {
     this.container = container;
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(mapId === 'PARIS' ? 0x0f172a : 0xdbeafe);
-    this.scene.fog = new THREE.FogExp2(mapId === 'PARIS' ? 0x1e293b : 0xfef08a, mapId === 'PARIS' ? 0.005 : 0.006);
+    this.scene.fog = new THREE.FogExp2(mapId === 'PARIS' ? 0x1e293b : 0xfef08a, mapId === 'PARIS' ? 0.0035 : 0.0022);
 
     const width = container.clientWidth || (typeof window !== 'undefined' ? window.innerWidth : 1280) || 1280;
     const height = container.clientHeight || (typeof window !== 'undefined' ? window.innerHeight : 720) || 720;
@@ -109,7 +109,7 @@ export class GameEngine {
       65,
       width / height,
       0.1,
-      250
+      500
     );
 
     let renderer: THREE.WebGLRenderer;

@@ -627,31 +627,539 @@ export class TextureGenerator {
   }
 
   /**
+   * Generates authentic Dholpur Red Sandstone (Jaipur/Delhi heritage monument stone)
+   */
+  public static getIndianRedSandstoneTexture(): { map: THREE.CanvasTexture; bumpMap: THREE.CanvasTexture } {
+    const mapKey = 'indian_red_sandstone_diffuse';
+    const bumpKey = 'indian_red_sandstone_bump';
+
+    if (this.cache.has(mapKey) && this.cache.has(bumpKey)) {
+      return { map: this.cache.get(mapKey)!, bumpMap: this.cache.get(bumpKey)! };
+    }
+
+    const size = 512;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    // Rich terracotta red Dholpur sandstone base
+    ctx.fillStyle = '#9e3223';
+    ctx.fillRect(0, 0, size, size);
+
+    // Natural geological sediment stratification lines
+    for (let y = 0; y < size; y += 8) {
+      const alpha = 0.08 + Math.random() * 0.12;
+      ctx.fillStyle = Math.random() > 0.5 ? `rgba(180, 70, 50, ${alpha})` : `rgba(80, 20, 15, ${alpha})`;
+      ctx.fillRect(0, y + (Math.random() - 0.5) * 4, size, 4 + Math.random() * 6);
+    }
+
+    // Hand-chiseled stone block seams
+    const rows = 8;
+    const cols = 4;
+    const cellH = size / rows;
+    const cellW = size / cols;
+    ctx.lineWidth = 2.5;
+
+    for (let r = 0; r < rows; r++) {
+      const offsetX = r % 2 === 0 ? 0 : cellW / 2;
+      for (let c = -1; c <= cols; c++) {
+        const x = c * cellW + offsetX;
+        const y = r * cellH;
+
+        // Subtle block-to-block iron oxide tint variance
+        const tint = (Math.random() - 0.5) * 22;
+        ctx.fillStyle = `rgba(${Math.round(160 + tint)}, ${Math.round(52 + tint * 0.4)}, ${Math.round(36 + tint * 0.3)}, 0.35)`;
+        ctx.fillRect(x + 2, y + 2, cellW - 4, cellH - 4);
+
+        // Mortar groove
+        ctx.strokeStyle = 'rgba(40, 12, 8, 0.7)';
+        ctx.strokeRect(x, y, cellW, cellH);
+
+        // Chiseled edge highlight
+        ctx.strokeStyle = 'rgba(230, 130, 110, 0.25)';
+        ctx.strokeRect(x + 2, y + 2, cellW - 4, cellH - 4);
+      }
+    }
+
+    // Micro mineral grain
+    const imgData = ctx.getImageData(0, 0, size, size);
+    const data = imgData.data;
+    for (let i = 0; i < data.length; i += 4) {
+      const grain = (Math.random() - 0.5) * 22;
+      data[i] = Math.min(255, Math.max(0, data[i] + grain));
+      data[i + 1] = Math.min(255, Math.max(0, data[i + 1] + grain * 0.6));
+      data[i + 2] = Math.min(255, Math.max(0, data[i + 2] + grain * 0.5));
+    }
+    ctx.putImageData(imgData, 0, 0);
+
+    const diffuseTex = new THREE.CanvasTexture(canvas);
+    diffuseTex.wrapS = THREE.RepeatWrapping;
+    diffuseTex.wrapT = THREE.RepeatWrapping;
+    diffuseTex.repeat.set(4, 4);
+
+    // Bump Map
+    const bumpCanvas = document.createElement('canvas');
+    bumpCanvas.width = 256;
+    bumpCanvas.height = 256;
+    const bCtx = bumpCanvas.getContext('2d')!;
+    bCtx.fillStyle = '#808080';
+    bCtx.fillRect(0, 0, 256, 256);
+
+    for (let r = 0; r < 4; r++) {
+      const offsetX = r % 2 === 0 ? 0 : 32;
+      for (let c = -1; c <= 4; c++) {
+        bCtx.fillStyle = '#a8a8a8';
+        bCtx.fillRect(c * 64 + offsetX + 2, r * 64 + 2, 60, 60);
+        bCtx.strokeStyle = '#202020';
+        bCtx.lineWidth = 4;
+        bCtx.strokeRect(c * 64 + offsetX, r * 64, 64, 64);
+      }
+    }
+    const bumpTex = new THREE.CanvasTexture(bumpCanvas);
+    bumpTex.wrapS = THREE.RepeatWrapping;
+    bumpTex.wrapT = THREE.RepeatWrapping;
+    bumpTex.repeat.set(4, 4);
+
+    this.cache.set(mapKey, diffuseTex);
+    this.cache.set(bumpKey, bumpTex);
+    return { map: diffuseTex, bumpMap: bumpTex };
+  }
+
+  /**
+   * Generates Dholpur Cream/Buff Sandstone for Parliament Colonnades & Cornices
+   */
+  public static getDholpurBuffSandstoneTexture(): { map: THREE.CanvasTexture; bumpMap: THREE.CanvasTexture } {
+    const mapKey = 'dholpur_buff_diffuse';
+    const bumpKey = 'dholpur_buff_bump';
+
+    if (this.cache.has(mapKey) && this.cache.has(bumpKey)) {
+      return { map: this.cache.get(mapKey)!, bumpMap: this.cache.get(bumpKey)! };
+    }
+
+    const size = 512;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    // Warm golden cream stone
+    ctx.fillStyle = '#e4d2b3';
+    ctx.fillRect(0, 0, size, size);
+
+    // Fluting & stone block lines
+    ctx.strokeStyle = 'rgba(120, 95, 70, 0.35)';
+    ctx.lineWidth = 2;
+    for (let x = 0; x < size; x += 32) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, size);
+      ctx.stroke();
+
+      // Fluting shading
+      ctx.fillStyle = 'rgba(100, 75, 50, 0.08)';
+      ctx.fillRect(x + 2, 0, 14, size);
+      ctx.fillStyle = 'rgba(255, 245, 230, 0.15)';
+      ctx.fillRect(x + 16, 0, 14, size);
+    }
+
+    // Horizontal block courses
+    ctx.strokeStyle = 'rgba(90, 70, 50, 0.5)';
+    ctx.lineWidth = 3;
+    for (let y = 0; y < size; y += 64) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(size, y);
+      ctx.stroke();
+    }
+
+    const diffuseTex = new THREE.CanvasTexture(canvas);
+    diffuseTex.wrapS = THREE.RepeatWrapping;
+    diffuseTex.wrapT = THREE.RepeatWrapping;
+    diffuseTex.repeat.set(4, 4);
+
+    // Bump
+    const bumpCanvas = document.createElement('canvas');
+    bumpCanvas.width = 256;
+    bumpCanvas.height = 256;
+    const bCtx = bumpCanvas.getContext('2d')!;
+    bCtx.fillStyle = '#808080';
+    bCtx.fillRect(0, 0, 256, 256);
+    bCtx.strokeStyle = '#303030';
+    bCtx.lineWidth = 3;
+    for (let y = 0; y < 256; y += 32) {
+      bCtx.beginPath();
+      bCtx.moveTo(0, y);
+      bCtx.lineTo(256, y);
+      bCtx.stroke();
+    }
+    const bumpTex = new THREE.CanvasTexture(bumpCanvas);
+    bumpTex.wrapS = THREE.RepeatWrapping;
+    bumpTex.wrapT = THREE.RepeatWrapping;
+    bumpTex.repeat.set(4, 4);
+
+    this.cache.set(mapKey, diffuseTex);
+    this.cache.set(bumpKey, bumpTex);
+    return { map: diffuseTex, bumpMap: bumpTex };
+  }
+
+  /**
+   * Generates Makrana White Marble with Astronomical Calibration Engravings
+   */
+  public static getMakranaMarbleTexture(): { map: THREE.CanvasTexture; bumpMap: THREE.CanvasTexture } {
+    const mapKey = 'makrana_marble_diffuse';
+    const bumpKey = 'makrana_marble_bump';
+
+    if (this.cache.has(mapKey) && this.cache.has(bumpKey)) {
+      return { map: this.cache.get(mapKey)!, bumpMap: this.cache.get(bumpKey)! };
+    }
+
+    const size = 512;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    // Pure Makrana white base
+    ctx.fillStyle = '#faf8f5';
+    ctx.fillRect(0, 0, size, size);
+
+    // Delicate grey crystalline veins
+    ctx.strokeStyle = 'rgba(148, 163, 184, 0.22)';
+    ctx.lineWidth = 1.8;
+    for (let i = 0; i < 7; i++) {
+      ctx.beginPath();
+      let vx = Math.random() * size;
+      let vy = Math.random() * size;
+      ctx.moveTo(vx, vy);
+      for (let s = 0; s < 6; s++) {
+        vx += (Math.random() - 0.4) * 70;
+        vy += (Math.random() - 0.5) * 50;
+        ctx.lineTo(vx, vy);
+      }
+      ctx.stroke();
+    }
+
+    // Celestial scale calibration lines & astronomical ticks
+    ctx.strokeStyle = 'rgba(15, 23, 42, 0.75)';
+    ctx.lineWidth = 1.5;
+    for (let y = 0; y < size; y += 16) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      const isMajor = y % 64 === 0;
+      ctx.lineTo(isMajor ? 48 : 24, y);
+      ctx.stroke();
+
+      if (isMajor) {
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.7)';
+        ctx.font = 'bold 12px Space Grotesk, sans-serif';
+        ctx.fillText(`${(y / 64) * 15}°`, 52, y + 4);
+      }
+    }
+
+    const diffuseTex = new THREE.CanvasTexture(canvas);
+    diffuseTex.wrapS = THREE.RepeatWrapping;
+    diffuseTex.wrapT = THREE.RepeatWrapping;
+    diffuseTex.repeat.set(2, 6);
+
+    const bumpCanvas = document.createElement('canvas');
+    bumpCanvas.width = 256;
+    bumpCanvas.height = 256;
+    const bCtx = bumpCanvas.getContext('2d')!;
+    bCtx.fillStyle = '#808080';
+    bCtx.fillRect(0, 0, 256, 256);
+    bCtx.strokeStyle = '#202020';
+    bCtx.lineWidth = 2;
+    for (let y = 0; y < 256; y += 8) {
+      bCtx.beginPath();
+      bCtx.moveTo(0, y);
+      bCtx.lineTo(24, y);
+      bCtx.stroke();
+    }
+    const bumpTex = new THREE.CanvasTexture(bumpCanvas);
+    bumpTex.wrapS = THREE.RepeatWrapping;
+    bumpTex.wrapT = THREE.RepeatWrapping;
+    bumpTex.repeat.set(2, 6);
+
+    this.cache.set(mapKey, diffuseTex);
+    this.cache.set(bumpKey, bumpTex);
+    return { map: diffuseTex, bumpMap: bumpTex };
+  }
+
+  /**
+   * Generates Manicured Mughal Charbagh Garden Lawn Texture with Mowing Stripes
+   */
+  public static getMughalGardenLawnTexture(): { map: THREE.CanvasTexture; bumpMap: THREE.CanvasTexture } {
+    const mapKey = 'mughal_lawn_diffuse';
+    const bumpKey = 'mughal_lawn_bump';
+
+    if (this.cache.has(mapKey) && this.cache.has(bumpKey)) {
+      return { map: this.cache.get(mapKey)!, bumpMap: this.cache.get(bumpKey)! };
+    }
+
+    const size = 512;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    // Alternating mower roller stripes
+    const stripeW = 64;
+    for (let x = 0; x < size; x += stripeW) {
+      const isDark = (x / stripeW) % 2 === 0;
+      ctx.fillStyle = isDark ? '#2a692a' : '#378237';
+      ctx.fillRect(x, 0, stripeW, size);
+    }
+
+    // Grass blade noise
+    const imgData = ctx.getImageData(0, 0, size, size);
+    const data = imgData.data;
+    for (let i = 0; i < data.length; i += 4) {
+      const bladeNoise = (Math.random() - 0.5) * 26;
+      data[i] = Math.min(255, Math.max(0, data[i] + bladeNoise * 0.4));
+      data[i + 1] = Math.min(255, Math.max(0, data[i + 1] + bladeNoise));
+      data[i + 2] = Math.min(255, Math.max(0, data[i + 2] + bladeNoise * 0.3));
+    }
+    ctx.putImageData(imgData, 0, 0);
+
+    const diffuseTex = new THREE.CanvasTexture(canvas);
+    diffuseTex.wrapS = THREE.RepeatWrapping;
+    diffuseTex.wrapT = THREE.RepeatWrapping;
+    diffuseTex.repeat.set(12, 12);
+
+    const bumpCanvas = document.createElement('canvas');
+    bumpCanvas.width = 256;
+    bumpCanvas.height = 256;
+    const bCtx = bumpCanvas.getContext('2d')!;
+    bCtx.fillStyle = '#808080';
+    bCtx.fillRect(0, 0, 256, 256);
+    const bImg = bCtx.getImageData(0, 0, 256, 256);
+    const bData = bImg.data;
+    for (let i = 0; i < bData.length; i += 4) {
+      const n = (Math.random() - 0.5) * 55;
+      bData[i] = 128 + n;
+      bData[i + 1] = 128 + n;
+      bData[i + 2] = 128 + n;
+    }
+    bCtx.putImageData(bImg, 0, 0);
+
+    const bumpTex = new THREE.CanvasTexture(bumpCanvas);
+    bumpTex.wrapS = THREE.RepeatWrapping;
+    bumpTex.wrapT = THREE.RepeatWrapping;
+    bumpTex.repeat.set(12, 12);
+
+    this.cache.set(mapKey, diffuseTex);
+    this.cache.set(bumpKey, bumpTex);
+    return { map: diffuseTex, bumpMap: bumpTex };
+  }
+
+  /**
+   * Generates the Indian National Flag (Tiranga) with 24-spoke Ashoka Chakra
+   */
+  public static getIndianFlagTexture(): THREE.CanvasTexture {
+    const key = 'indian_flag_tiranga';
+    if (this.cache.has(key)) return this.cache.get(key)!;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 600;
+    canvas.height = 400;
+    const ctx = canvas.getContext('2d')!;
+
+    const h = 400 / 3;
+    // Saffron (Kesari)
+    ctx.fillStyle = '#ff9933';
+    ctx.fillRect(0, 0, 600, h);
+
+    // White
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, h, 600, h);
+
+    // Green (India Green)
+    ctx.fillStyle = '#138808';
+    ctx.fillRect(0, h * 2, 600, h);
+
+    // Ashoka Chakra (Navy Blue)
+    const cx = 300;
+    const cy = 200;
+    const radius = 54;
+    ctx.strokeStyle = '#000080';
+    ctx.fillStyle = '#000080';
+    ctx.lineWidth = 4.5;
+
+    // Outer circle
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Central hub
+    ctx.beginPath();
+    ctx.arc(cx, cy, 9, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 24 Spokes
+    ctx.lineWidth = 2.4;
+    for (let s = 0; s < 24; s++) {
+      const angle = (s / 24) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius);
+      ctx.stroke();
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    this.cache.set(key, tex);
+    return tex;
+  }
+
+  /**
+   * Generates Authentic Heritage and Government Road Signage
+   */
+  public static getHeritageSignTexture(
+    type: 'ASI' | 'SANSAD_MARG' | 'CENTRAL_VISTA' | 'PARIS_CAFE'
+  ): THREE.CanvasTexture {
+    const key = `sign_${type}`;
+    if (this.cache.has(key)) return this.cache.get(key)!;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 640;
+    canvas.height = 240;
+    const ctx = canvas.getContext('2d')!;
+
+    if (type === 'ASI') {
+      // Archaeological Survey of India Official Plaque
+      ctx.fillStyle = '#0f172a'; // Deep navy
+      ctx.fillRect(0, 0, 640, 240);
+      ctx.strokeStyle = '#d97706'; // Gold border
+      ctx.lineWidth = 8;
+      ctx.strokeRect(10, 10, 620, 220);
+
+      ctx.fillStyle = '#d97706';
+      ctx.font = 'bold 24px Outfit, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('भारतीय पुरातत्व सर्वेक्षण', 320, 52);
+      ctx.font = '600 18px Outfit, sans-serif';
+      ctx.fillText('ARCHAEOLOGICAL SURVEY OF INDIA', 320, 80);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '900 36px Outfit, sans-serif';
+      ctx.fillText('जंतर मंतर • JANTAR MANTAR', 320, 140);
+
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '500 18px Outfit, sans-serif';
+      ctx.fillText('BUILT 1724 AD BY MAHARAJA SAWAI JAI SINGH II', 320, 180);
+      ctx.fillText('MONUMENT OF NATIONAL IMPORTANCE', 320, 208);
+    } else if (type === 'SANSAD_MARG') {
+      // Delhi Municipal Sansad Marg Street Sign
+      ctx.fillStyle = '#14532d'; // Delhi municipal dark green
+      ctx.fillRect(0, 0, 640, 240);
+      ctx.strokeStyle = '#f8fafc';
+      ctx.lineWidth = 8;
+      ctx.strokeRect(10, 10, 620, 220);
+
+      ctx.fillStyle = '#f8fafc';
+      ctx.textAlign = 'center';
+      ctx.font = 'bold 38px Outfit, sans-serif';
+      ctx.fillText('संसद मार्ग', 320, 75);
+      ctx.font = '900 46px Outfit, sans-serif';
+      ctx.fillText('SANSAD MARG', 320, 138);
+
+      ctx.font = '600 22px Outfit, sans-serif';
+      ctx.fillStyle = '#fef08a';
+      ctx.fillText('PARLIAMENT STREET • CENTRAL VISTA DISTRICT', 320, 195);
+    } else if (type === 'CENTRAL_VISTA') {
+      // Central Vista Directional Board
+      ctx.fillStyle = '#1e3a8a'; // Deep government blue
+      ctx.fillRect(0, 0, 640, 240);
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 6;
+      ctx.strokeRect(8, 8, 624, 224);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 30px Outfit, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('🏛️ संसद भवन / PARLIAMENT HOUSE  ➔ 500m', 320, 70);
+      ctx.fillText('🇮🇳 कर्तव्य पथ / KARTAVYA PATH  ➔ 1.2km', 320, 125);
+      ctx.fillText('⭕ कनाट प्लेस / CONNAUGHT PLACE  ⬅ 600m', 320, 180);
+    } else {
+      // Parisian Bistro Brass Plaque
+      ctx.fillStyle = '#132a13';
+      ctx.fillRect(0, 0, 640, 240);
+      ctx.strokeStyle = '#d4af37';
+      ctx.lineWidth = 8;
+      ctx.strokeRect(10, 10, 620, 220);
+
+      ctx.fillStyle = '#d4af37';
+      ctx.textAlign = 'center';
+      ctx.font = '900 36px Outfit, sans-serif';
+      ctx.fillText('LE BISTROT DE LA BASTILLE', 320, 95);
+      ctx.font = 'bold 22px Outfit, sans-serif';
+      ctx.fillText('FONDÉ EN 1889 • PLACE DE LA BASTILLE', 320, 155);
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    this.cache.set(key, tex);
+    return tex;
+  }
+
+  /**
+   * Generates Dense Deciduous Foliage Texture for Neem, Jamun, and Parisian Marronniers
+   */
+  public static getDeciduousCanopyTexture(): THREE.CanvasTexture {
+    const key = 'deciduous_foliage';
+    if (this.cache.has(key)) return this.cache.get(key)!;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d')!;
+
+    // Deep forest green base
+    ctx.fillStyle = '#1b4332';
+    ctx.fillRect(0, 0, 256, 256);
+
+    // Clustered leaf lobes
+    for (let i = 0; i < 400; i++) {
+      const lx = Math.random() * 256;
+      const ly = Math.random() * 256;
+      const lr = 6 + Math.random() * 10;
+      const leafTone = Math.random();
+      ctx.fillStyle = leafTone > 0.6 ? '#2d6a4f' : leafTone > 0.3 ? '#40916c' : '#52b788';
+      ctx.beginPath();
+      ctx.arc(lx, ly, lr, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(3, 3);
+    this.cache.set(key, tex);
+    return tex;
+  }
+
+  /**
    * Pre-generates 100% of PBR textures into device RAM and uploads them directly
    * into GPU VRAM units via renderer.initTexture so there are ZERO mid-game stutters!
    */
   public static async preloadAllTextures(renderer?: THREE.WebGLRenderer): Promise<void> {
-    // 1. Synthesize all textures into persistent RAM cache
+    // 1. Synthesize all authentic PBR textures into persistent RAM cache
     this.getAsphaltTexture();
     this.getSandstoneFlagstoneTexture();
+    this.getIndianRedSandstoneTexture();
+    this.getDholpurBuffSandstoneTexture();
+    this.getMakranaMarbleTexture();
+    this.getMughalGardenLawnTexture();
+    this.getIndianFlagTexture();
+    this.getHeritageSignTexture('ASI');
+    this.getHeritageSignTexture('SANSAD_MARG');
+    this.getHeritageSignTexture('CENTRAL_VISTA');
+    this.getHeritageSignTexture('PARIS_CAFE');
+    this.getDeciduousCanopyTexture();
     this.getParisCobblestoneTexture();
     this.getFabricBumpTexture();
     this.getTacticalKevlarTexture();
     this.getGTABoulevardRoadTexture();
     this.getZebraCrosswalkTexture();
-    this.getPalmBarkTexture();
-    this.getPalmFrondTexture();
-
-    // Pre-cache all neon signs
-    const neonPresets = [
-      { t: 'OCEAN DRIVE RALLY', c: '#ec4899', s: 'VICE CITY TOUR' },
-      { t: 'DELHI 24/7 CLUB', c: '#38bdf8', s: 'ALL NIGHT ACCESS' },
-      { t: 'SYNTHWAVE STAGE', c: '#facc15', s: 'LIVE MUSIC' },
-      { t: 'LE BISTROT DE LA BASTILLE', c: '#38bdf8', s: 'GASTRONOMIE & CAFÉ' },
-      { t: 'CLUB D\'OR BASTILLE', c: '#ec4899', s: 'DISCOTHÈQUE' },
-      { t: 'PROTEST-N-CHASE PARIS', c: '#facc15', s: 'WORLD TOUR 2026' },
-    ];
-    neonPresets.forEach((p) => this.getNeonSignTexture(p.t, p.c, p.s));
 
     // 2. Pin textures into GPU VRAM if renderer is available
     if (renderer) {
