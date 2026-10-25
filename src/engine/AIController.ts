@@ -28,6 +28,16 @@ export class AIController {
     });
   }
 
+  private static _scratchDir = new THREE.Vector3();
+  private static _scratchFleeDir = new THREE.Vector3();
+  private static _scratchInput: MovementInput = {
+    moveForward: 0,
+    moveRight: 0,
+    sprint: false,
+    jump: false,
+    slide: false,
+  };
+
   public update(
     delta: number,
     allPlayers: CharacterController[],
@@ -44,13 +54,12 @@ export class AIController {
       const isPolice = ai.controller.state.team === 'POLICE';
       const myPos = ai.controller.mesh.position;
 
-      const input: MovementInput = {
-        moveForward: 0,
-        moveRight: 0,
-        sprint: false,
-        jump: false,
-        slide: false,
-      };
+      const input = AIController._scratchInput;
+      input.moveForward = 0;
+      input.moveRight = 0;
+      input.sprint = false;
+      input.jump = false;
+      input.slide = false;
 
       if (isPolice) {
         // --- POLICE AI LOGIC ---
@@ -58,7 +67,8 @@ export class AIController {
         let closestProtestor: CharacterController | null = null;
         let minDist = Infinity;
 
-        for (const p of allPlayers) {
+        for (let pIdx = 0; pIdx < allPlayers.length; pIdx++) {
+          const p = allPlayers[pIdx];
           if (p.state.team === 'PROTESTOR' && !p.state.isDetained && !p.state.isGrappled) {
             const dist = myPos.distanceTo(p.mesh.position);
             if (dist < minDist) {
@@ -68,7 +78,7 @@ export class AIController {
           }
         }
 
-        // If a protestor is within 30m, switch to PURSUIT
+        // If a protestor is within 32m, switch to PURSUIT
         if (closestProtestor && minDist < 32) {
           ai.behavior = 'PURSUIT';
           ai.targetPos.copy(closestProtestor.mesh.position);
@@ -86,14 +96,13 @@ export class AIController {
           }
         }
 
-        // Calculate direction to target
-        const dir = new THREE.Vector3().subVectors(ai.targetPos, myPos);
+        // Calculate direction to target (Zero-GC)
+        const dir = AIController._scratchDir.subVectors(ai.targetPos, myPos);
         dir.y = 0;
-        if (dir.length() > 0.5) {
+        if (dir.lengthSq() > 0.25) {
           dir.normalize();
           input.moveForward = 1;
           input.sprint = ai.behavior === 'PURSUIT';
-          // Smooth rotation to face movement direction
           ai.controller.mesh.rotation.y = Math.atan2(dir.x, dir.z);
         }
       } else {
@@ -102,7 +111,8 @@ export class AIController {
         let nearestCop: CharacterController | null = null;
         let minCopDist = Infinity;
 
-        for (const p of allPlayers) {
+        for (let pIdx = 0; pIdx < allPlayers.length; pIdx++) {
+          const p = allPlayers[pIdx];
           if (p.state.team === 'POLICE') {
             const d = myPos.distanceTo(p.mesh.position);
             if (d < minCopDist) {
@@ -115,11 +125,13 @@ export class AIController {
         // If cop within 12m, EVADE
         if (nearestCop && minCopDist < 12) {
           ai.behavior = 'EVADE';
-          // Flee in opposite direction
-          const fleeDir = new THREE.Vector3().subVectors(myPos, nearestCop.mesh.position).normalize();
+          // Flee in opposite direction (Zero-GC)
+          const fleeDir = AIController._scratchFleeDir.subVectors(myPos, nearestCop.mesh.position);
+          fleeDir.y = 0;
+          fleeDir.normalize();
           ai.targetPos.copy(myPos).addScaledVector(fleeDir, 18);
           input.sprint = true;
-          // Randomly jump or slide to dodge
+          // Dodge maneuvers
           if (Math.random() < 0.03) input.jump = true;
           if (Math.random() < 0.02) input.slide = true;
         } else {
@@ -130,9 +142,9 @@ export class AIController {
           }
         }
 
-        const dir = new THREE.Vector3().subVectors(ai.targetPos, myPos);
+        const dir = AIController._scratchDir.subVectors(ai.targetPos, myPos);
         dir.y = 0;
-        if (dir.length() > 0.5) {
+        if (dir.lengthSq() > 0.25) {
           dir.normalize();
           input.moveForward = 1;
           ai.controller.mesh.rotation.y = Math.atan2(dir.x, dir.z);

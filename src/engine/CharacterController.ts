@@ -1001,9 +1001,25 @@ export class CharacterController {
             continue;
           }
 
-          // Vertical overlap check
+          // Vertical bounds
           const playerBottom = currY;
           const playerTop = currY + charHeight;
+
+          // Step-up mechanic: smoothly step onto low curbs, stairs, or stage edges (<= 0.38m high)
+          const stepOffset = max.y - playerBottom;
+          if (stepOffset > 0 && stepOffset <= 0.38) {
+            if (
+              currX >= min.x - halfR &&
+              currX <= max.x + halfR &&
+              currZ >= min.z - halfR &&
+              currZ <= max.z + halfR
+            ) {
+              currY = max.y;
+              this.isGrounded = true;
+              this.velocity.y = 0;
+              continue;
+            }
+          }
 
           // If obstacle is below feet, check if we can stand on it
           if (max.y <= playerBottom + 0.15) {
@@ -1013,7 +1029,7 @@ export class CharacterController {
               currZ >= min.z - halfR &&
               currZ <= max.z + halfR
             ) {
-              if (startY >= max.y - 0.2) {
+              if (startY >= max.y - 0.25) {
                 currY = Math.max(currY, max.y);
                 this.isGrounded = true;
                 this.velocity.y = 0;

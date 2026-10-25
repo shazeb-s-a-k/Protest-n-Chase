@@ -2,7 +2,7 @@
 // Loads and pins game assets, scripts, stylesheets, and fonts into device RAM / CacheStorage
 // Eliminates cellular internet latency, packet drops, and mid-game asset fetching stalls.
 
-const CACHE_NAME = 'protest-n-chase-v3';
+const CACHE_NAME = 'protest-n-chase-v4';
 const STATIC_ASSETS = [
   '/',
   '/index.html',

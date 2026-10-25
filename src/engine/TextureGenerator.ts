@@ -1138,6 +1138,164 @@ export class TextureGenerator {
   }
 
   /**
+   * Generates Authentic Parisian Haussmannian Architecture Facade Texture
+   * Features Lutetian limestone coursing, French arched windows with wrought-iron balconies,
+   * ground floor rustication, and Parisian cafe awnings
+   */
+  public static getHaussmannFacadeTexture(): { map: THREE.CanvasTexture; bumpMap: THREE.CanvasTexture } {
+    const mapKey = 'haussmann_facade_diffuse';
+    const bumpKey = 'haussmann_facade_bump';
+    if (this.cache.has(mapKey) && this.cache.has(bumpKey)) {
+      return { map: this.cache.get(mapKey)!, bumpMap: this.cache.get(bumpKey)! };
+    }
+
+    const width = 512;
+    const height = 512;
+
+    // 1. Diffuse Canvas
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d')!;
+
+    // Creamy Parisian Lutetian limestone base
+    ctx.fillStyle = '#eae2d6';
+    ctx.fillRect(0, 0, width, height);
+
+    // Stone block horizontal coursing
+    ctx.strokeStyle = '#c8bdaf';
+    ctx.lineWidth = 1.5;
+    for (let y = 0; y < height; y += 32) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(width, y);
+      ctx.stroke();
+    }
+
+    // Ground floor rustication (darker limestone base & storefronts)
+    ctx.fillStyle = '#3a2b22';
+    ctx.fillRect(0, height - 90, width, 90);
+    // Bistro / Cafe awnings
+    const awningColors = ['#1e3a5f', '#7f1d1d', '#14532d', '#78350f'];
+    for (let s = 0; s < 4; s++) {
+      const sx = s * 128 + 10;
+      ctx.fillStyle = awningColors[s % awningColors.length];
+      ctx.fillRect(sx, height - 85, 108, 30);
+      // Cafe name
+      ctx.fillStyle = '#fef08a';
+      ctx.font = 'bold 9px sans-serif';
+      ctx.textAlign = 'center';
+      const names = ['LE BASTILLE', 'CAFÉ PHARES', 'BISTROT 1789', 'BRASSERIE'];
+      ctx.fillText(names[s], sx + 54, height - 66);
+      // Store glass window
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(sx + 8, height - 52, 92, 48);
+      // Window warm light reflection
+      ctx.fillStyle = 'rgba(254, 240, 138, 0.35)';
+      ctx.fillRect(sx + 14, height - 46, 38, 36);
+    }
+
+    // Upper 4 floors of French windows (4 bays across)
+    const floors = [
+      { y: 35, h: 65, arch: true, balcony: true },  // 5th floor
+      { y: 125, h: 65, arch: false, balcony: false }, // 4th floor
+      { y: 215, h: 65, arch: false, balcony: false }, // 3rd floor
+      { y: 305, h: 75, arch: true, balcony: true },  // 2nd floor (étage noble)
+    ];
+
+    floors.forEach((f) => {
+      // Continuous black wrought iron balcony on 2nd and 5th floors
+      if (f.balcony) {
+        ctx.fillStyle = '#18181b';
+        ctx.fillRect(0, f.y + f.h - 4, width, 14);
+        ctx.strokeStyle = '#27272a';
+        ctx.lineWidth = 1.5;
+        for (let bx = 0; bx < width; bx += 8) {
+          ctx.beginPath();
+          ctx.moveTo(bx, f.y + f.h - 4);
+          ctx.lineTo(bx, f.y + f.h + 10);
+          ctx.stroke();
+        }
+      }
+
+      for (let bay = 0; bay < 4; bay++) {
+        const wx = bay * 128 + 36;
+        const wy = f.y;
+        const ww = 56;
+        const wh = f.h;
+
+        // Molded Stone Frame (Chambranle)
+        ctx.fillStyle = '#dfd5c6';
+        ctx.fillRect(wx - 6, wy - 6, ww + 12, wh + 12);
+
+        // Window opening (dark glass with interior warm lamp light)
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(wx, wy, ww, wh);
+
+        // Warm interior glow in some windows
+        if ((bay + f.y) % 3 === 0) {
+          ctx.fillStyle = 'rgba(253, 224, 71, 0.45)';
+          ctx.fillRect(wx + 4, wy + 4, ww - 8, wh - 8);
+        }
+
+        // White window panes (French double casement)
+        ctx.strokeStyle = '#f8fafc';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(wx, wy, ww, wh);
+        // Vertical mullion
+        ctx.beginPath();
+        ctx.moveTo(wx + ww / 2, wy);
+        ctx.lineTo(wx + ww / 2, wy + wh);
+        ctx.stroke();
+        // Horizontal transoms
+        ctx.beginPath();
+        ctx.moveTo(wx, wy + wh * 0.35);
+        ctx.lineTo(wx + ww, wy + wh * 0.35);
+        ctx.moveTo(wx, wy + wh * 0.7);
+        ctx.lineTo(wx + ww, wy + wh * 0.7);
+        ctx.stroke();
+
+        // Individual wrought-iron guardrail for windows without full balcony
+        if (!f.balcony) {
+          ctx.fillStyle = 'rgba(24, 24, 27, 0.9)';
+          ctx.fillRect(wx - 4, wy + wh - 18, ww + 8, 18);
+          ctx.strokeStyle = '#3f3f46';
+          ctx.lineWidth = 1.2;
+          for (let rx = wx - 2; rx <= wx + ww + 2; rx += 6) {
+            ctx.beginPath();
+            ctx.moveTo(rx, wy + wh - 18);
+            ctx.lineTo(rx, wy + wh);
+            ctx.stroke();
+          }
+        }
+      }
+    });
+
+    const diffuseTex = new THREE.CanvasTexture(canvas);
+    diffuseTex.wrapS = THREE.RepeatWrapping;
+    diffuseTex.wrapT = THREE.RepeatWrapping;
+    diffuseTex.repeat.set(12, 1);
+
+    // 2. Bump Map Canvas
+    const bumpCanvas = document.createElement('canvas');
+    bumpCanvas.width = 256;
+    bumpCanvas.height = 256;
+    const bCtx = bumpCanvas.getContext('2d')!;
+    bCtx.fillStyle = '#808080';
+    bCtx.fillRect(0, 0, 256, 256);
+
+    const bumpTex = new THREE.CanvasTexture(bumpCanvas);
+    bumpTex.wrapS = THREE.RepeatWrapping;
+    bumpTex.wrapT = THREE.RepeatWrapping;
+    bumpTex.repeat.set(12, 1);
+
+    this.cache.set(mapKey, diffuseTex);
+    this.cache.set(bumpKey, bumpTex);
+
+    return { map: diffuseTex, bumpMap: bumpTex };
+  }
+
+  /**
    * Pre-generates 100% of PBR textures into device RAM and uploads them directly
    * into GPU VRAM units via renderer.initTexture so there are ZERO mid-game stutters!
    */
@@ -1160,6 +1318,11 @@ export class TextureGenerator {
     this.getTacticalKevlarTexture();
     this.getGTABoulevardRoadTexture();
     this.getZebraCrosswalkTexture();
+    this.getHaussmannFacadeTexture();
+    this.getPalmBarkTexture();
+    this.getPalmFrondTexture();
+    this.getNeonSignTexture('AWAAZ', '#00f0ff');
+    this.getNeonSignTexture('LIBERTÉ', '#f43f5e');
 
     // 2. Pin textures into GPU VRAM if renderer is available
     if (renderer) {

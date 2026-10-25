@@ -65,6 +65,7 @@ export class GameEngine {
   private previousMouseX: number = 0;
   private previousMouseY: number = 0;
   public abilityCooldowns: Map<string, number> = new Map();
+  public isReadyToPlay: boolean = false;
 
   private clock: THREE.Clock = new THREE.Clock();
   private animationFrameId: number | null = null;
@@ -978,6 +979,16 @@ export class GameEngine {
     this.animationFrameId = requestAnimationFrame(this.animate);
     const delta = Math.min(this.clock.getDelta(), 0.1);
 
+    // If still preloading assets and compiling shaders, only render the static scene without game ticks
+    if (!this.isReadyToPlay) {
+      if (this.composer && this.matchState.graphicsQuality !== 'LOW') {
+        this.composer.render();
+      } else {
+        this.renderer.render(this.scene, this.camera);
+      }
+      return;
+    }
+
     try {
       // 1. Update Match Timer
       if (!this.matchState.isGameOver) {
@@ -1306,9 +1317,13 @@ export class GameEngine {
 
   private onResize = () => {
     if (!this.container) return;
+    const isMobile = typeof navigator !== 'undefined' && /Mobi|Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent || '');
+    const maxDPR = isMobile ? 1.45 : 2.0;
+
     this.camera.aspect = this.container.clientWidth / this.container.clientHeight;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
+    this.renderer.setPixelRatio(Math.min(typeof window !== 'undefined' ? window.devicePixelRatio : 1, maxDPR));
     if (this.composer) {
       this.composer.setSize(this.container.clientWidth, this.container.clientHeight);
     }
@@ -1345,9 +1360,11 @@ export class GameEngine {
         this.renderer.render(this.scene, this.camera);
       }
 
-      onProgress?.(100, 'Game loaded in device RAM!');
+      this.isReadyToPlay = true;
+      onProgress?.(100, 'All systems cached in RAM! Ready to play!');
     } catch (err) {
       console.warn('RAM preloading notice:', err);
+      this.isReadyToPlay = true;
       onProgress?.(100, 'Ready');
     }
   }

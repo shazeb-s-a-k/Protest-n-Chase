@@ -449,13 +449,19 @@ export class MapBuilder {
 
       samratGroup.add(quadGroup);
 
-      const qBox = new THREE.Box3().setFromObject(quadGroup);
+      const qBox = new THREE.Box3().setFromCenterAndSize(
+        new THREE.Vector3(side * (width / 2 + 10.5), 6.5, -2),
+        new THREE.Vector3(16, 13, 22)
+      );
       this.colliders.push({ box: qBox, type: 'WALL' });
     });
 
     scene.add(samratGroup);
 
-    const colBox = new THREE.Box3().setFromObject(gnomonMesh);
+    const colBox = new THREE.Box3().setFromCenterAndSize(
+      new THREE.Vector3(0, height / 2, -2),
+      new THREE.Vector3(width + 0.4, height, length)
+    );
     this.colliders.push({ box: colBox, type: 'WALL' });
   }
 
@@ -516,7 +522,10 @@ export class MapBuilder {
 
     scene.add(mishraGroup);
 
-    const box = new THREE.Box3().setFromObject(mishraGroup);
+    const box = new THREE.Box3().setFromCenterAndSize(
+      new THREE.Vector3(-24, height / 2, -25),
+      new THREE.Vector3(baseLen, height, 10)
+    );
     this.colliders.push({ box, type: 'WALL' });
   }
 
@@ -1185,6 +1194,12 @@ export class MapBuilder {
     tGroup.add(canopy);
 
     scene.add(tGroup);
+
+    const box = new THREE.Box3().setFromCenterAndSize(
+      new THREE.Vector3(x, 3.75, z),
+      new THREE.Vector3(1.4 * scale, 7.5 * scale, 1.4 * scale)
+    );
+    this.colliders.push({ box, type: 'WALL' });
   }
 
   /**
@@ -1221,6 +1236,12 @@ export class MapBuilder {
     tGroup.add(canopy);
 
     scene.add(tGroup);
+
+    const box = new THREE.Box3().setFromCenterAndSize(
+      new THREE.Vector3(x, 2.75, z),
+      new THREE.Vector3(3.2, 5.5, 3.2)
+    );
+    this.colliders.push({ box, type: 'WALL' });
   }
 
   /**
@@ -2274,8 +2295,16 @@ export class MapBuilder {
   }
 
   private createParisianBuildings(scene: THREE.Scene, stoneMat: THREE.Material, roofMat: THREE.Material) {
-    const windowMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.1, metalness: 0.9 });
-    const wallH = 22;
+    const { map: facadeTex, bumpMap: facadeBump } = TextureGenerator.getHaussmannFacadeTexture();
+    const haussmannMat = new THREE.MeshStandardMaterial({
+      map: facadeTex,
+      bumpMap: facadeBump,
+      bumpScale: 0.08,
+      roughness: 0.72,
+      metalness: 0.08,
+    });
+
+    const wallH = 24;
     const size = 150;
 
     const bSpecs = [
@@ -2289,7 +2318,7 @@ export class MapBuilder {
       const bGroup = new THREE.Group();
       bGroup.position.set(b.x, 0, b.z);
 
-      const facade = new THREE.Mesh(new THREE.BoxGeometry(b.w, wallH - 5, b.d), stoneMat);
+      const facade = new THREE.Mesh(new THREE.BoxGeometry(b.w, wallH - 5, b.d), haussmannMat);
       facade.position.y = (wallH - 5) / 2;
       facade.castShadow = true;
       facade.receiveShadow = true;
@@ -2303,7 +2332,10 @@ export class MapBuilder {
 
       scene.add(bGroup);
 
-      const box = new THREE.Box3().setFromObject(facade);
+      const box = new THREE.Box3().setFromCenterAndSize(
+        new THREE.Vector3(b.x, wallH / 2, b.z),
+        new THREE.Vector3(b.w, wallH, b.d)
+      );
       this.colliders.push({ box, type: 'WALL' });
     });
   }
@@ -2357,7 +2389,10 @@ export class MapBuilder {
       barrier.castShadow = true;
       scene.add(barrier);
 
-      const box = new THREE.Box3().setFromObject(barrier);
+      const box = new THREE.Box3().setFromCenterAndSize(
+        new THREE.Vector3(bx, 0.7, 40),
+        new THREE.Vector3(2.8, 1.4, 0.5)
+      );
       this.colliders.push({ box, type: 'BARRICADE' });
     });
   }
@@ -2436,7 +2471,10 @@ export class MapBuilder {
     truck.castShadow = true;
     scene.add(truck);
 
-    const box = new THREE.Box3().setFromObject(truck);
+    const box = new THREE.Box3().setFromCenterAndSize(
+      new THREE.Vector3(x, 1.7, z),
+      new THREE.Vector3(3.2, 3.4, 9.5)
+    );
     this.colliders.push({ box, type: 'WALL' });
   }
 
@@ -2465,7 +2503,10 @@ export class MapBuilder {
 
       scene.add(col);
 
-      const box = new THREE.Box3().setFromObject(barrel);
+      const box = new THREE.Box3().setFromCenterAndSize(
+        new THREE.Vector3(p.x, 2.4, p.z),
+        new THREE.Vector3(2.8, 5.5, 2.8)
+      );
       this.colliders.push({ box, type: 'WALL' });
     });
   }
@@ -2485,7 +2526,10 @@ export class MapBuilder {
 
     scene.add(stageGroup);
 
-    const box = new THREE.Box3().setFromObject(stage);
+    const box = new THREE.Box3().setFromCenterAndSize(
+      new THREE.Vector3(0, 0.6, 35),
+      new THREE.Vector3(18, 1.2, 10)
+    );
     this.colliders.push({ box, type: 'WALL' });
   }
 
@@ -2494,6 +2538,24 @@ export class MapBuilder {
   }
 
   private createParisLighting(scene: THREE.Scene) {
+    // Directional Paris Sunlight & Ambient Light for soft shadows & realistic tone mapping
+    this.ambientLight = new THREE.AmbientLight(0xdbeafe, 0.85);
+    scene.add(this.ambientLight);
+
+    this.sunLight = new THREE.DirectionalLight(0xffeedd, 2.4);
+    this.sunLight.position.set(45, 65, 35);
+    this.sunLight.castShadow = true;
+    this.sunLight.shadow.mapSize.width = 2048;
+    this.sunLight.shadow.mapSize.height = 2048;
+    this.sunLight.shadow.bias = -0.0004;
+
+    const d = 95;
+    this.sunLight.shadow.camera.left = -d;
+    this.sunLight.shadow.camera.right = d;
+    this.sunLight.shadow.camera.top = d;
+    this.sunLight.shadow.camera.bottom = -d;
+    scene.add(this.sunLight);
+
     const lampPositions = [
       { x: -28, z: -28 },
       { x: 28, z: -28 },
@@ -2512,12 +2574,61 @@ export class MapBuilder {
   }
 
   private createParisBoulevardRoadways(scene: THREE.Scene) {
-    const roadMat = new THREE.MeshStandardMaterial({ color: 0x1e2430, roughness: 0.8 });
-    const southRoad = new THREE.Mesh(new THREE.PlaneGeometry(140, 16), roadMat);
+    const { map: roadTex, roughnessMap: roadRough } = TextureGenerator.getGTABoulevardRoadTexture();
+    const roadMat = new THREE.MeshStandardMaterial({
+      map: roadTex,
+      roughnessMap: roadRough,
+      roughness: 0.6,
+      metalness: 0.15,
+    });
+
+    // Boulevard Henri IV (South)
+    const southRoad = new THREE.Mesh(new THREE.PlaneGeometry(150, 18), roadMat);
     southRoad.rotation.x = -Math.PI / 2;
-    southRoad.position.set(0, 0.03, 64);
+    southRoad.position.set(0, 0.03, 62);
     southRoad.receiveShadow = true;
     scene.add(southRoad);
+
+    // Boulevard Beaumarchais (North)
+    const northRoad = new THREE.Mesh(new THREE.PlaneGeometry(150, 18), roadMat);
+    northRoad.rotation.x = -Math.PI / 2;
+    northRoad.position.set(0, 0.03, -62);
+    northRoad.receiveShadow = true;
+    scene.add(northRoad);
+
+    // Zebra Crosswalks
+    const crosswalkTex = TextureGenerator.getZebraCrosswalkTexture();
+    const cwMat = new THREE.MeshStandardMaterial({
+      map: crosswalkTex,
+      transparent: true,
+      roughness: 0.8,
+    });
+
+    [-35, 0, 35].forEach((cx) => {
+      const cwSouth = new THREE.Mesh(new THREE.PlaneGeometry(6, 16), cwMat);
+      cwSouth.rotation.x = -Math.PI / 2;
+      cwSouth.position.set(cx, 0.04, 62);
+      cwSouth.receiveShadow = true;
+      scene.add(cwSouth);
+
+      const cwNorth = new THREE.Mesh(new THREE.PlaneGeometry(6, 16), cwMat);
+      cwNorth.rotation.x = -Math.PI / 2;
+      cwNorth.position.set(cx, 0.04, -62);
+      cwNorth.receiveShadow = true;
+      scene.add(cwNorth);
+    });
+
+    // Granite Sidewalk Curbs separating road from cobblestone plaza
+    const curbMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.7 });
+    const southCurb = new THREE.Mesh(new THREE.BoxGeometry(150, 0.28, 0.6), curbMat);
+    southCurb.position.set(0, 0.14, 52.8);
+    southCurb.receiveShadow = true;
+    scene.add(southCurb);
+
+    const northCurb = new THREE.Mesh(new THREE.BoxGeometry(150, 0.28, 0.6), curbMat);
+    northCurb.position.set(0, 0.14, -52.8);
+    northCurb.receiveShadow = true;
+    scene.add(northCurb);
   }
 
   public createParisianMarronnierTree(scene: THREE.Scene, x: number, z: number, scale = 1.0) {
@@ -2537,6 +2648,12 @@ export class MapBuilder {
     tGroup.add(canopy);
 
     scene.add(tGroup);
+
+    const box = new THREE.Box3().setFromCenterAndSize(
+      new THREE.Vector3(x, 3, z),
+      new THREE.Vector3(1.2 * scale, 6 * scale, 1.2 * scale)
+    );
+    this.colliders.push({ box, type: 'WALL' });
   }
 
   private createParisStreetDressings(scene: THREE.Scene) {

@@ -219,22 +219,42 @@ export const MobileControls: React.FC<MobileControlsProps> = ({
 
   // ==============================================================
   // Dedicated Mobile Camera Touch Swipe & Two-Finger Pinch Zoom
+  // Properly filters out the movement joystick touch so camera rotates
+  // flawlessly while the player is moving with their thumb!
   // ==============================================================
+  const getCameraTouches = (touchList: React.TouchList) => {
+    const list: React.Touch[] = [];
+    for (let i = 0; i < touchList.length; i++) {
+      const t = touchList[i];
+      if (t.identifier !== activeTouchIdRef.current) {
+        list.push(t);
+      }
+    }
+    return list;
+  };
+
   const handleCameraTouchStart = (e: React.TouchEvent) => {
     onUserInteraction?.();
-    if (e.touches.length === 2) {
+    const camTouches = getCameraTouches(e.touches);
+
+    // Two dedicated camera fingers triggers pinch zoom
+    if (camTouches.length >= 2) {
       pinchStartDistRef.current = Math.hypot(
-        e.touches[0].clientX - e.touches[1].clientX,
-        e.touches[0].clientY - e.touches[1].clientY
+        camTouches[0].clientX - camTouches[1].clientX,
+        camTouches[0].clientY - camTouches[1].clientY
       );
       return;
     }
 
     if (activeCameraTouchIdRef.current !== null) return;
+
     for (let i = 0; i < e.changedTouches.length; i++) {
       const touch = e.changedTouches[i];
-      // Do not capture touches inside the bottom-left joystick area
-      if (touch.clientX < window.innerWidth * 0.42 && touch.clientY > window.innerHeight * 0.3) {
+      // Skip the joystick touch
+      if (touch.identifier === activeTouchIdRef.current) continue;
+
+      // Do not capture touches strictly inside the bottom-left joystick home area
+      if (touch.clientX < window.innerWidth * 0.38 && touch.clientY > window.innerHeight * 0.45) {
         continue;
       }
       activeCameraTouchIdRef.current = touch.identifier;
@@ -245,11 +265,14 @@ export const MobileControls: React.FC<MobileControlsProps> = ({
 
   const handleCameraTouchMove = (e: React.TouchEvent) => {
     onUserInteraction?.();
-    if (e.touches.length === 2 && pinchStartDistRef.current !== null) {
+    const camTouches = getCameraTouches(e.touches);
+
+    // Two dedicated camera touches handles pinch zoom
+    if (camTouches.length >= 2 && pinchStartDistRef.current !== null) {
       e.preventDefault();
       const dist = Math.hypot(
-        e.touches[0].clientX - e.touches[1].clientX,
-        e.touches[0].clientY - e.touches[1].clientY
+        camTouches[0].clientX - camTouches[1].clientX,
+        camTouches[0].clientY - camTouches[1].clientY
       );
       const deltaZoom = (pinchStartDistRef.current - dist) * 0.02;
       pinchStartDistRef.current = dist;
@@ -258,6 +281,7 @@ export const MobileControls: React.FC<MobileControlsProps> = ({
     }
 
     if (activeCameraTouchIdRef.current === null || !lastCameraTouchPosRef.current) return;
+
     for (let i = 0; i < e.touches.length; i++) {
       const touch = e.touches[i];
       if (touch.identifier === activeCameraTouchIdRef.current) {
@@ -272,7 +296,8 @@ export const MobileControls: React.FC<MobileControlsProps> = ({
   };
 
   const handleCameraTouchEnd = (e: React.TouchEvent) => {
-    if (e.touches.length < 2) {
+    const camTouches = getCameraTouches(e.touches);
+    if (camTouches.length < 2) {
       pinchStartDistRef.current = null;
     }
     if (activeCameraTouchIdRef.current === null) return;
