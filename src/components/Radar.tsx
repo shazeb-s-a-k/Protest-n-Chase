@@ -7,7 +7,7 @@ interface RadarProps {
   localPlayerId: string;
 }
 
-export const Radar: React.FC<RadarProps> = ({ entities, localPlayerId }) => {
+const RadarComponent: React.FC<RadarProps> = ({ entities, localPlayerId }) => {
   const localEntity = entities.find((e) => e.type === 'LOCAL');
   const radarRadius = 56; // pixel radius of circular radar (112px width/height)
   const mapScale = 1.35; // world meters to radar pixels
@@ -142,3 +142,5 @@ export const Radar: React.FC<RadarProps> = ({ entities, localPlayerId }) => {
     </div>
   );
 };
+
+export const Radar = React.memo(RadarComponent);

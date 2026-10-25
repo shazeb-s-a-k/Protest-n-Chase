@@ -91,6 +91,7 @@ export class AIController {
       .map((ai) => ai.controller);
   }
 
+  private static _scratchKafilaDefaultOffset = new THREE.Vector3(-1.8, 0, -1.8);
   private static _scratchDir = new THREE.Vector3();
   private static _scratchFleeDir = new THREE.Vector3();
   private static _scratchInput: MovementInput = {
@@ -236,7 +237,7 @@ export class AIController {
         // 1. Follow Leader in Kafila Formation
         if (ai.behavior === 'FOLLOW' && localLeader && !localLeader.state.isDetained) {
           const leaderPos = localLeader.mesh.position;
-          const offset = ai.kafilaOffset || new THREE.Vector3(-1.8, 0, -1.8);
+          const offset = ai.kafilaOffset || AIController._scratchKafilaDefaultOffset;
           
           if (this.currentKafilaCommand === 'RUSH' && busPositions.length > 0) {
             // Rush toward the primary bus to stage a crowd jailbreak
@@ -272,7 +273,7 @@ export class AIController {
         } else if (ai.behavior === 'DHARNA' && localLeader) {
           // Sit-In Mode: Remain seated in circle around leader
           const leaderPos = localLeader.mesh.position;
-          const offset = ai.kafilaOffset || new THREE.Vector3(-1.8, 0, -1.8);
+          const offset = ai.kafilaOffset || AIController._scratchKafilaDefaultOffset;
           ai.targetPos.set(leaderPos.x + offset.x, leaderPos.y, leaderPos.z + offset.z);
           if (myPos.distanceTo(ai.targetPos) > 1.2) {
             input.moveForward = 1;

@@ -1044,6 +1044,18 @@ export class CharacterController {
           const playerBottom = currY;
           const playerTop = currY + charHeight;
 
+          // Broadphase 2D/3D distance culling: discard colliders outside interaction sphere
+          if (
+            currX < min.x - 2.5 ||
+            currX > max.x + 2.5 ||
+            currZ < min.z - 2.5 ||
+            currZ > max.z + 2.5 ||
+            min.y > playerTop + 0.1 ||
+            max.y < playerBottom - 1.0
+          ) {
+            continue;
+          }
+
           // Step-up mechanic: smoothly step onto low curbs, stairs, or stage edges (<= 0.38m high)
           const stepOffset = max.y - playerBottom;
           if (stepOffset > 0 && stepOffset <= 0.38) {

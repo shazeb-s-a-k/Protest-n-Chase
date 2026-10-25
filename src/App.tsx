@@ -254,7 +254,8 @@ export const App: React.FC = () => {
       engine.onStateUpdate = (newState) => {
         setMatchState(newState);
         if (engine.localPlayer) {
-          setStamina(Math.round(engine.localPlayer.currentStamina));
+          const newStam = Math.round(engine.localPlayer.currentStamina);
+          setStamina((prev) => (prev !== newStam ? newStam : prev));
         }
       };
 

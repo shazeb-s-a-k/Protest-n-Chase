@@ -107,6 +107,41 @@ export class GameEngine {
   private static readonly _hitPoint = new THREE.Vector3();
   private droneFlashTimer: number = 0;
   private _radarEntitiesPool: RadarEntity[] = [];
+  private drsScale: number = 1.0;
+  private consecutiveSlowFrames: number = 0;
+  private consecutiveFastFrames: number = 0;
+
+  private static readonly _delhiLandmarks: ReadonlyArray<RadarEntity> = [
+    { id: 'lm_samrat_yantra', type: 'LANDMARK', x: 0, z: -25, icon: '🏛️', label: 'Samrat Yantra' },
+    { id: 'lm_stage', type: 'LANDMARK', x: 0, z: 15, icon: '📢', label: 'Main Stage' },
+    { id: 'lm_chai_tapri', type: 'LANDMARK', x: -46, z: -14, icon: '☕', label: 'Chai Tapri' },
+  ];
+
+  private static readonly _bastilleLandmarks: ReadonlyArray<RadarEntity> = [
+    { id: 'lm_colonne', type: 'LANDMARK', x: 0, z: 0, icon: '🗼', label: 'Colonne Bastille' },
+    { id: 'lm_opera', type: 'LANDMARK', x: 58, z: 0, icon: '🎭', label: 'Opéra Bastille' },
+    { id: 'lm_wallace_north', type: 'LANDMARK', x: -26, z: 30, icon: '💧', label: 'Fontaine Wallace' },
+    { id: 'lm_wallace_south', type: 'LANDMARK', x: 26, z: -30, icon: '💧', label: 'Fontaine Wallace' },
+  ];
+
+  private getRadarSlot(idx: number): RadarEntity {
+    if (!this._radarEntitiesPool[idx]) {
+      this._radarEntitiesPool[idx] = {
+        id: '',
+        type: 'LOCAL',
+        x: 0,
+        z: 0,
+      };
+    }
+    const slot = this._radarEntitiesPool[idx];
+    slot.rotation = undefined;
+    slot.isDetained = undefined;
+    slot.powerUpType = undefined;
+    slot.label = undefined;
+    slot.icon = undefined;
+    return slot;
+  }
+
   public screenShakeIntensity: number = 0;
 
   public addScreenShake(intensity: number) {
@@ -1870,20 +1905,38 @@ export class GameEngine {
       // 14. Update Camera Follow
       this.updateCamera(delta);
 
-      // 15. Collect Entities for Radar HUD
-      this.updateRadarEntities();
+      // 14. Dynamic Resolution Scaling (DRS) monitor:
+      // Protect solid 60+ FPS on budget GPUs or thermal-throttled mobile phones
+      if (delta > 0.033) {
+        this.consecutiveSlowFrames++;
+        this.consecutiveFastFrames = 0;
+        if (this.consecutiveSlowFrames > 90 && this.drsScale > 0.75) {
+          this.drsScale = Math.max(0.75, this.drsScale - 0.1);
+          this.consecutiveSlowFrames = 0;
+          this.onResize();
+        }
+      } else if (delta < 0.017) {
+        this.consecutiveFastFrames++;
+        this.consecutiveSlowFrames = 0;
+        if (this.consecutiveFastFrames > 300 && this.drsScale < 1.0) {
+          this.drsScale = Math.min(1.0, this.drsScale + 0.1);
+          this.consecutiveFastFrames = 0;
+          this.onResize();
+        }
+      }
 
-      // 16. Render Frame (Cinematic Bloom Post-processing in HIGH/MEDIUM quality)
+      // 15. Render Frame (Cinematic Bloom Post-processing in HIGH/MEDIUM quality)
       if (this.composer && this.matchState.graphicsQuality !== 'LOW') {
         this.composer.render();
       } else {
         this.renderer.render(this.scene, this.camera);
       }
 
-      // 17. Notify UI (Throttled to ~20 FPS so React isn't flooded with 120 re-renders/sec)
+      // 16. Notify UI (Throttled to ~16 FPS so React isn't flooded with 120 re-renders/sec)
       this.uiUpdateTimer += delta;
-      if (this.uiUpdateTimer >= 0.05) {
+      if (this.uiUpdateTimer >= 0.06) {
         this.uiUpdateTimer = 0;
+        this.updateRadarEntities();
         if (this.onStateUpdate) {
           this.onStateUpdate({ ...this.matchState });
         }
@@ -1894,121 +1947,70 @@ export class GameEngine {
   };
 
   private updateRadarEntities() {
-    this._radarEntitiesPool.length = 0;
-    const entities = this._radarEntitiesPool;
+    let poolIdx = 0;
 
     if (this.localPlayer) {
-      entities.push({
-        id: this.matchState.localPlayerId,
-        type: 'LOCAL',
-        x: this.localPlayer.mesh.position.x,
-        z: this.localPlayer.mesh.position.z,
-        rotation: this.localPlayer.mesh.rotation.y,
-      });
+      const e = this.getRadarSlot(poolIdx++);
+      e.id = this.matchState.localPlayerId;
+      e.type = 'LOCAL';
+      e.x = this.localPlayer.mesh.position.x;
+      e.z = this.localPlayer.mesh.position.z;
+      e.rotation = this.localPlayer.mesh.rotation.y;
     }
 
-    this.aiPlayers.forEach((ai) => {
-      entities.push({
-        id: ai.state.id,
-        type: ai.state.team === 'PROTESTOR' ? 'PROTESTOR' : 'POLICE',
-        x: ai.mesh.position.x,
-        z: ai.mesh.position.z,
-        rotation: ai.mesh.rotation.y,
-        isDetained: ai.state.isDetained,
-      });
-    });
+    for (let i = 0; i < this.aiPlayers.length; i++) {
+      const ai = this.aiPlayers[i];
+      const e = this.getRadarSlot(poolIdx++);
+      e.id = ai.state.id;
+      e.type = ai.state.team === 'PROTESTOR' ? 'PROTESTOR' : 'POLICE';
+      e.x = ai.mesh.position.x;
+      e.z = ai.mesh.position.z;
+      e.rotation = ai.mesh.rotation.y;
+      e.isDetained = ai.state.isDetained;
+    }
 
-    this.busPositions.forEach((bus) => {
-      entities.push({
-        id: bus.id,
-        type: 'BUS',
-        x: bus.x,
-        z: bus.z,
-      });
-    });
+    for (let i = 0; i < this.busPositions.length; i++) {
+      const bus = this.busPositions[i];
+      const e = this.getRadarSlot(poolIdx++);
+      e.id = bus.id;
+      e.type = 'BUS';
+      e.x = bus.x;
+      e.z = bus.z;
+    }
 
-    entities.push({
-      id: 'media_drone',
-      type: 'DRONE',
-      x: this.matchState.droneSpotlightPos.x,
-      z: this.matchState.droneSpotlightPos.z,
-    });
+    const drone = this.getRadarSlot(poolIdx++);
+    drone.id = 'media_drone';
+    drone.type = 'DRONE';
+    drone.x = this.matchState.droneSpotlightPos.x;
+    drone.z = this.matchState.droneSpotlightPos.z;
 
-    // Add PowerUps to Radar
-    this.powerUpManager.powerUps.forEach((p) => {
+    const powerUps = this.powerUpManager.powerUps;
+    for (let i = 0; i < powerUps.length; i++) {
+      const p = powerUps[i];
       if (p.mesh.visible) {
-        entities.push({
-          id: p.item.id,
-          type: 'POWERUP',
-          x: p.item.position.x,
-          z: p.item.position.z,
-          powerUpType: p.item.type,
-        });
+        const e = this.getRadarSlot(poolIdx++);
+        e.id = p.item.id;
+        e.type = 'POWERUP';
+        e.x = p.item.position.x;
+        e.z = p.item.position.z;
+        e.powerUpType = p.item.type;
       }
-    });
-
-    // Add Key Map Landmarks to Radar
-    if (this.selectedMap === 'DELHI') {
-      entities.push({
-        id: 'lm_samrat_yantra',
-        type: 'LANDMARK',
-        x: 0,
-        z: -25,
-        icon: '🏛️',
-        label: 'Samrat Yantra',
-      });
-      entities.push({
-        id: 'lm_stage',
-        type: 'LANDMARK',
-        x: 0,
-        z: 15,
-        icon: '📢',
-        label: 'Main Stage',
-      });
-      entities.push({
-        id: 'lm_chai_tapri',
-        type: 'LANDMARK',
-        x: -46,
-        z: -14,
-        icon: '☕',
-        label: 'Chai Tapri',
-      });
-    } else {
-      entities.push({
-        id: 'lm_colonne',
-        type: 'LANDMARK',
-        x: 0,
-        z: 0,
-        icon: '🗼',
-        label: 'Colonne Bastille',
-      });
-      entities.push({
-        id: 'lm_opera',
-        type: 'LANDMARK',
-        x: 58,
-        z: 0,
-        icon: '🎭',
-        label: 'Opéra Bastille',
-      });
-      entities.push({
-        id: 'lm_wallace_north',
-        type: 'LANDMARK',
-        x: -26,
-        z: 30,
-        icon: '💧',
-        label: 'Fontaine Wallace',
-      });
-      entities.push({
-        id: 'lm_wallace_south',
-        type: 'LANDMARK',
-        x: 26,
-        z: -30,
-        icon: '💧',
-        label: 'Fontaine Wallace',
-      });
     }
 
-    this.matchState.radarEntities = entities;
+    const landmarks = this.selectedMap === 'DELHI' ? GameEngine._delhiLandmarks : GameEngine._bastilleLandmarks;
+    for (let i = 0; i < landmarks.length; i++) {
+      const lm = landmarks[i];
+      const e = this.getRadarSlot(poolIdx++);
+      e.id = lm.id;
+      e.type = 'LANDMARK';
+      e.x = lm.x;
+      e.z = lm.z;
+      e.icon = lm.icon;
+      e.label = lm.label;
+    }
+
+    this._radarEntitiesPool.length = poolIdx;
+    this.matchState.radarEntities = this._radarEntitiesPool;
   }
 
   private updateCamera(delta: number) {
@@ -2115,7 +2117,7 @@ export class GameEngine {
 
   private onResize = () => {
     if (!this.container) return;
-    const maxDPR = this.getTargetDPR();
+    const maxDPR = this.getTargetDPR() * this.drsScale;
 
     this.camera.aspect = this.container.clientWidth / this.container.clientHeight;
     this.camera.updateProjectionMatrix();

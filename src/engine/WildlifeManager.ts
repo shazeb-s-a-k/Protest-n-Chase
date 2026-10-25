@@ -21,6 +21,9 @@ interface SoaringBird {
 }
 
 export class WildlifeManager {
+  private static _scratchFleeDir = new THREE.Vector3();
+  private static _scratchToTarget = new THREE.Vector3();
+
   private scene: THREE.Scene;
   private pigeons: Pigeon[] = [];
   private soaringBirds: SoaringBird[] = [];
@@ -146,7 +149,7 @@ export class WildlifeManager {
         p.state = 'FLYING';
         p.timer = 0;
         // Launch upwards and away
-        const fleeDir = new THREE.Vector3().subVectors(p.mesh.position, origin).normalize();
+        const fleeDir = WildlifeManager._scratchFleeDir.subVectors(p.mesh.position, origin).normalize();
         p.velocity.set(fleeDir.x * 12, 14, fleeDir.z * 12);
 
         // Pick new landing spot
@@ -181,7 +184,7 @@ export class WildlifeManager {
         p.wings[1].rotation.z = flap;
 
         // Fly towards target landing spot
-        const toTarget = new THREE.Vector3().subVectors(p.targetPos, p.mesh.position);
+        const toTarget = WildlifeManager._scratchToTarget.subVectors(p.targetPos, p.mesh.position);
         toTarget.y = 0;
 
         if (toTarget.length() > 2) {

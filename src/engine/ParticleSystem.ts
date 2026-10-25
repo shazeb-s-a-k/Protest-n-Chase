@@ -17,6 +17,17 @@ interface SoundwaveRing {
 }
 
 export class ParticleSystem {
+  // Shared static geometries to eliminate GPU buffer churn and memory allocations
+  private static _smokeGeo = new THREE.DodecahedronGeometry(1.0, 1);
+  private static _waterGeo = new THREE.SphereGeometry(0.25, 8, 8);
+  private static _dustGeo = new THREE.SphereGeometry(0.2, 6, 6);
+  private static _confettiGeo = new THREE.PlaneGeometry(0.18, 0.28);
+  private static _puddleSplashGeo = new THREE.SphereGeometry(0.1, 6, 6);
+  private static _soundwaveRingGeo = new THREE.RingGeometry(0.3, 0.7, 32);
+  private static _rippleRingGeo = new THREE.RingGeometry(0.1, 0.25, 16);
+  private static _flashRingGeo = new THREE.RingGeometry(0.2, 0.6, 24);
+  private static _speedStreakGeo = new THREE.CylinderGeometry(0.02, 0.04, 1.2, 4);
+
   private scene: THREE.Scene;
   private particles: Particle[] = [];
   private soundwaves: SoundwaveRing[] = [];
@@ -56,10 +67,9 @@ export class ParticleSystem {
    * Spawns an expanding soundwave ring from the Megaphone blast
    */
   public spawnMegaphoneSoundwave(origin: THREE.Vector3) {
-    const geo = new THREE.RingGeometry(0.3, 0.7, 32);
     const mat = this.waveMaterial.clone();
     mat.color.setHex(0x00f0ff);
-    const mesh = new THREE.Mesh(geo, mat);
+    const mesh = new THREE.Mesh(ParticleSystem._soundwaveRingGeo, mat);
     mesh.position.copy(origin);
     mesh.position.y += 1.2;
     mesh.rotation.x = -Math.PI / 2;
@@ -80,9 +90,9 @@ export class ParticleSystem {
     const count = 28;
     for (let i = 0; i < count; i++) {
       const size = 0.5 + Math.random() * 0.8;
-      const geo = new THREE.DodecahedronGeometry(size, 1);
       const mat = this.smokeMaterial.clone();
-      const mesh = new THREE.Mesh(geo, mat);
+      const mesh = new THREE.Mesh(ParticleSystem._smokeGeo, mat);
+      mesh.scale.set(size, size, size);
 
       mesh.position.copy(origin);
       mesh.position.x += (Math.random() - 0.5) * 1.5;
@@ -113,9 +123,8 @@ export class ParticleSystem {
   public spawnWaterSurge(origin: THREE.Vector3, direction: THREE.Vector3) {
     const count = 20;
     for (let i = 0; i < count; i++) {
-      const geo = new THREE.SphereGeometry(0.25, 8, 8);
       const mat = this.waterMaterial.clone();
-      const mesh = new THREE.Mesh(geo, mat);
+      const mesh = new THREE.Mesh(ParticleSystem._waterGeo, mat);
 
       mesh.position.copy(origin);
       mesh.position.y += 1.5;
@@ -174,8 +183,9 @@ export class ParticleSystem {
     });
 
     for (let i = 0; i < count; i++) {
-      const geo = new THREE.SphereGeometry(0.15 + Math.random() * 0.12, 6, 6);
-      const mesh = new THREE.Mesh(geo, dustMat.clone());
+      const s = 0.8 + Math.random() * 0.6;
+      const mesh = new THREE.Mesh(ParticleSystem._dustGeo, dustMat.clone());
+      mesh.scale.set(s, s, s);
       mesh.position.set(
         origin.x + (Math.random() - 0.5) * 0.6,
         0.1,
@@ -207,9 +217,8 @@ export class ParticleSystem {
 
     for (let i = 0; i < count; i++) {
       const color = colors[i % colors.length];
-      const geo = new THREE.PlaneGeometry(0.18, 0.28);
       const mat = new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide });
-      const mesh = new THREE.Mesh(geo, mat);
+      const mesh = new THREE.Mesh(ParticleSystem._confettiGeo, mat);
 
       mesh.position.copy(origin);
       mesh.position.y += 1.5;
@@ -240,8 +249,9 @@ export class ParticleSystem {
   public spawnPuddleSplash(origin: THREE.Vector3) {
     const count = 10;
     for (let i = 0; i < count; i++) {
-      const geo = new THREE.SphereGeometry(0.08 + Math.random() * 0.08, 6, 6);
-      const mesh = new THREE.Mesh(geo, this.waterMaterial.clone());
+      const s = 0.7 + Math.random() * 0.7;
+      const mesh = new THREE.Mesh(ParticleSystem._puddleSplashGeo, this.waterMaterial.clone());
+      mesh.scale.set(s, s, s);
       mesh.position.set(
         origin.x + (Math.random() - 0.5) * 0.4,
         0.05,
@@ -264,14 +274,13 @@ export class ParticleSystem {
     }
 
     // Expanding ground water ring ripple
-    const ringGeo = new THREE.RingGeometry(0.1, 0.25, 16);
     const ringMat = new THREE.MeshBasicMaterial({
       color: 0x38bdf8,
       transparent: true,
       opacity: 0.7,
       side: THREE.DoubleSide,
     });
-    const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+    const ringMesh = new THREE.Mesh(ParticleSystem._rippleRingGeo, ringMat);
     ringMesh.rotation.x = -Math.PI / 2;
     ringMesh.position.set(origin.x, 0.03, origin.z);
     this.scene.add(ringMesh);
@@ -295,14 +304,13 @@ export class ParticleSystem {
     this.scene.add(flashLight);
 
     // Expanding flash ring
-    const ringGeo = new THREE.RingGeometry(0.2, 0.6, 24);
     const ringMat = new THREE.MeshBasicMaterial({
       color: 0xffffff,
       transparent: true,
       opacity: 0.95,
       side: THREE.DoubleSide,
     });
-    const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+    const ringMesh = new THREE.Mesh(ParticleSystem._flashRingGeo, ringMat);
     ringMesh.position.copy(origin);
     ringMesh.position.y += 1.8;
     this.scene.add(ringMesh);
@@ -332,8 +340,7 @@ export class ParticleSystem {
     });
 
     for (let i = 0; i < count; i++) {
-      const geo = new THREE.CylinderGeometry(0.02, 0.04, 1.2, 4);
-      const mesh = new THREE.Mesh(geo, lineMat);
+      const mesh = new THREE.Mesh(ParticleSystem._speedStreakGeo, lineMat);
       mesh.position.set(
         origin.x + (Math.random() - 0.5) * 0.8,
         origin.y + 0.4 + Math.random() * 1.2,
@@ -397,7 +404,6 @@ export class ParticleSystem {
 
       if (p.life >= p.maxLife) {
         this.scene.remove(p.mesh);
-        p.mesh.geometry?.dispose();
         if (Array.isArray(p.mesh.material)) {
           p.mesh.material.forEach((m) => m.dispose());
         } else {
@@ -435,7 +441,6 @@ export class ParticleSystem {
 
       if (wave.life >= wave.maxLife) {
         this.scene.remove(wave.mesh);
-        wave.mesh.geometry.dispose();
         (wave.mesh.material as THREE.Material).dispose();
         this.soundwaves.splice(i, 1);
         continue;
@@ -455,5 +460,17 @@ export class ParticleSystem {
     this.soundwaves.forEach((w) => this.scene.remove(w.mesh));
     this.particles = [];
     this.soundwaves = [];
+  }
+
+  public static disposeSharedGeometries() {
+    ParticleSystem._smokeGeo.dispose();
+    ParticleSystem._waterGeo.dispose();
+    ParticleSystem._dustGeo.dispose();
+    ParticleSystem._confettiGeo.dispose();
+    ParticleSystem._puddleSplashGeo.dispose();
+    ParticleSystem._soundwaveRingGeo.dispose();
+    ParticleSystem._rippleRingGeo.dispose();
+    ParticleSystem._flashRingGeo.dispose();
+    ParticleSystem._speedStreakGeo.dispose();
   }
 }
