@@ -423,9 +423,9 @@ class AudioManager {
   }
 
   /**
-   * Sound 10: Jump & Slide
+   * Sound 10: Jump, Slide & Ground Impact Landing
    */
-  public playParkourAction(type: 'JUMP' | 'SLIDE') {
+  public playParkourAction(type: 'JUMP' | 'SLIDE' | 'LAND') {
     if (this.isMuted) return;
     this.init();
     if (!this.ctx || !this.sfxGain) return;
@@ -440,12 +440,19 @@ class AudioManager {
       osc.frequency.exponentialRampToValueAtTime(420, t + 0.12);
       gain.gain.setValueAtTime(0.35, t);
       gain.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
-    } else {
+    } else if (type === 'SLIDE') {
       osc.type = 'triangle';
       osc.frequency.setValueAtTime(340, t);
       osc.frequency.exponentialRampToValueAtTime(110, t + 0.2);
       gain.gain.setValueAtTime(0.35, t);
       gain.gain.exponentialRampToValueAtTime(0.01, t + 0.22);
+    } else {
+      // LAND: Low punchy ground thud
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(145, t);
+      osc.frequency.exponentialRampToValueAtTime(45, t + 0.08);
+      gain.gain.setValueAtTime(0.24, t);
+      gain.gain.exponentialRampToValueAtTime(0.005, t + 0.09);
     }
 
     osc.connect(gain);
@@ -502,6 +509,33 @@ class AudioManager {
     gain.connect(this.sfxGain);
     osc.start(t);
     osc.stop(t + 0.65);
+  }
+
+  /**
+   * Sound 13: Tactical Procedural Footstep Crunch / Tap
+   */
+  public playFootstep(isSprinting: boolean = false) {
+    if (this.isMuted) return;
+    this.init();
+    if (!this.ctx || !this.sfxGain) return;
+
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'sine';
+    const baseFreq = 85 + Math.random() * 30;
+    osc.frequency.setValueAtTime(baseFreq, t);
+    osc.frequency.exponentialRampToValueAtTime(32, t + 0.045);
+
+    const vol = isSprinting ? 0.16 : 0.09;
+    gain.gain.setValueAtTime(vol, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+
+    osc.connect(gain);
+    gain.connect(this.sfxGain);
+    osc.start(t);
+    osc.stop(t + 0.055);
   }
 
   /**

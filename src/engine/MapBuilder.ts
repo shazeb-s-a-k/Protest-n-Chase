@@ -8,6 +8,14 @@ export interface Collider {
   interactiveId?: string;
 }
 
+export interface AnimatedFlag {
+  mesh: THREE.Mesh;
+  initialPositions: Float32Array;
+  speed: number;
+  frequency: number;
+  amplitude: number;
+}
+
 /**
  * MapBuilder: Constructs highly detailed, photorealistic 3D heritage maps.
  * - Chapter 1: New Delhi (Authentic Jantar Mantar Observatory, Sansad Marg, and Central Vista/Parliament District)
@@ -18,6 +26,7 @@ export class MapBuilder {
   public busPositions: { x: number; y: number; z: number; id: string }[] = [];
   public busDoors: Map<string, THREE.Group> = new Map();
   public stagePosition: THREE.Vector3 = new THREE.Vector3(0, 0, 35);
+  public animatedFlags: AnimatedFlag[] = [];
 
   // Drone & Spotlight
   public droneGroup?: THREE.Group;
@@ -33,6 +42,45 @@ export class MapBuilder {
   private policeLights: THREE.PointLight[] = [];
 
   /**
+   * Registers a subdivided flag mesh for real-time vertex wind flutter
+   */
+  public addAnimatedFlag(mesh: THREE.Mesh, speed = 4.2, frequency = 2.0, amplitude = 0.28) {
+    const geo = mesh.geometry;
+    if (!geo.attributes.position) return;
+    const initialPositions = new Float32Array(geo.attributes.position.array);
+    this.animatedFlags.push({
+      mesh,
+      initialPositions,
+      speed,
+      frequency,
+      amplitude,
+    });
+  }
+
+  /**
+   * Zero-GC real-time vertex displacement for billowing flags
+   */
+  public updateFlagAnimations(time: number) {
+    for (let f = 0; f < this.animatedFlags.length; f++) {
+      const flag = this.animatedFlags[f];
+      const geo = flag.mesh.geometry;
+      const pos = geo.attributes.position;
+      const init = flag.initialPositions;
+      const count = pos.count;
+
+      for (let i = 0; i < count; i++) {
+        const ix = i * 3;
+        const x = init[ix];
+        const y = init[ix + 1];
+        const dist = Math.abs(x);
+        const wave = Math.sin(time * flag.speed + x * flag.frequency + y * 0.4) * dist * flag.amplitude;
+        pos.setZ(i, wave);
+      }
+      pos.needsUpdate = true;
+    }
+  }
+
+  /**
    * Builds the entire 3D Jantar Mantar heritage observatory, Sansad Marg, and Central Vista
    */
   public buildJantarMantar(scene: THREE.Scene): { colliders: Collider[]; busPositions: any[] } {
@@ -40,6 +88,7 @@ export class MapBuilder {
     this.busPositions = [];
     this.busDoors.clear();
     this.policeLights = [];
+    this.animatedFlags = [];
 
     // 1. High-Resolution Authentic PBR Textures & Materials
     const { map: pavementTex, bumpMap: pavementBump } = TextureGenerator.getSandstoneFlagstoneTexture();
@@ -784,15 +833,17 @@ export class MapBuilder {
     parlGroup.add(mast);
 
     const flagTex = TextureGenerator.getIndianFlagTexture();
-    const flagGeo = new THREE.PlaneGeometry(6, 4);
+    const flagGeo = new THREE.PlaneGeometry(6, 4, 12, 8);
+    flagGeo.translate(3.0, 0, 0);
     const flagMat = new THREE.MeshStandardMaterial({
       map: flagTex,
       side: THREE.DoubleSide,
       roughness: 0.5,
     });
     const flag = new THREE.Mesh(flagGeo, flagMat);
-    flag.position.set(3.0, 2.2 + colHeight + 5.7 + 12 + 11.5, 0);
+    flag.position.set(0, 2.2 + colHeight + 5.7 + 12 + 11.5, 0);
     parlGroup.add(flag);
+    this.addAnimatedFlag(flag, 3.8, 1.8, 0.28);
 
     // Upward Night Spotlight on Flag
     const flagLight = new THREE.SpotLight(0xffedd5, 2.5, 30, Math.PI / 6, 0.4);
@@ -1354,6 +1405,41 @@ export class MapBuilder {
       vajraGroup.add(bulb);
     });
 
+    // Dual Front Heavy Headlights & Road Illumination
+    const headMat = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      emissive: 0xfffbeb,
+      emissiveIntensity: 2.2,
+      roughness: 0.1,
+    });
+    [-1.0, 1.0].forEach((hx) => {
+      const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.28, 0.1), headMat);
+      lamp.position.set(hx, 1.35, length / 2 + 0.02);
+      vajraGroup.add(lamp);
+
+      const grillRing = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.35, 0.05), steelMat);
+      grillRing.position.set(hx, 1.35, length / 2 + 0.01);
+      vajraGroup.add(grillRing);
+    });
+
+    const frontLight = new THREE.SpotLight(0xfffbeb, 2.5, 35, Math.PI / 4, 0.4);
+    frontLight.position.set(0, 1.4, length / 2 + 0.2);
+    frontLight.target.position.set(0, 0, length / 2 + 18);
+    vajraGroup.add(frontLight.target);
+    vajraGroup.add(frontLight);
+
+    // Dual Rear Red Taillights
+    const tailMat = new THREE.MeshStandardMaterial({
+      color: 0xef4444,
+      emissive: 0xef4444,
+      emissiveIntensity: 1.8,
+    });
+    [-1.05, 1.05].forEach((tx) => {
+      const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.45, 0.1), tailMat);
+      lamp.position.set(tx, 1.4, -length / 2 - 0.02);
+      vajraGroup.add(lamp);
+    });
+
     scene.add(vajraGroup);
 
     const box = new THREE.Box3().setFromCenterAndSize(
@@ -1449,6 +1535,37 @@ export class MapBuilder {
       this.policeLights.push(light);
     });
 
+    // Dual Front Headlights
+    const suvHeadMat = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      emissive: 0xfffbeb,
+      emissiveIntensity: 2.2,
+      roughness: 0.1,
+    });
+    [-0.65, 0.65].forEach((hx) => {
+      const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.22, 0.08), suvHeadMat);
+      lamp.position.set(hx, 0.98, length / 2 + 0.01);
+      suvGroup.add(lamp);
+    });
+
+    const suvBeam = new THREE.SpotLight(0xfffbeb, 2.0, 28, Math.PI / 4, 0.4);
+    suvBeam.position.set(0, 1.0, length / 2 + 0.1);
+    suvBeam.target.position.set(0, 0, length / 2 + 15);
+    suvGroup.add(suvBeam.target);
+    suvGroup.add(suvBeam);
+
+    // Dual Rear Taillights
+    const suvTailMat = new THREE.MeshStandardMaterial({
+      color: 0xef4444,
+      emissive: 0xef4444,
+      emissiveIntensity: 1.8,
+    });
+    [-0.7, 0.7].forEach((tx) => {
+      const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.35, 0.08), suvTailMat);
+      lamp.position.set(tx, 1.0, -length / 2 - 0.01);
+      suvGroup.add(lamp);
+    });
+
     scene.add(suvGroup);
 
     const box = new THREE.Box3().setFromCenterAndSize(
@@ -1529,6 +1646,37 @@ export class MapBuilder {
       });
     });
 
+    // Classic Vintage Round Chrome Headlights
+    const ambHeadMat = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      emissive: 0xffedd5,
+      emissiveIntensity: 2.0,
+      roughness: 0.1,
+    });
+    [-0.55, 0.55].forEach((hx) => {
+      const bezel = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.08, 16), chromeMat);
+      bezel.rotation.x = Math.PI / 2;
+      bezel.position.set(hx, 0.75, length / 2 + 0.02);
+      ambGroup.add(bezel);
+
+      const bulb = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.09, 16), ambHeadMat);
+      bulb.rotation.x = Math.PI / 2;
+      bulb.position.set(hx, 0.75, length / 2 + 0.03);
+      ambGroup.add(bulb);
+    });
+
+    // Dual Rear Vintage Red Taillights
+    const ambTailMat = new THREE.MeshStandardMaterial({
+      color: 0xef4444,
+      emissive: 0xef4444,
+      emissiveIntensity: 1.8,
+    });
+    [-0.6, 0.6].forEach((tx) => {
+      const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.32, 0.08), ambTailMat);
+      lamp.position.set(tx, 0.75, -length / 2 - 0.01);
+      ambGroup.add(lamp);
+    });
+
     scene.add(ambGroup);
 
     const box = new THREE.Box3().setFromCenterAndSize(
@@ -1603,9 +1751,13 @@ export class MapBuilder {
       pole.position.set(fx, 4.2, -4.5);
       stageGroup.add(pole);
 
-      const flag = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 1.6), flagMat);
-      flag.position.set(fx + (fx > 0 ? -1.2 : 1.2), 6.5, -4.5);
+      const flagGeo = new THREE.PlaneGeometry(2.4, 1.6, 8, 6);
+      const isRight = fx > 0;
+      flagGeo.translate(isRight ? -1.2 : 1.2, 0, 0);
+      const flag = new THREE.Mesh(flagGeo, flagMat);
+      flag.position.set(fx, 6.5, -4.5);
       stageGroup.add(flag);
+      this.addAnimatedFlag(flag, 4.0, 2.2, 0.22);
     });
 
     // Side Sound System Speakers
@@ -1902,6 +2054,47 @@ export class MapBuilder {
     busGroup.add(pLight);
     this.policeLights.push(pLight);
 
+    // Dual Front Heavy Headlights & Amber Indicators
+    const busHeadMat = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      emissive: 0xfffbeb,
+      emissiveIntensity: 2.4,
+      roughness: 0.1,
+    });
+    const busTurnMat = new THREE.MeshStandardMaterial({
+      color: 0xf59e0b,
+      emissive: 0xf59e0b,
+      emissiveIntensity: 1.8,
+    });
+
+    [-1.25, 1.25].forEach((hx) => {
+      const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.28, 0.1), busHeadMat);
+      lamp.position.set(hx, 1.25, busLength / 2 + 0.02);
+      busGroup.add(lamp);
+
+      const turn = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.28, 0.1), busTurnMat);
+      turn.position.set(hx > 0 ? hx + 0.24 : hx - 0.24, 1.25, busLength / 2 + 0.02);
+      busGroup.add(turn);
+    });
+
+    const busBeam = new THREE.SpotLight(0xfffbeb, 2.8, 35, Math.PI / 4, 0.4);
+    busBeam.position.set(0, 1.3, busLength / 2 + 0.2);
+    busBeam.target.position.set(0, 0, busLength / 2 + 20);
+    busGroup.add(busBeam.target);
+    busGroup.add(busBeam);
+
+    // Rear Dual Taillights
+    const busTailMat = new THREE.MeshStandardMaterial({
+      color: 0xef4444,
+      emissive: 0xef4444,
+      emissiveIntensity: 1.8,
+    });
+    [-1.3, 1.3].forEach((tx) => {
+      const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.55, 0.1), busTailMat);
+      lamp.position.set(tx, 1.4, -busLength / 2 - 0.02);
+      busGroup.add(lamp);
+    });
+
     scene.add(busGroup);
 
     this.busPositions.push({ x, y: 0, z, id: busId });
@@ -2162,6 +2355,7 @@ export class MapBuilder {
     this.busPositions = [];
     this.busDoors.clear();
     this.policeLights = [];
+    this.animatedFlags = [];
 
     const cobblestonePBR = TextureGenerator.getParisCobblestoneTexture();
     const cobblestoneMat = new THREE.MeshStandardMaterial({
@@ -2449,6 +2643,37 @@ export class MapBuilder {
     vanGroup.add(doorGroup);
     this.busDoors.set(busId, doorGroup);
 
+    // Dual Front Xenon Headlights
+    const crsHeadMat = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      emissive: 0xe0f2fe,
+      emissiveIntensity: 2.2,
+      roughness: 0.1,
+    });
+    [-1.0, 1.0].forEach((hx) => {
+      const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.25, 0.1), crsHeadMat);
+      lamp.position.set(hx, 1.25, vanLength / 2 + 0.02);
+      vanGroup.add(lamp);
+    });
+
+    const vanSpot = new THREE.SpotLight(0xe0f2fe, 2.4, 30, Math.PI / 4, 0.4);
+    vanSpot.position.set(0, 1.3, vanLength / 2 + 0.2);
+    vanSpot.target.position.set(0, 0, vanLength / 2 + 18);
+    vanGroup.add(vanSpot.target);
+    vanGroup.add(vanSpot);
+
+    // Dual Rear Red Taillights
+    const crsTailMat = new THREE.MeshStandardMaterial({
+      color: 0xef4444,
+      emissive: 0xef4444,
+      emissiveIntensity: 1.8,
+    });
+    [-1.05, 1.05].forEach((tx) => {
+      const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.45, 0.1), crsTailMat);
+      lamp.position.set(tx, 1.35, -vanLength / 2 - 0.02);
+      vanGroup.add(lamp);
+    });
+
     scene.add(vanGroup);
 
     this.busPositions.push({ x, y: 0, z, id: busId });
@@ -2466,14 +2691,110 @@ export class MapBuilder {
   }
 
   private createFrenchWaterCannonTruck(scene: THREE.Scene, x: number, z: number) {
-    const truck = new THREE.Mesh(new THREE.BoxGeometry(3.2, 3.4, 9.5), new THREE.MeshStandardMaterial({ color: 0x0f2852 }));
-    truck.position.set(x, 1.7, z);
-    truck.castShadow = true;
-    scene.add(truck);
+    const truckGroup = new THREE.Group();
+    truckGroup.position.set(x, 0, z);
+
+    const length = 9.6;
+    const width = 3.2;
+    const height = 3.4;
+
+    const crsNavy = new THREE.MeshStandardMaterial({ color: 0x0f2852, roughness: 0.35, metalness: 0.45 });
+    const steelMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.7, metalness: 0.85 });
+    const glassMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.05, metalness: 0.95 });
+
+    // Armored Lower Hull & Chassis
+    const chassis = new THREE.Mesh(new THREE.BoxGeometry(width - 0.2, 0.5, length), steelMat);
+    chassis.position.y = 0.65;
+    truckGroup.add(chassis);
+
+    // Main Body
+    const body = new THREE.Mesh(new THREE.BoxGeometry(width, height - 0.8, length), crsNavy);
+    body.position.y = height / 2 + 0.2;
+    body.castShadow = true;
+    body.receiveShadow = true;
+    truckGroup.add(body);
+
+    // Reinforced Cabin with Slanted Windshield
+    const wind = new THREE.Mesh(new THREE.BoxGeometry(width - 0.2, 1.1, 0.15), glassMat);
+    wind.position.set(0, 2.4, length / 2 - 0.1);
+    wind.rotation.x = -0.2;
+    truckGroup.add(wind);
+
+    // Heavy Front Wire-Mesh Protective Screen
+    const wire = new THREE.Mesh(
+      new THREE.BoxGeometry(width - 0.25, 1.15, 0.16),
+      new THREE.MeshStandardMaterial({ color: 0x000000, wireframe: true })
+    );
+    wire.position.set(0, 2.4, length / 2 - 0.04);
+    wire.rotation.x = -0.2;
+    truckGroup.add(wire);
+
+    // Rooftop Water Cannon Turret
+    const turret = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.7, 0.5, 12), steelMat);
+    turret.position.set(0, height + 0.1, length / 2 - 1.2);
+    truckGroup.add(turret);
+
+    const cannonNozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.16, 1.8, 8), steelMat);
+    cannonNozzle.rotation.x = Math.PI / 2.2;
+    cannonNozzle.position.set(0, height + 0.4, length / 2 - 0.4);
+    truckGroup.add(cannonNozzle);
+
+    // 6 Heavy Off-Road Wheels
+    [-width / 2 - 0.05, width / 2 + 0.05].forEach((wx) => {
+      [-2.8, 0, 2.8].forEach((wz) => {
+        const wheel = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.6, 0.6, 0.45, 16),
+          new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 })
+        );
+        wheel.rotation.z = Math.PI / 2;
+        wheel.position.set(wx, 0.6, wz);
+        wheel.castShadow = true;
+        truckGroup.add(wheel);
+      });
+    });
+
+    // Dual Front Heavy Headlights
+    const headMat = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      emissive: 0xfffbeb,
+      emissiveIntensity: 2.2,
+      roughness: 0.1,
+    });
+    [-1.1, 1.1].forEach((hx) => {
+      const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.28, 0.1), headMat);
+      lamp.position.set(hx, 1.3, length / 2 + 0.02);
+      truckGroup.add(lamp);
+    });
+
+    const frontSpot = new THREE.SpotLight(0xfffbeb, 2.5, 35, Math.PI / 4, 0.4);
+    frontSpot.position.set(0, 1.4, length / 2 + 0.2);
+    frontSpot.target.position.set(0, 0, length / 2 + 18);
+    truckGroup.add(frontSpot.target);
+    truckGroup.add(frontSpot);
+
+    // Dual Rear Red Taillights
+    const tailMat = new THREE.MeshStandardMaterial({
+      color: 0xef4444,
+      emissive: 0xef4444,
+      emissiveIntensity: 1.8,
+    });
+    [-1.15, 1.15].forEach((tx) => {
+      const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.5, 0.1), tailMat);
+      lamp.position.set(tx, 1.4, -length / 2 - 0.02);
+      truckGroup.add(lamp);
+    });
+
+    // Flashing Emergency French Blue Beacon
+    const bLight = new THREE.PointLight(0x3b82f6, 2.5, 18);
+    bLight.position.set(0, height + 0.7, 0);
+    truckGroup.add(bLight);
+    this.policeLights.push(bLight);
+
+    scene.add(truckGroup);
 
     const box = new THREE.Box3().setFromCenterAndSize(
-      new THREE.Vector3(x, 1.7, z),
-      new THREE.Vector3(3.2, 3.4, 9.5)
+      new THREE.Vector3(x, height / 2, z),
+      new THREE.Vector3(width, height, length)
     );
     this.colliders.push({ box, type: 'WALL' });
   }
@@ -2515,14 +2836,78 @@ export class MapBuilder {
     const stageGroup = new THREE.Group();
     stageGroup.position.set(0, 0, 35);
 
-    const stage = new THREE.Mesh(new THREE.BoxGeometry(18, 1.2, 10), new THREE.MeshStandardMaterial({ color: 0x1e293b }));
+    // Platform Base & Dark Industrial Trusses
+    const stage = new THREE.Mesh(
+      new THREE.BoxGeometry(18, 1.2, 10),
+      new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.75, metalness: 0.25 })
+    );
     stage.position.y = 0.6;
     stage.castShadow = true;
+    stage.receiveShadow = true;
     stageGroup.add(stage);
 
-    const banner = new THREE.Mesh(new THREE.PlaneGeometry(16, 5), new THREE.MeshStandardMaterial({ color: 0x1e3a8a }));
-    banner.position.set(0, 4.2, -4.8);
-    stageGroup.add(banner);
+    // Giant Paris Rally Backdrop Banner
+    const bannerGeo = new THREE.PlaneGeometry(16, 5);
+    const canvas = document.createElement('canvas');
+    canvas.width = 1024;
+    canvas.height = 320;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      const grad = ctx.createLinearGradient(0, 0, 1024, 320);
+      grad.addColorStop(0, '#002654');
+      grad.addColorStop(0.5, '#1e293b');
+      grad.addColorStop(1, '#ed2939');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 1024, 320);
+
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 46px Outfit, sans-serif';
+      ctx.fillText('LIBERTÉ • ÉGALITÉ • FRATERNITÉ', 512, 110);
+
+      ctx.fillStyle = '#38bdf8';
+      ctx.font = '600 28px Outfit, sans-serif';
+      ctx.fillText('PEUPLE DE PARIS — RASSEMBLEMENT CLIMATIQUE & SOCIAL', 512, 175);
+
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = 'italic 20px Space Grotesk, monospace';
+      ctx.fillText('#BastilleDebout #Paris2026 #GenerationClimat', 512, 250);
+    }
+    const bannerTex = new THREE.CanvasTexture(canvas);
+    const bannerMat = new THREE.MeshBasicMaterial({ map: bannerTex, side: THREE.DoubleSide });
+    const bannerMesh = new THREE.Mesh(bannerGeo, bannerMat);
+    bannerMesh.position.set(0, 4.2, -4.8);
+    stageGroup.add(bannerMesh);
+
+    // Two French Tricolore Flags billowing on stage flanks
+    const flagTex = TextureGenerator.getFrenchFlagTexture();
+    const flagMat = new THREE.MeshStandardMaterial({ map: flagTex, side: THREE.DoubleSide, roughness: 0.5 });
+    [-7.5, 7.5].forEach((fx) => {
+      const pole = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.06, 0.08, 6.5, 8),
+        new THREE.MeshStandardMaterial({ color: 0xd97706, metalness: 0.9 })
+      );
+      pole.position.set(fx, 4.2, -4.5);
+      stageGroup.add(pole);
+
+      const flagGeo = new THREE.PlaneGeometry(2.4, 1.6, 8, 6);
+      const isRight = fx > 0;
+      flagGeo.translate(isRight ? -1.2 : 1.2, 0, 0);
+      const flag = new THREE.Mesh(flagGeo, flagMat);
+      flag.position.set(fx, 6.5, -4.5);
+      stageGroup.add(flag);
+      this.addAnimatedFlag(flag, 4.2, 2.0, 0.24);
+    });
+
+    // Sound System Speakers
+    [-8.2, 8.2].forEach((sx) => {
+      const speakerGeo = new THREE.BoxGeometry(1.4, 3.5, 1.4);
+      const speakerMat = new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.7, roughness: 0.3 });
+      const speaker = new THREE.Mesh(speakerGeo, speakerMat);
+      speaker.position.set(sx, 2.3, -3);
+      speaker.castShadow = true;
+      stageGroup.add(speaker);
+    });
 
     scene.add(stageGroup);
 

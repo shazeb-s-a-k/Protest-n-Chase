@@ -140,10 +140,12 @@ export class ParticleSystem {
     }
   }
 
-  /**
-   * Spawns floating Gen-Z live-stream emoji sprites (hearts, megaphones, lightning)
-   */
-  public spawnLiveStreamEmoji(origin: THREE.Vector3, emojiText: string = '🔥') {
+  private static emojiCache: Map<string, THREE.CanvasTexture> = new Map();
+
+  private static getEmojiTexture(emojiText: string): THREE.CanvasTexture {
+    if (this.emojiCache.has(emojiText)) {
+      return this.emojiCache.get(emojiText)!;
+    }
     const canvas = document.createElement('canvas');
     canvas.width = 128;
     canvas.height = 128;
@@ -155,6 +157,89 @@ export class ParticleSystem {
       ctx.fillText(emojiText, 64, 64);
     }
     const texture = new THREE.CanvasTexture(canvas);
+    this.emojiCache.set(emojiText, texture);
+    return texture;
+  }
+
+  /**
+   * Spawns ground dust motes when sliding, dashing, or landing a jump
+   */
+  public spawnSlideDust(origin: THREE.Vector3) {
+    const count = 7;
+    const dustMat = new THREE.MeshStandardMaterial({
+      color: 0xd4d4d8,
+      transparent: true,
+      opacity: 0.55,
+      roughness: 0.9,
+    });
+
+    for (let i = 0; i < count; i++) {
+      const geo = new THREE.SphereGeometry(0.15 + Math.random() * 0.12, 6, 6);
+      const mesh = new THREE.Mesh(geo, dustMat.clone());
+      mesh.position.set(
+        origin.x + (Math.random() - 0.5) * 0.6,
+        0.1,
+        origin.z + (Math.random() - 0.5) * 0.6
+      );
+      this.scene.add(mesh);
+
+      this.particles.push({
+        mesh,
+        velocity: new THREE.Vector3(
+          (Math.random() - 0.5) * 1.8,
+          0.4 + Math.random() * 0.6,
+          (Math.random() - 0.5) * 1.8
+        ),
+        life: 0,
+        maxLife: 0.55,
+        scaleGrowth: 1.2,
+        initialScale: 1.0,
+      });
+    }
+  }
+
+  /**
+   * Spawns victory celebration confetti shower
+   */
+  public spawnConfettiSurge(origin: THREE.Vector3) {
+    const count = 40;
+    const colors = [0xff9933, 0xffffff, 0x138808, 0x38bdf8, 0xf43f5e, 0xfacc15];
+
+    for (let i = 0; i < count; i++) {
+      const color = colors[i % colors.length];
+      const geo = new THREE.PlaneGeometry(0.18, 0.28);
+      const mat = new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide });
+      const mesh = new THREE.Mesh(geo, mat);
+
+      mesh.position.copy(origin);
+      mesh.position.y += 1.5;
+      mesh.position.x += (Math.random() - 0.5) * 3;
+      mesh.position.z += (Math.random() - 0.5) * 3;
+      mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
+
+      this.scene.add(mesh);
+
+      this.particles.push({
+        mesh,
+        velocity: new THREE.Vector3(
+          (Math.random() - 0.5) * 6,
+          4.5 + Math.random() * 5.5,
+          (Math.random() - 0.5) * 6
+        ),
+        life: 0,
+        maxLife: 2.2,
+        scaleGrowth: -0.2,
+        initialScale: 1.0,
+      });
+    }
+  }
+
+  /**
+   * Spawns floating Gen-Z live-stream emoji sprites (hearts, megaphones, lightning)
+   * Uses persistent texture cache for Zero-GC
+   */
+  public spawnLiveStreamEmoji(origin: THREE.Vector3, emojiText: string = '🔥') {
+    const texture = ParticleSystem.getEmojiTexture(emojiText);
     const spriteMat = new THREE.SpriteMaterial({ map: texture, transparent: true });
     const sprite = new THREE.Sprite(spriteMat);
     sprite.scale.set(1.2, 1.2, 1);

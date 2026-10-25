@@ -399,6 +399,7 @@ export class GameEngine {
     };
 
     this.localPlayer = new CharacterController(this.scene, state);
+    this.localPlayer.particleSystem = this.particleSystem;
     this.snapCameraToPlayer();
   }
 
@@ -426,6 +427,7 @@ export class GameEngine {
       };
 
       const controller = new CharacterController(this.scene, state);
+      controller.particleSystem = this.particleSystem;
       this.aiPlayers.push(controller);
       this.aiController.registerAI(controller, 'PATROL');
     }
@@ -452,6 +454,7 @@ export class GameEngine {
       };
 
       const controller = new CharacterController(this.scene, state);
+      controller.particleSystem = this.particleSystem;
       this.aiPlayers.push(controller);
       this.aiController.registerAI(controller, 'CHANT');
     }
@@ -928,10 +931,16 @@ export class GameEngine {
       this.matchState.isGameOver = true;
       this.matchState.winner = 'PROTESTOR';
       audioManager.playCrowdCheer(1.0);
+      if (this.localPlayer) {
+        this.particleSystem.spawnConfettiSurge(this.localPlayer.mesh.position);
+      }
     } else if (this.matchState.detainedScore >= 8) {
       this.matchState.isGameOver = true;
       this.matchState.winner = 'POLICE';
       audioManager.playHandcuffClick();
+      if (this.localPlayer && this.localPlayer.state.team === 'POLICE') {
+        this.particleSystem.spawnConfettiSurge(this.localPlayer.mesh.position);
+      }
     }
   }
 
@@ -1103,8 +1112,9 @@ export class GameEngine {
         }
       }
 
-      // 9. Update Police Flashing Lights
+      // 9. Update Police Flashing Lights & Billowing Flags
       this.mapBuilder.updateSirenLights();
+      this.mapBuilder.updateFlagAnimations(Date.now() * 0.003);
 
       // 10. Update AI Units
       const allUnits = this.localPlayer ? [this.localPlayer, ...this.aiPlayers] : this.aiPlayers;

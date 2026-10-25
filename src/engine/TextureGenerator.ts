@@ -1012,6 +1012,45 @@ export class TextureGenerator {
   }
 
   /**
+   * Generates the French National Flag (Tricolore) with vertical Blue, White, and Red bands & cloth weave
+   */
+  public static getFrenchFlagTexture(): THREE.CanvasTexture {
+    const key = 'french_flag_tricolore';
+    if (this.cache.has(key)) return this.cache.get(key)!;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 600;
+    canvas.height = 400;
+    const ctx = canvas.getContext('2d')!;
+
+    const w = 600 / 3;
+    // Blue (Bleu de France)
+    ctx.fillStyle = '#002654';
+    ctx.fillRect(0, 0, w, 400);
+
+    // White
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(w, 0, w, 400);
+
+    // Red
+    ctx.fillStyle = '#ed2939';
+    ctx.fillRect(w * 2, 0, w, 400);
+
+    // Subtle cloth weave grain
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.04)';
+    for (let x = 0; x < 600; x += 4) {
+      ctx.fillRect(x, 0, 1, 400);
+    }
+    for (let y = 0; y < 400; y += 4) {
+      ctx.fillRect(0, y, 600, 1);
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    this.cache.set(key, tex);
+    return tex;
+  }
+
+  /**
    * Generates Authentic Heritage and Government Road Signage
    */
   public static getHeritageSignTexture(
@@ -1308,6 +1347,7 @@ export class TextureGenerator {
     this.getMakranaMarbleTexture();
     this.getMughalGardenLawnTexture();
     this.getIndianFlagTexture();
+    this.getFrenchFlagTexture();
     this.getHeritageSignTexture('ASI');
     this.getHeritageSignTexture('SANSAD_MARG');
     this.getHeritageSignTexture('CENTRAL_VISTA');

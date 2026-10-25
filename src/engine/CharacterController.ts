@@ -3,6 +3,7 @@ import { Team, PlayerState } from '../types/game';
 import { Collider } from './MapBuilder';
 import { audioManager } from './AudioManager';
 import { TextureGenerator } from './TextureGenerator';
+import { ParticleSystem } from './ParticleSystem';
 
 export interface MovementInput {
   moveForward: number; // -1 to 1
@@ -24,6 +25,7 @@ export class CharacterController {
   public isGrounded: boolean = true;
   public currentStamina: number = 100;
   public maxStamina: number = 100;
+  public particleSystem: ParticleSystem | null = null;
 
   // Visual Limbs for procedural animation
   private leftArmGroup?: THREE.Group;
@@ -814,6 +816,7 @@ export class CharacterController {
       if (this.rightArmGroup) this.rightArmGroup.rotation.z = 0;
     }
 
+    const wasGrounded = this.isGrounded;
     const isProtestor = this.state.team === 'PROTESTOR';
     const baseSpeed = isProtestor ? 11.5 : 8.5;
     let speed = baseSpeed;
@@ -859,6 +862,7 @@ export class CharacterController {
     // 3. Slide Mechanic (Parkour slide)
     if (input.slide && this.isGrounded && !this.state.isSliding && !isDashing) {
       this.state.isSliding = true;
+      this.particleSystem?.spawnSlideDust(this.mesh.position);
       audioManager.playParkourAction('SLIDE');
       if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
         navigator.vibrate(30);
@@ -950,6 +954,13 @@ export class CharacterController {
       this.velocity.y = 0;
       this.isGrounded = true;
       this.state.isJumping = false;
+    }
+
+    if (!wasGrounded && this.isGrounded) {
+      this.particleSystem?.spawnSlideDust(this.mesh.position);
+      if (this.state.isLocal) {
+        audioManager.playParkourAction('LAND');
+      }
     }
 
     this.animateLimbs(delta, moveDir.lengthSq() > 0 || isDashing, speed);
@@ -1112,8 +1123,16 @@ export class CharacterController {
     }
 
     if (isMoving) {
+      const prevTimer = this.animTimer;
       const animRate = currentSpeed * 0.85;
       this.animTimer += delta * animRate;
+
+      // Tactile footstep sound when foot touches down
+      if (this.state.isLocal && this.isGrounded) {
+        if (Math.sin(prevTimer) * Math.sin(this.animTimer) < 0) {
+          audioManager.playFootstep(this.state.isSprinting);
+        }
+      }
 
       const swing = Math.sin(this.animTimer) * 0.72;
       if (this.leftLegGroup) this.leftLegGroup.rotation.x = swing;
