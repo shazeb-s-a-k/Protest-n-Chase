@@ -390,6 +390,13 @@ export const App: React.FC = () => {
             engineRef.current.triggerBusJailbreak();
           }
           break;
+        case 'KeyX':
+          engineRef.current.scatterLeafletDecoys();
+          break;
+        case 'KeyG':
+        case 'KeyT':
+          engineRef.current.cycleKafilaCommand();
+          break;
         case 'KeyP':
           setIsPhotoBoothOpen((prev) => !prev);
           break;
@@ -621,6 +628,8 @@ export const App: React.FC = () => {
             onUseAbility={handleUseAbility}
             onInteractStation={() => engineRef.current?.interactWithStation()}
             onTapDetained={() => engineRef.current?.handleMinigameTap()}
+            onScatterLeaflets={() => engineRef.current?.scatterLeafletDecoys()}
+            onCycleKafilaCommand={() => engineRef.current?.cycleKafilaCommand()}
           />
 
           <LiveStreamFeed
@@ -645,6 +654,11 @@ export const App: React.FC = () => {
             onInteractStation={() => engineRef.current?.interactWithStation()}
             detentionCountdown={matchState.detentionCountdown}
             onTapDetained={() => engineRef.current?.handleMinigameTap()}
+            onScatterLeaflets={() => engineRef.current?.scatterLeafletDecoys()}
+            onCycleKafilaCommand={() => engineRef.current?.cycleKafilaCommand()}
+            kafilaCommand={matchState.kafilaCommand}
+            kafilaCount={matchState.kafilaCount}
+            leafletsRemaining={matchState.leafletsRemaining}
           />
 
           <MinigameOverlay

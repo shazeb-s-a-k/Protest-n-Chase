@@ -51,6 +51,8 @@ interface HUDProps {
   onUseAbility: (ability: string) => void;
   onInteractStation?: () => void;
   onTapDetained?: () => void;
+  onScatterLeaflets?: () => void;
+  onCycleKafilaCommand?: () => void;
 }
 
 export const HUD: React.FC<HUDProps> = ({
@@ -75,6 +77,8 @@ export const HUD: React.FC<HUDProps> = ({
   onUseAbility,
   onInteractStation,
   onTapDetained,
+  onScatterLeaflets,
+  onCycleKafilaCommand,
 }) => {
   const isProtestor = matchState.localTeam === 'PROTESTOR';
   const minutes = Math.floor(Math.max(0, matchState.timeRemaining) / 60);
@@ -190,6 +194,42 @@ export const HUD: React.FC<HUDProps> = ({
               </div>
             </div>
           )}
+
+          {/* Kafila Rally Horde Card */}
+          {matchState.localTeam === 'PROTESTOR' && (
+            <div className="glass-panel p-2 rounded-2xl border border-emerald-500/40 bg-slate-900/90 max-w-[210px] sm:max-w-xs shadow-xl pointer-events-auto flex flex-col gap-1.5">
+              <div className="flex items-center justify-between text-xs font-bold">
+                <span className="flex items-center gap-1.5 text-emerald-300 text-[10px] sm:text-[11px]">
+                  <Users className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <span>Kafila: <strong className="text-white font-mono">{matchState.kafilaCount || 0}</strong></span>
+                </span>
+                {onCycleKafilaCommand && (
+                  <button
+                    onClick={onCycleKafilaCommand}
+                    className="px-2 py-0.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-400/30 text-[9px] font-black uppercase tracking-wider active:scale-95 transition-all"
+                  >
+                    {matchState.kafilaCommand === 'RUSH' ? '🔥 Halla Bol' : matchState.kafilaCommand === 'DHARNA' ? '🧘 Dharna' : matchState.kafilaCommand === 'SCATTER' ? '💨 Bikhro' : '📢 March'}
+                  </button>
+                )}
+              </div>
+              {onScatterLeaflets && (
+                <div className="flex items-center justify-between pt-1 border-t border-white/5">
+                  <span className="text-[9px] text-slate-300 flex items-center gap-1">
+                    <span>📄</span>
+                    <span>Leaflets: <strong className="text-cyan-300">{matchState.leafletsRemaining ?? 3}</strong></span>
+                  </span>
+                  <button
+                    onClick={onScatterLeaflets}
+                    disabled={(matchState.leafletsRemaining ?? 3) <= 0}
+                    className="px-1.5 py-0.5 rounded bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-200 border border-cyan-400/30 text-[9px] font-bold active:scale-95 disabled:opacity-40"
+                    title="Scatter Leaflet Decoys (X)"
+                  >
+                    Drop [X]
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Center: Awareness vs Detainment Status */}
@@ -202,8 +242,14 @@ export const HUD: React.FC<HUDProps> = ({
                 {matchState.mapId === 'PARIS' ? '🇫🇷 Paris' : '🇮🇳 Delhi'}
               </span>
             </span>
-            <span className="text-xs sm:text-sm font-mono text-cyan-300 font-extrabold">
-              {Math.round(matchState.awarenessScore)}%
+            <span className="text-xs sm:text-sm font-mono text-cyan-300 font-extrabold flex items-center gap-2">
+              {matchState.dholTempo && (
+                <span className="text-[10px] text-amber-400 font-mono font-bold flex items-center gap-1 animate-pulse">
+                  <span>🥁</span>
+                  <span>{matchState.dholTempo} BPM</span>
+                </span>
+              )}
+              <span>{Math.round(matchState.awarenessScore)}%</span>
             </span>
           </div>
 
@@ -395,6 +441,28 @@ export const HUD: React.FC<HUDProps> = ({
                 </button>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Astronomical Landmark Banners */}
+        {matchState.activeAstronomicalZone === 'SAMRAT_SUMMIT' && (
+          <div className="glass-panel px-4 py-2 rounded-2xl border-2 border-amber-400 bg-amber-950/95 text-amber-200 text-xs sm:text-sm font-black shadow-2xl shadow-amber-500/40 flex items-center gap-2 animate-bounce pointer-events-none backdrop-blur-xl">
+            <Sparkles className="w-4 h-4 text-amber-300 animate-spin shrink-0" />
+            <span>SAMRAT YANTRA APEX: Live Satellite Uplink (3X Viral Hype Active!)</span>
+          </div>
+        )}
+
+        {matchState.activeAstronomicalZone === 'JAI_PRAKASH_BOWL' && (
+          <div className="glass-panel px-4 py-2 rounded-2xl border-2 border-emerald-400 bg-emerald-950/95 text-emerald-200 text-xs sm:text-sm font-black shadow-2xl shadow-emerald-500/40 flex items-center gap-2 animate-pulse pointer-events-none backdrop-blur-xl">
+            <Sparkles className="w-4 h-4 text-emerald-300 shrink-0" />
+            <span>JAI PRAKASH SANCTUARY: Celestial Meditation (Stamina & Shield Full!)</span>
+          </div>
+        )}
+
+        {matchState.activeAstronomicalZone === 'RAM_YANTRA_MAZE' && (
+          <div className="glass-panel px-4 py-2 rounded-2xl border border-purple-400 bg-purple-950/95 text-purple-200 text-xs sm:text-sm font-black shadow-2xl flex items-center gap-2 animate-pulse pointer-events-none backdrop-blur-xl">
+            <Compass className="w-4 h-4 text-purple-300 shrink-0" />
+            <span>RAM YANTRA COLUMNS: Police Line-of-Sight Broken!</span>
           </div>
         )}
 

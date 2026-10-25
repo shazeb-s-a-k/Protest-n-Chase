@@ -33,6 +33,11 @@ interface MobileControlsProps {
   onInteractStation?: () => void;
   detentionCountdown?: number;
   onTapDetained?: () => void;
+  onScatterLeaflets?: () => void;
+  onCycleKafilaCommand?: () => void;
+  kafilaCommand?: string;
+  kafilaCount?: number;
+  leafletsRemaining?: number;
 }
 
 export const MobileControls: React.FC<MobileControlsProps> = ({
@@ -51,6 +56,11 @@ export const MobileControls: React.FC<MobileControlsProps> = ({
   onInteractStation,
   detentionCountdown,
   onTapDetained,
+  onScatterLeaflets,
+  onCycleKafilaCommand,
+  kafilaCommand,
+  kafilaCount,
+  leafletsRemaining,
 }) => {
   const joystickBaseRef = useRef<HTMLDivElement>(null);
   const activeTouchIdRef = useRef<number | null>(null);
@@ -594,26 +604,58 @@ export const MobileControls: React.FC<MobileControlsProps> = ({
                 <Unlock className={isLandscape ? 'w-4 h-4' : 'w-5 h-5'} />
               </button>
 
-              {/* Human Chain */}
-              <button
-                type="button"
-                style={{ touchAction: 'none' }}
-                onTouchStart={(e) => {
-                  e.preventDefault();
-                  triggerHaptic();
-                  onUseAbility('HUMAN_CHAIN');
-                }}
-                onClick={() => {
-                  triggerHaptic();
-                  onUseAbility('HUMAN_CHAIN');
-                }}
-                className={`relative ${
-                  isLandscape ? 'w-10 h-10' : 'w-11 h-11'
-                } rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-purple-500/30 text-white active:scale-90 border border-white/20 overflow-hidden`}
-                title="Human Chain Shield"
-              >
-                <Users className={isLandscape ? 'w-4 h-4' : 'w-5 h-5'} />
-              </button>
+              {/* Kafila Squad Command */}
+              {onCycleKafilaCommand && (
+                <button
+                  type="button"
+                  style={{ touchAction: 'none' }}
+                  onTouchStart={(e) => {
+                    e.preventDefault();
+                    triggerHaptic();
+                    onCycleKafilaCommand();
+                  }}
+                  onClick={() => {
+                    triggerHaptic();
+                    onCycleKafilaCommand();
+                  }}
+                  className={`relative ${
+                    isLandscape ? 'w-10 h-10' : 'w-11 h-11'
+                  } rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-700 flex items-center justify-center shadow-lg text-white active:scale-90 border border-emerald-400/30 overflow-hidden`}
+                  title="Squad Command (March, Halla Bol, Dharna, Scatter)"
+                >
+                  <Users className={isLandscape ? 'w-4 h-4' : 'w-5 h-5'} />
+                  <span className="absolute bottom-0 text-[8px] font-mono font-bold text-emerald-200">
+                    {kafilaCount || 0}
+                  </span>
+                </button>
+              )}
+
+              {/* Scatter Leaflet Decoy */}
+              {onScatterLeaflets && (
+                <button
+                  type="button"
+                  disabled={(leafletsRemaining ?? 3) <= 0}
+                  style={{ touchAction: 'none' }}
+                  onTouchStart={(e) => {
+                    e.preventDefault();
+                    triggerHaptic();
+                    onScatterLeaflets();
+                  }}
+                  onClick={() => {
+                    triggerHaptic();
+                    onScatterLeaflets();
+                  }}
+                  className={`relative ${
+                    isLandscape ? 'w-10 h-10' : 'w-11 h-11'
+                  } rounded-2xl bg-gradient-to-br from-cyan-600 to-blue-700 flex items-center justify-center shadow-lg text-white active:scale-90 border border-cyan-400/30 overflow-hidden disabled:opacity-40`}
+                  title="Scatter Leaflets Decoy"
+                >
+                  <span className={isLandscape ? 'text-xs' : 'text-sm'}>📄</span>
+                  <span className="absolute bottom-0 text-[8px] font-mono font-bold text-cyan-200">
+                    {leafletsRemaining ?? 3}
+                  </span>
+                </button>
+              )}
             </div>
           ) : (
             <div className="flex gap-2 flex-row">

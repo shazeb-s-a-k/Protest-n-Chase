@@ -713,6 +713,165 @@ class AudioManager {
       this.chantInterval = null;
     }
   }
+
+  /**
+   * Sound 18: Traditional Indian Dhol Dagga (Resonant Low Membrane Thud)
+   */
+  public playDholBass(volume: number = 0.35) {
+    if (this.isMuted) return;
+    this.init();
+    if (!this.ctx || !this.sfxGain) return;
+
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    const filter = this.ctx.createBiquadFilter();
+
+    // Dhol bass pitch drop (85Hz down to 46Hz)
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(88, t);
+    osc.frequency.exponentialRampToValueAtTime(46, t + 0.22);
+
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(240, t);
+
+    gain.gain.setValueAtTime(volume, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
+
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.sfxGain);
+
+    osc.start(t);
+    osc.stop(t + 0.29);
+  }
+
+  /**
+   * Sound 19: Traditional Tasha / Thapi (Snappy High Metallic Rimshot)
+   */
+  public playTashaRimshot(volume: number = 0.25) {
+    if (this.isMuted) return;
+    this.init();
+    if (!this.ctx || !this.sfxGain) return;
+
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    const filter = this.ctx.createBiquadFilter();
+
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(980, t);
+    osc.frequency.exponentialRampToValueAtTime(320, t + 0.08);
+
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(1400, t);
+    filter.Q.setValueAtTime(3.5, t);
+
+    gain.gain.setValueAtTime(volume, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.sfxGain);
+
+    osc.start(t);
+    osc.stop(t + 0.11);
+  }
+
+  /**
+   * Sound 20: Leaflet / Flyer Scatter Decoy (Fluttering Papers Noise)
+   */
+  public playLeafletScatter() {
+    if (this.isMuted) return;
+    this.init();
+    if (!this.ctx || !this.sfxGain) return;
+
+    const bufferSize = this.ctx.sampleRate * 0.45;
+    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.18));
+    }
+
+    const noise = this.ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(2600, this.ctx.currentTime);
+    filter.Q.setValueAtTime(2.0, this.ctx.currentTime);
+
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.42);
+
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.sfxGain);
+
+    noise.start();
+  }
+
+  /**
+   * Sound 21: Celestial Sanctuary Meditation Chime (Jai Prakash Yantra Bowl)
+   */
+  public playCelestialSanctuary() {
+    if (this.isMuted) return;
+    this.init();
+    if (!this.ctx || !this.sfxGain) return;
+
+    const t = this.ctx.currentTime;
+    const freqs = [528, 660, 792, 1056]; // Solfeggio / Tibetan singing bowl harmonics
+
+    freqs.forEach((freq, idx) => {
+      const osc = this.ctx!.createOscillator();
+      const gain = this.ctx!.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, t);
+
+      gain.gain.setValueAtTime(0.08 / (idx + 1), t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 1.8);
+
+      osc.connect(gain);
+      gain.connect(this.sfxGain!);
+
+      osc.start(t);
+      osc.stop(t + 1.85);
+    });
+  }
+
+  /**
+   * Sound 22: Police Megaphone Dispersal Warning Siren
+   */
+  public playPoliceDispersalWarning() {
+    if (this.isMuted) return;
+    this.init();
+    if (!this.ctx || !this.sfxGain) return;
+
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    const filter = this.ctx.createBiquadFilter();
+
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(440, t);
+    osc.frequency.linearRampToValueAtTime(880, t + 0.3);
+    osc.frequency.linearRampToValueAtTime(440, t + 0.6);
+
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(1100, t);
+
+    gain.gain.setValueAtTime(0.28, t);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.65);
+
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.sfxGain);
+
+    osc.start(t);
+    osc.stop(t + 0.68);
+  }
 }
 
 export const audioManager = new AudioManager();

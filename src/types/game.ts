@@ -16,6 +16,10 @@ export type WeatherCondition = 'CLEAR_GOLDEN' | 'MONSOON_RAIN' | 'NIGHT_CYBERPUN
 
 export type PowerUpType = 'ENERGY_CHAI' | 'AMP_BOOST' | 'WIFI_HOTSPOT' | 'PEACE_AURA' | 'CONE_TRAP';
 
+export type KafilaCommand = 'FOLLOW' | 'RUSH' | 'DHARNA' | 'SCATTER';
+
+export type AstronomicalZone = 'NONE' | 'SAMRAT_SUMMIT' | 'JAI_PRAKASH_BOWL' | 'RAM_YANTRA_MAZE';
+
 export interface PowerUpItem {
   id: string;
   type: PowerUpType;
@@ -66,6 +70,8 @@ export interface PlayerState {
   invulnerabilityTimer?: number;
   stunTimer?: number;
   currentAction?: 'CHANTING' | 'LIVESTREAMING' | 'PLACING_BARRICADE' | 'THROWING_SMOKE' | 'IDLE';
+  isFollowingLeader?: boolean;
+  kafilaOffset?: { x: number; z: number };
 }
 
 export interface DetainmentBus {
@@ -164,6 +170,12 @@ export interface GameMatchState {
   activeMission?: ActiveMission | null;
   floatingNotifications?: FloatingNotification[];
   scoreMultiplier?: number;
+  kafilaCount?: number;
+  kafilaCommand?: KafilaCommand;
+  activeAstronomicalZone?: AstronomicalZone;
+  leafletsRemaining?: number;
+  dholTempo?: number;
+  heatLevel?: number;
   nearInteractiveStation?: {
     type: 'CHAI_TAPRI' | 'CAFE_TABLE' | 'PARKOUR_PAD';
     label: string;

@@ -15,6 +15,8 @@ import {
   MapId,
   ActiveMission,
   FloatingNotification,
+  KafilaCommand,
+  AstronomicalZone,
 } from '../types/game';
 import { MapBuilder, Collider } from './MapBuilder';
 import { CharacterController, MovementInput } from './CharacterController';
@@ -79,6 +81,8 @@ export class GameEngine {
   private animationFrameId: number | null = null;
   private superchatTimer: number = 0;
   private uiUpdateTimer: number = 0;
+  private dholBeatTimer: number = 0;
+  private dholBeatCount: number = 0;
 
   // Callbacks to React UI
   public onStateUpdate?: (state: GameMatchState) => void;
@@ -270,6 +274,12 @@ export class GameEngine {
       floatingNotifications: [],
       scoreMultiplier: 1,
       nearInteractiveStation: null,
+      kafilaCount: 0,
+      kafilaCommand: 'FOLLOW',
+      activeAstronomicalZone: 'NONE',
+      leafletsRemaining: 3,
+      dholTempo: 90,
+      heatLevel: 15,
     };
 
     // Build World
@@ -993,6 +1003,15 @@ export class GameEngine {
       );
     }
 
+    // Recruit nearby protestors into the player's Kafila!
+    this.aiController.recruitToKafila(this.localPlayer, 4);
+    const followerCount = this.aiController.getKafilaFollowers().length;
+    this.matchState.kafilaCount = followerCount;
+    if (followerCount > 0) {
+      this.addFloatingNotification(`✊ KAFILA SWELLS: ${followerCount} COMRADES MARCHING WITH YOU!`, 'MISSION');
+      audioManager.playCrowdCheer(0.3);
+    }
+
     if (this.matchState.mode === 'MULTIPLAYER') {
       this.networkManager.broadcast({
         type: 'ABILITY_USED',
@@ -1001,6 +1020,58 @@ export class GameEngine {
         timestamp: Date.now(),
       });
     }
+  }
+
+  public scatterLeafletDecoys() {
+    if (!this.localPlayer || this.localPlayer.state.isDetained) return;
+    const remaining = this.matchState.leafletsRemaining ?? 3;
+    if (remaining <= 0) {
+      this.addFloatingNotification('⚠️ No Leaflets Remaining!', 'SCORE');
+      return;
+    }
+
+    this.matchState.leafletsRemaining = remaining - 1;
+    const pos = this.localPlayer.mesh.position.clone();
+    audioManager.playLeafletScatter();
+    this.aiController.deployDecoy(pos);
+
+    // Visual leaflet flurry
+    for (let i = 0; i < 8; i++) {
+      const offset = new THREE.Vector3(
+        (Math.random() - 0.5) * 2.5,
+        0.5 + Math.random() * 1.5,
+        (Math.random() - 0.5) * 2.5
+      );
+      this.particleSystem.spawnLiveStreamEmoji(pos.clone().add(offset), '📄');
+    }
+
+    this.addFloatingNotification(`📄 LEAFLETS SCATTERED! Police Distracted! (${this.matchState.leafletsRemaining} Left)`, 'COMBO');
+    this.matchState.heatLevel = Math.max(0, (this.matchState.heatLevel || 30) - 20);
+  }
+
+  public commandKafila(cmd: KafilaCommand) {
+    if (!this.localPlayer || this.localPlayer.state.isDetained) return;
+    this.aiController.setKafilaCommand(cmd);
+    this.matchState.kafilaCommand = cmd;
+
+    if (cmd === 'RUSH') {
+      this.addFloatingNotification('✊ KAFILA: HALLA BOL! (Swarming Bus!)', 'MISSION');
+      audioManager.playMegaphoneChant();
+    } else if (cmd === 'DHARNA') {
+      this.addFloatingNotification('🧘 KAFILA: DHARNA SIT-IN! (3X Viral Hype)', 'SCORE');
+      audioManager.playCelestialSanctuary();
+    } else if (cmd === 'SCATTER') {
+      this.addFloatingNotification('💨 KAFILA: BIKHRO! (Scatter & Evade)', 'RESCUE');
+    } else if (cmd === 'FOLLOW') {
+      this.addFloatingNotification('📢 KAFILA: MARCH TOGETHER!', 'IMMUNITY');
+    }
+  }
+
+  public cycleKafilaCommand() {
+    const sequence: KafilaCommand[] = ['FOLLOW', 'RUSH', 'DHARNA', 'SCATTER'];
+    const current = this.matchState.kafilaCommand || 'FOLLOW';
+    const nextIdx = (sequence.indexOf(current) + 1) % sequence.length;
+    this.commandKafila(sequence[nextIdx]);
   }
 
   public triggerParkourDash() {
@@ -1198,6 +1269,22 @@ export class GameEngine {
       (this.localPlayer.state.invulnerabilityTimer && this.localPlayer.state.invulnerabilityTimer > 0)
     ) {
       audioManager.playBreakoutDash();
+      return;
+    }
+
+    // Crowd Shield: If player has 2+ Kafila followers, a comrade blocks the grapple!
+    const followers = this.aiController.getKafilaFollowers();
+    if (followers.length >= 2) {
+      this.addFloatingNotification('🛡️ COMRADE SHIELD: Kafila follower blocked the police tackle!', 'IMMUNITY');
+      audioManager.playCanisterKick();
+      this.particleSystem.spawnLiveStreamEmoji(this.localPlayer.mesh.position, '✊');
+      const grappler = this.aiPlayers.find((p) => p.state.id === grapplerId);
+      if (grappler) {
+        grappler.stunTimer = 3.5;
+        this.particleSystem.spawnLiveStreamEmoji(grappler.mesh.position, '💫');
+        const knockback = new THREE.Vector3().subVectors(grappler.mesh.position, this.localPlayer.mesh.position).normalize().multiplyScalar(6.0);
+        grappler.mesh.position.add(knockback);
+      }
       return;
     }
 
@@ -1510,6 +1597,58 @@ export class GameEngine {
           (n) => now - n.timestamp < 3500
         );
       }
+
+      // Check Astronomical Landmark Zones (Jantar Mantar Features)
+      if (this.localPlayer && !this.localPlayer.state.isDetained && this.selectedMap === 'DELHI') {
+        const pPos = this.localPlayer.mesh.position;
+        if (Math.abs(pPos.x) < 4.5 && pPos.z < -20 && pPos.z > -32 && pPos.y > 9.0) {
+          if (this.matchState.activeAstronomicalZone !== 'SAMRAT_SUMMIT') {
+            this.matchState.activeAstronomicalZone = 'SAMRAT_SUMMIT';
+            this.addFloatingNotification('🏛️ SAMRAT YANTRA APEX! Live Satellite Uplink (3X HYPE!)', 'MISSION');
+            audioManager.playVictoryFanfare();
+          }
+          this.addAwareness(delta * 2.2);
+          this.particleSystem.spawnLiveStreamEmoji(pPos, '📡');
+        } else if (Math.hypot(pPos.x - 22, pPos.z - (-26)) < 6.0) {
+          if (this.matchState.activeAstronomicalZone !== 'JAI_PRAKASH_BOWL') {
+            this.matchState.activeAstronomicalZone = 'JAI_PRAKASH_BOWL';
+            this.addFloatingNotification('✨ JAI PRAKASH SANCTUARY: Celestial Meditation Active!', 'IMMUNITY');
+            audioManager.playCelestialSanctuary();
+          }
+          this.localPlayer.currentStamina = 100;
+          this.localPlayer.state.invulnerabilityTimer = Math.max(this.localPlayer.state.invulnerabilityTimer || 0, 4.0);
+        } else if (Math.hypot(pPos.x - 28, pPos.z - 20) < 8.5 || Math.hypot(pPos.x - (-28), pPos.z - 20) < 8.5) {
+          if (this.matchState.activeAstronomicalZone !== 'RAM_YANTRA_MAZE') {
+            this.matchState.activeAstronomicalZone = 'RAM_YANTRA_MAZE';
+            this.addFloatingNotification('🌀 RAM YANTRA MAZE: Line of Sight Broken!', 'RESCUE');
+          }
+          this.matchState.heatLevel = Math.max(0, (this.matchState.heatLevel || 30) - delta * 20);
+        } else {
+          this.matchState.activeAstronomicalZone = 'NONE';
+        }
+      }
+
+      // Dynamic Procedural Dhol & Tasha Rally Beats
+      if (!this.matchState.isGameOver) {
+        this.dholBeatTimer += delta;
+        const bpm = Math.min(145, Math.max(90, 85 + (this.matchState.awarenessScore / 100) * 60));
+        this.matchState.dholTempo = Math.round(bpm);
+        const beatInterval = 60 / bpm;
+        if (this.dholBeatTimer >= beatInterval) {
+          this.dholBeatTimer = 0;
+          this.dholBeatCount++;
+          if (this.dholBeatCount % 2 === 0) {
+            audioManager.playDholBass(0.3);
+          }
+          if (this.matchState.awarenessScore > 35 && this.dholBeatCount % 4 === 1) {
+            audioManager.playTashaRimshot(0.2);
+          }
+        }
+      }
+
+      // Sync Kafila State to matchState for UI
+      this.matchState.kafilaCount = this.aiController.getKafilaFollowers().length;
+      this.matchState.kafilaCommand = this.aiController.currentKafilaCommand;
 
       // 2. Continuous Local Player Physics, Sprint, Slide, & Collision Update
       if (this.localPlayer) {
