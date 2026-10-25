@@ -13,6 +13,8 @@ import {
   RadarEntity,
   SuperChat,
   MapId,
+  ActiveMission,
+  FloatingNotification,
 } from '../types/game';
 import { MapBuilder, Collider } from './MapBuilder';
 import { CharacterController, MovementInput } from './CharacterController';
@@ -49,6 +51,10 @@ export class GameEngine {
   public wildlifeManager: WildlifeManager;
   public skyAtmosphere: SkyAtmosphere;
   private composer: EffectComposer | null = null;
+  public isPointerLocked: boolean = false;
+  public onPointerLockChange?: (locked: boolean) => void;
+  public activeMissionsList: ActiveMission[] = [];
+  public currentMissionIndex: number = 0;
 
   // Entities
   public localPlayer: CharacterController | null = null;
@@ -258,6 +264,12 @@ export class GameEngine {
       ],
       isPhotoMode: false,
       mapId: this.selectedMap,
+      detentionCountdown: 0,
+      invulnerabilityTimer: 4.0,
+      activeMission: null,
+      floatingNotifications: [],
+      scoreMultiplier: 1,
+      nearInteractiveStation: null,
     };
 
     // Build World
@@ -266,6 +278,11 @@ export class GameEngine {
     // Spawn Characters
     this.spawnLocalPlayer(team);
     this.spawnAIUnits(mode, team);
+    this.initMissions();
+    if (this.localPlayer) {
+      this.localPlayer.state.invulnerabilityTimer = 4.0;
+    }
+    this.addFloatingNotification('🌟 MATCH STARTED! 4s GHOST SHIELD ACTIVE', 'IMMUNITY');
 
     // Audio & Loop
     try {
@@ -385,6 +402,28 @@ export class GameEngine {
     );
   }
 
+  public requestPointerLock() {
+    const el = this.renderer?.domElement;
+    if (!el) return;
+    try {
+      if (document.pointerLockElement !== el) {
+        el.requestPointerLock();
+      }
+    } catch (err) {
+      console.warn('requestPointerLock failed:', err);
+    }
+  }
+
+  public exitPointerLock() {
+    try {
+      if (document.pointerLockElement === this.renderer?.domElement) {
+        document.exitPointerLock();
+      }
+    } catch (err) {
+      console.warn('exitPointerLock failed:', err);
+    }
+  }
+
   public cameraSensitivity: number = 1.0;
 
   public setCameraSensitivity(val: number) {
@@ -407,22 +446,41 @@ export class GameEngine {
   private setupMouseControls() {
     const el = this.renderer.domElement;
 
-    // Desktop Mouse Drag (left or right mouse button)
+    // 1. Pointer Lock on Canvas Click (Direct PC 360 FPS-style mouse look)
+    el.addEventListener('click', () => {
+      if (!this.isPointerLocked) {
+        this.requestPointerLock();
+      }
+    });
+
+    document.addEventListener('pointerlockchange', () => {
+      this.isPointerLocked = document.pointerLockElement === el;
+      if (this.onPointerLockChange) {
+        this.onPointerLockChange(this.isPointerLocked);
+      }
+    });
+
+    // 2. Mouse Move: handles both Pointer Lock (seamless 360 look) & Drag fallback
+    window.addEventListener('mousemove', (e) => {
+      if (this.isPointerLocked) {
+        // Direct continuous mouse look without holding any buttons!
+        this.rotateCamera(e.movementX * 0.45, e.movementY * 0.45);
+      } else if (this.isMouseDragging) {
+        const deltaX = e.clientX - this.previousMouseX;
+        const deltaY = e.clientY - this.previousMouseY;
+        this.previousMouseX = e.clientX;
+        this.previousMouseY = e.clientY;
+        this.rotateCamera(deltaX, deltaY);
+      }
+    });
+
+    // 3. Desktop Mouse Drag fallback when not pointer locked
     el.addEventListener('mousedown', (e) => {
-      if (e.button === 2 || e.button === 0) {
+      if (!this.isPointerLocked && (e.button === 2 || e.button === 0)) {
         this.isMouseDragging = true;
         this.previousMouseX = e.clientX;
         this.previousMouseY = e.clientY;
       }
-    });
-
-    window.addEventListener('mousemove', (e) => {
-      if (!this.isMouseDragging) return;
-      const deltaX = e.clientX - this.previousMouseX;
-      const deltaY = e.clientY - this.previousMouseY;
-      this.previousMouseX = e.clientX;
-      this.previousMouseY = e.clientY;
-      this.rotateCamera(deltaX, deltaY);
     });
 
     window.addEventListener('mouseup', () => {
@@ -440,7 +498,7 @@ export class GameEngine {
 
     el.addEventListener('contextmenu', (e) => e.preventDefault());
 
-    // Direct Touch Event Fallback on Canvas
+    // 4. Direct Touch Event Handlers on Canvas (Mobile Swiping & Pinch Zoom)
     let touchPrevX = 0;
     let touchPrevY = 0;
     let touchDistStart = 0;
@@ -690,6 +748,198 @@ export class GameEngine {
     this.abilityCooldowns.set(ability, duration);
   }
 
+  public initMissions() {
+    if (this.matchState.localTeam === 'PROTESTOR') {
+      this.activeMissionsList = [
+        {
+          id: 'parkour_evasion',
+          title: 'Acrobatic Evader',
+          description: 'Evade police pursuit using parkour vault or slide',
+          icon: 'Zap',
+          reward: '+300 PTS & Speed Surge',
+          progress: 0,
+          target: 2,
+          isCompleted: false,
+        },
+        {
+          id: 'tapri_energy',
+          title: 'Street Fuel',
+          description:
+            this.selectedMap === 'PARIS'
+              ? 'Drink double espresso at Bastille Cafe'
+              : 'Drink hot cutting chai at the Sansad Marg Tapri stall',
+          icon: 'Coffee',
+          reward: '+250 PTS & Ghost Aura',
+          progress: 0,
+          target: 1,
+          isCompleted: false,
+        },
+        {
+          id: 'rally_crowd',
+          title: 'Voice of the People',
+          description: 'Use Megaphone Chant near 3+ protestors to amplify awareness',
+          icon: 'Megaphone',
+          reward: '+20 Awareness & Crowd Surge',
+          progress: 0,
+          target: 3,
+          isCompleted: false,
+        },
+        {
+          id: 'jailbreak_heroes',
+          title: 'Freedom Fighter',
+          description: 'Break comrades out of the police detainment bus',
+          icon: 'Unlock',
+          reward: '+500 PTS & Confetti Shower',
+          progress: 0,
+          target: 1,
+          isCompleted: false,
+        },
+      ];
+    } else {
+      this.activeMissionsList = [
+        {
+          id: 'police_detain',
+          title: 'Maintain Order',
+          description: 'Detain 2 active chanters in the plaza',
+          icon: 'Shield',
+          reward: '+2 Detained Score',
+          progress: 0,
+          target: 2,
+          isCompleted: false,
+        },
+        {
+          id: 'police_barricade',
+          title: 'Perimeter Defense',
+          description: 'Deploy a tactical riot barricade across main avenue',
+          icon: 'AlertTriangle',
+          reward: '+300 Tactical Points',
+          progress: 0,
+          target: 1,
+          isCompleted: false,
+        },
+        {
+          id: 'police_smoke',
+          title: 'Crowd Dispersal',
+          description: 'Deploy tear gas smoke canister near monument',
+          icon: 'Flame',
+          reward: '+250 Points',
+          progress: 0,
+          target: 1,
+          isCompleted: false,
+        },
+      ];
+    }
+    this.matchState.activeMission = { ...this.activeMissionsList[0] };
+  }
+
+  public updateMissionProgress(missionId: string, amount: number = 1) {
+    const cur = this.matchState.activeMission;
+    if (cur && cur.id === missionId && !cur.isCompleted) {
+      cur.progress = Math.min(cur.target, cur.progress + amount);
+      if (cur.progress >= cur.target) {
+        cur.isCompleted = true;
+        audioManager.playCrowdCheer(1.0);
+        this.addFloatingNotification(`🏆 MISSION COMPLETE: ${cur.title.toUpperCase()}! ${cur.reward}`, 'MISSION');
+        if (this.localPlayer) {
+          this.particleSystem.spawnConfettiSurge(this.localPlayer.mesh.position);
+          this.localPlayer.dashTimer = 3.0; // speed surge
+        }
+        this.addAwareness(12);
+
+        setTimeout(() => {
+          this.currentMissionIndex = (this.currentMissionIndex + 1) % this.activeMissionsList.length;
+          const next = { ...this.activeMissionsList[this.currentMissionIndex], progress: 0, isCompleted: false };
+          this.matchState.activeMission = next;
+        }, 4000);
+      }
+    }
+  }
+
+  public addFloatingNotification(
+    text: string,
+    type: 'SCORE' | 'COMBO' | 'MISSION' | 'RESCUE' | 'IMMUNITY' = 'SCORE'
+  ) {
+    if (!this.matchState.floatingNotifications) {
+      this.matchState.floatingNotifications = [];
+    }
+    this.matchState.floatingNotifications.push({
+      id: Math.random().toString(36).substring(2, 9),
+      text,
+      type,
+      timestamp: Date.now(),
+    });
+    if (this.matchState.floatingNotifications.length > 4) {
+      this.matchState.floatingNotifications.shift();
+    }
+  }
+
+  public interactWithStation() {
+    if (!this.localPlayer || !this.matchState.nearInteractiveStation) return;
+    const isParis = this.selectedMap === 'PARIS';
+
+    this.matchState.activePowerUp = 'ENERGY_CHAI';
+    this.matchState.powerUpTimeLeft = 18.0;
+    this.localPlayer.state.invulnerabilityTimer = 6.0;
+    this.localPlayer.dashTimer = 3.0;
+    this.addScreenShake(0.2);
+    audioManager.playBreakoutDash();
+
+    this.addFloatingNotification(
+      isParis
+        ? '☕ DOUBLE ESPRESSO FUEL! (+40% SPEED & GHOST SHIELD) +200 PTS'
+        : '☕ CUTTING CHAI ENERGY! (+40% SPEED & GHOST SHIELD) +200 PTS',
+      'SCORE'
+    );
+    this.particleSystem.spawnLiveStreamEmoji(this.localPlayer.mesh.position, '☕');
+    this.updateMissionProgress('tapri_energy', 1);
+
+    if (this.onLiveStreamComment) {
+      this.onLiveStreamComment(
+        isParis
+          ? '☕ Cafe terrace fuel! Double espresso speeding up the march!!'
+          : '☕ Garam Chai break! Special Tapri chai giving infinite energy!!'
+      );
+    }
+  }
+
+  public reviveLocalPlayer() {
+    if (!this.localPlayer || !this.localPlayer.state.isDetained) return;
+    this.localPlayer.state.isDetained = false;
+    this.localPlayer.state.isGrappled = false;
+    this.matchState.detentionCountdown = 0;
+
+    const isParis = this.selectedMap === 'PARIS';
+    const safeRevivePos = isParis
+      ? new THREE.Vector3((Math.random() - 0.5) * 8, 0, 32)
+      : new THREE.Vector3((Math.random() - 0.5) * 8, 0, 12);
+
+    this.localPlayer.mesh.position.copy(safeRevivePos);
+
+    // 5 seconds of Ghost Invulnerability Grace Period!
+    this.localPlayer.state.invulnerabilityTimer = 5.0;
+    this.localPlayer.dashTimer = 2.5;
+
+    // Open the bus door with smoke plume
+    const bus = this.busPositions[0];
+    if (bus) {
+      this.mapBuilder.openBusDoor(bus.id);
+      this.particleSystem.spawnSmokePlume(new THREE.Vector3(bus.x, 1, bus.z));
+    }
+
+    this.matchState.detainedScore = Math.max(0, (this.matchState.detainedScore || 1) - 1);
+    this.addScreenShake(0.4);
+    audioManager.playCrowdCheer(0.9);
+    audioManager.playBreakoutDash();
+    this.particleSystem.spawnConfettiSurge(safeRevivePos);
+
+    this.addFloatingNotification('🎉 JAILBREAK RESCUE! (5s GHOST SHIELD ACTIVE) +250 PTS', 'RESCUE');
+
+    if (this.onLiveStreamComment) {
+      this.onLiveStreamComment('🔥 EPIC JAILBREAK! Comrades broke open the bus doors!!');
+    }
+    this.updateMissionProgress('jailbreak_heroes', 1);
+  }
+
   public triggerMegaphoneBlast() {
     if (!this.localPlayer || this.localPlayer.state.team !== 'PROTESTOR') return;
     if (this.localPlayer.state.isDetained || this.localPlayer.state.isGrappled) return;
@@ -711,11 +961,21 @@ export class GameEngine {
     const isAmped = this.matchState.activePowerUp === 'AMP_BOOST';
     const stunRadius = isAmped ? 16 : 9;
 
+    let copsStunned = 0;
     this.aiPlayers.forEach((ai) => {
       if (ai.state.team === 'POLICE' && ai.mesh.position.distanceTo(pos) < stunRadius) {
-        ai.mesh.rotation.y += Math.PI / 2;
+        ai.stunTimer = 4.5;
+        copsStunned++;
+        this.particleSystem.spawnLiveStreamEmoji(ai.mesh.position, '💫');
+        const knockback = new THREE.Vector3().subVectors(ai.mesh.position, pos).normalize().multiplyScalar(7.0);
+        ai.mesh.position.add(knockback);
       }
     });
+
+    if (copsStunned > 0) {
+      this.addFloatingNotification(`📢 MEGAPHONE STUN! ${copsStunned} COPS KNOCKED BACK! +${copsStunned * 100} PTS`, 'COMBO');
+      this.updateMissionProgress('rally_crowd', copsStunned);
+    }
 
     let boost = this.matchState.isPlayerInSpotlight ? 9 : 4;
     if (this.matchState.activePowerUp === 'WIFI_HOTSPOT') boost *= 2.5;
@@ -932,8 +1192,11 @@ export class GameEngine {
 
   public triggerLocalGrappleMinigame(grapplerId: string) {
     if (!this.localPlayer) return;
-    // Grapple Immunity if PEACE_AURA is active!
-    if (this.matchState.activePowerUp === 'PEACE_AURA') {
+    // Grapple Immunity if PEACE_AURA or invulnerabilityTimer is active!
+    if (
+      this.matchState.activePowerUp === 'PEACE_AURA' ||
+      (this.localPlayer.state.invulnerabilityTimer && this.localPlayer.state.invulnerabilityTimer > 0)
+    ) {
       audioManager.playBreakoutDash();
       return;
     }
@@ -956,15 +1219,29 @@ export class GameEngine {
 
   public handleMinigameTap() {
     this.addScreenShake(0.08);
+
+    // If currently detained in bus, tapping picks lock faster!
+    if (this.localPlayer && this.localPlayer.state.isDetained) {
+      if (this.matchState.detentionCountdown && this.matchState.detentionCountdown > 0) {
+        this.matchState.detentionCountdown = Math.max(0, this.matchState.detentionCountdown - 0.75);
+        audioManager.playCanisterKick();
+        this.particleSystem.spawnLiveStreamEmoji(this.localPlayer.mesh.position, '🔓');
+        if (this.matchState.detentionCountdown <= 0) {
+          this.reviveLocalPlayer();
+        }
+      }
+      return;
+    }
+
     if (this.matchState.activeMinigame === 'STRUGGLE') {
-      this.matchState.minigameProgress += 8.5;
+      this.matchState.minigameProgress += 12.0;
       audioManager.playTensionHeartbeat();
 
       if (this.matchState.minigameProgress >= 100) {
         this.resolveGrappleSuccess();
       }
     } else if (this.matchState.activeMinigame === 'CANISTER') {
-      this.matchState.minigameProgress += 25;
+      this.matchState.minigameProgress += 30.0;
       audioManager.playCanisterKick();
 
       if (this.matchState.minigameProgress >= 100) {
@@ -980,11 +1257,30 @@ export class GameEngine {
     audioManager.stopSiren();
     audioManager.playBreakoutDash();
 
-    const backDir = new THREE.Vector3(0, 0, 8).applyAxisAngle(
+    // 1. Stun grappler cop
+    const grapplerId = this.localPlayer.state.grappledById;
+    if (grapplerId) {
+      const grappler = this.aiPlayers.find((p) => p.state.id === grapplerId);
+      if (grappler) {
+        grappler.stunTimer = 4.5;
+        this.particleSystem.spawnLiveStreamEmoji(grappler.mesh.position, '💫');
+      }
+    }
+
+    // 2. Grant 5 seconds of Ghost Invulnerability!
+    this.localPlayer.state.invulnerabilityTimer = 5.0;
+    this.localPlayer.dashTimer = 2.0;
+
+    // 3. Knockback backwards into crowd
+    const backDir = new THREE.Vector3(0, 0, 10).applyAxisAngle(
       new THREE.Vector3(0, 1, 0),
       this.localPlayer.mesh.rotation.y
     );
     this.localPlayer.mesh.position.add(backDir);
+
+    this.addFloatingNotification('⚡️ BROKE FREE! (5s GHOST SHIELD ACTIVE) +150 PTS', 'COMBO');
+    this.addAwareness(5);
+    this.updateMissionProgress('parkour_evasion', 1);
   }
 
   public resolveGrappleFail() {
@@ -992,6 +1288,7 @@ export class GameEngine {
     this.localPlayer.state.isGrappled = false;
     this.localPlayer.state.isDetained = true;
     this.matchState.activeMinigame = 'NONE';
+    this.matchState.detentionCountdown = 5.0;
     audioManager.stopSiren();
     audioManager.playHandcuffClick();
 
@@ -999,7 +1296,8 @@ export class GameEngine {
     if (nearestBus) {
       this.localPlayer.mesh.position.set(nearestBus.x, 1.2, nearestBus.z);
     }
-    this.matchState.detainedScore += 1;
+    this.matchState.detainedScore = Math.min(8, (this.matchState.detainedScore || 0) + 1);
+    this.addFloatingNotification('⛓️ DETAINED! MASH [SPACE] TO PICK LOCK & ESCAPE!', 'SCORE');
     this.checkVictoryConditions();
   }
 
@@ -1166,6 +1464,51 @@ export class GameEngine {
           this.matchState.isGameOver = true;
           this.matchState.winner = this.matchState.awarenessScore >= 50 ? 'PROTESTOR' : 'POLICE';
         }
+      }
+
+      // Detention countdown tick & auto-revive
+      if (this.localPlayer && this.localPlayer.state.isDetained) {
+        if (this.matchState.detentionCountdown !== undefined && this.matchState.detentionCountdown > 0) {
+          this.matchState.detentionCountdown -= delta;
+          if (this.matchState.detentionCountdown <= 0) {
+            this.reviveLocalPlayer();
+          }
+        }
+      }
+
+      // Sync invulnerabilityTimer to matchState for UI
+      if (this.localPlayer) {
+        this.matchState.invulnerabilityTimer = this.localPlayer.state.invulnerabilityTimer || 0;
+      }
+
+      // Check proximity to Interactive Stations (Delhi Chai Tapri / Paris Cafe)
+      if (this.localPlayer && !this.localPlayer.state.isDetained) {
+        const pPos = this.localPlayer.mesh.position;
+        const isParis = this.selectedMap === 'PARIS';
+        const chaiStationPos = isParis ? new THREE.Vector3(22, 0, -15) : new THREE.Vector3(-46, 0, -14);
+        const distToChai = pPos.distanceTo(chaiStationPos);
+
+        if (distToChai < 5.0) {
+          this.matchState.nearInteractiveStation = {
+            type: isParis ? 'CAFE_TABLE' : 'CHAI_TAPRI',
+            label: isParis ? 'Place de la Bastille Cafe' : 'Delhi Special Tapri Chai',
+            actionText: isParis
+              ? 'Drink Double Espresso ☕ (+40% Speed & Ghost Shield)'
+              : 'Drink Hot Cutting Chai ☕ (+40% Speed & Ghost Shield)',
+          };
+        } else {
+          this.matchState.nearInteractiveStation = null;
+        }
+      } else {
+        this.matchState.nearInteractiveStation = null;
+      }
+
+      // Filter floating notifications
+      if (this.matchState.floatingNotifications && this.matchState.floatingNotifications.length > 0) {
+        const now = Date.now();
+        this.matchState.floatingNotifications = this.matchState.floatingNotifications.filter(
+          (n) => now - n.timestamp < 3500
+        );
       }
 
       // 2. Continuous Local Player Physics, Sprint, Slide, & Collision Update

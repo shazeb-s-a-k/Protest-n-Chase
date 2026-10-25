@@ -63,6 +63,8 @@ export interface PlayerState {
   placardText?: string;
   activePowerUp?: PowerUpType | null;
   powerUpTimeRemaining?: number;
+  invulnerabilityTimer?: number;
+  stunTimer?: number;
   currentAction?: 'CHANTING' | 'LIVESTREAMING' | 'PLACING_BARRICADE' | 'THROWING_SMOKE' | 'IDLE';
 }
 
@@ -113,6 +115,24 @@ export interface RadarEntity {
   icon?: string;
 }
 
+export interface ActiveMission {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  reward: string;
+  progress: number;
+  target: number;
+  isCompleted: boolean;
+}
+
+export interface FloatingNotification {
+  id: string;
+  text: string;
+  type: 'SCORE' | 'COMBO' | 'MISSION' | 'RESCUE' | 'IMMUNITY';
+  timestamp: number;
+}
+
 export interface GameMatchState {
   mode: GameMode;
   localPlayerId: string;
@@ -139,6 +159,16 @@ export interface GameMatchState {
   superchats: SuperChat[];
   isPhotoMode: boolean;
   mapId: MapId;
+  detentionCountdown?: number;
+  invulnerabilityTimer?: number;
+  activeMission?: ActiveMission | null;
+  floatingNotifications?: FloatingNotification[];
+  scoreMultiplier?: number;
+  nearInteractiveStation?: {
+    type: 'CHAI_TAPRI' | 'CAFE_TABLE' | 'PARKOUR_PAD';
+    label: string;
+    actionText: string;
+  } | null;
 }
 
 export interface NetworkMessage {

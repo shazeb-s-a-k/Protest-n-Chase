@@ -12,6 +12,7 @@ import {
   Zap,
   Siren,
   Compass,
+  Coffee,
 } from 'lucide-react';
 import { MovementInput } from '../engine/CharacterController';
 import { Team } from '../types/game';
@@ -28,6 +29,10 @@ interface MobileControlsProps {
   isUIIdle?: boolean;
   forceVisible?: boolean;
   onUserInteraction?: () => void;
+  nearInteractiveStation?: { type: string; label: string; actionText: string } | null;
+  onInteractStation?: () => void;
+  detentionCountdown?: number;
+  onTapDetained?: () => void;
 }
 
 export const MobileControls: React.FC<MobileControlsProps> = ({
@@ -42,6 +47,10 @@ export const MobileControls: React.FC<MobileControlsProps> = ({
   isUIIdle = false,
   forceVisible = false,
   onUserInteraction,
+  nearInteractiveStation,
+  onInteractStation,
+  detentionCountdown,
+  onTapDetained,
 }) => {
   const joystickBaseRef = useRef<HTMLDivElement>(null);
   const activeTouchIdRef = useRef<number | null>(null);
@@ -70,9 +79,8 @@ export const MobileControls: React.FC<MobileControlsProps> = ({
   useEffect(() => {
     const checkState = () => {
       const hasTouch =
-        'ontouchstart' in window ||
-        navigator.maxTouchPoints > 0 ||
-        window.innerWidth < 1024;
+        ('ontouchstart' in window && !window.matchMedia('(pointer: fine)').matches) ||
+        (typeof navigator !== 'undefined' && navigator.maxTouchPoints > 1);
       setIsTouchDevice(hasTouch);
       setIsLandscape(window.innerWidth > window.innerHeight);
     };
@@ -361,12 +369,48 @@ export const MobileControls: React.FC<MobileControlsProps> = ({
       {/* 0. Fullscreen / Right-side Touch Camera Swipe & Pinch Surface   */}
       {/* ============================================================== */}
       <div
-        className="absolute inset-0 pointer-events-auto touch-none z-0"
+        className="absolute inset-0 z-0 touch-none"
+        style={{ pointerEvents: isTouchDevice ? 'auto' : 'none' }}
         onTouchStart={handleCameraTouchStart}
         onTouchMove={handleCameraTouchMove}
         onTouchEnd={handleCameraTouchEnd}
         onTouchCancel={handleCameraTouchEnd}
       />
+
+      {/* Quick Action Button: Chai / Espresso Station */}
+      {nearInteractiveStation && (
+        <button
+          type="button"
+          onClick={() => {
+            triggerHaptic(45);
+            onInteractStation?.();
+          }}
+          className="absolute top-20 sm:top-24 left-1/2 -translate-x-1/2 pointer-events-auto z-40 px-5 py-2.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black text-xs sm:text-sm uppercase tracking-wider flex items-center gap-2 shadow-2xl shadow-amber-500/50 border border-white/30 animate-bounce active:scale-95 transition-transform"
+        >
+          <Coffee className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+          <span>{nearInteractiveStation.actionText}</span>
+        </button>
+      )}
+
+      {/* Quick Action Button: Pick Lock Escape when Detained */}
+      {detentionCountdown !== undefined && detentionCountdown > 0 && (
+        <button
+          type="button"
+          onClick={() => {
+            triggerHaptic(50);
+            onTapDetained?.();
+          }}
+          className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-auto z-50 px-6 py-4 sm:px-8 sm:py-5 rounded-3xl bg-gradient-to-r from-rose-600 to-red-600 text-white font-black text-base sm:text-xl uppercase tracking-wider flex flex-col items-center gap-2 shadow-2xl shadow-red-500/60 border-2 border-white/40 animate-pulse active:scale-95 transition-transform"
+        >
+          <div className="flex items-center gap-2">
+            <Unlock className="w-6 h-6 sm:w-7 sm:h-7 text-yellow-300 animate-bounce" />
+            <span>TAP RAPIDLY TO PICK LOCK!</span>
+          </div>
+          <span className="text-xs text-yellow-200 font-bold">
+            RESCUE IN: {detentionCountdown.toFixed(1)}s (TAP TO ESCAPE FASTER!)
+          </span>
+        </button>
+      )}
 
       {/* ============================================================== */}
       {/* 1. Dynamic Left Steering Touch Zone (Covers left 45% of screen) */}

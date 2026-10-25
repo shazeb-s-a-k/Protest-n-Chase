@@ -38,6 +38,7 @@ export const App: React.FC = () => {
   const [isPhotoBoothOpen, setIsPhotoBoothOpen] = useState(false);
   const [isSupportOpen, setIsSupportOpen] = useState(false);
   const [launchError, setLaunchError] = useState<string | null>(null);
+  const [isPointerLocked, setIsPointerLocked] = useState(false);
 
   // Fullscreen, Orientation & YouTube-style Autohide States
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -246,6 +247,10 @@ export const App: React.FC = () => {
       const engine = new GameEngine(containerRef.current, mode, team, roomCode, mapId);
       engineRef.current = engine;
 
+      engine.onPointerLockChange = (locked) => {
+        setIsPointerLocked(locked);
+      };
+
       engine.onStateUpdate = (newState) => {
         setMatchState(newState);
         if (engine.localPlayer) {
@@ -296,8 +301,12 @@ export const App: React.FC = () => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!isPlaying || !engineRef.current) return;
 
-      // Minigame Rapid Mash
+      // Minigame Rapid Mash or Jailbreak Lockpick
       if (e.code === 'Space' || e.code === 'KeyE') {
+        if (matchState.detentionCountdown && matchState.detentionCountdown > 0) {
+          engineRef.current.handleMinigameTap();
+          return;
+        }
         if (matchState.activeMinigame !== 'NONE') {
           engineRef.current.handleMinigameTap();
           return;
@@ -375,7 +384,9 @@ export const App: React.FC = () => {
           engineRef.current.recenterCamera();
           break;
         case 'KeyE':
-          if (matchState.localTeam === 'PROTESTOR') {
+          if (matchState.nearInteractiveStation) {
+            engineRef.current.interactWithStation();
+          } else if (matchState.localTeam === 'PROTESTOR') {
             engineRef.current.triggerBusJailbreak();
           }
           break;
@@ -442,7 +453,7 @@ export const App: React.FC = () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [isPlaying, matchState.activeMinigame, matchState.localTeam, isPhotoBoothOpen]);
+  }, [isPlaying, matchState.activeMinigame, matchState.localTeam, isPhotoBoothOpen, matchState.nearInteractiveStation, matchState.detentionCountdown]);
 
   // Ability Click Trigger from HUD or Mobile Controls
   const handleUseAbility = (ability: string) => {
@@ -596,6 +607,8 @@ export const App: React.FC = () => {
             isFullscreen={isFullscreen}
             isImmersiveMode={isImmersiveMode}
             isUIHidden={isUIIdle}
+            isPointerLocked={isPointerLocked}
+            isTouchDevice={isMobileDevice}
             abilityCooldowns={engineRef.current?.abilityCooldowns}
             onToggleCamera={handleToggleCamera}
             onRecenterCamera={() => engineRef.current?.recenterCamera()}
@@ -606,6 +619,8 @@ export const App: React.FC = () => {
             onOpenPhotoBooth={() => setIsPhotoBoothOpen(true)}
             onOpenSupport={() => setIsSupportOpen(true)}
             onUseAbility={handleUseAbility}
+            onInteractStation={() => engineRef.current?.interactWithStation()}
+            onTapDetained={() => engineRef.current?.handleMinigameTap()}
           />
 
           <LiveStreamFeed
@@ -626,6 +641,10 @@ export const App: React.FC = () => {
             abilityCooldowns={engineRef.current?.abilityCooldowns}
             isUIIdle={isUIIdle}
             onUserInteraction={resetUIIdleTimer}
+            nearInteractiveStation={matchState.nearInteractiveStation}
+            onInteractStation={() => engineRef.current?.interactWithStation()}
+            detentionCountdown={matchState.detentionCountdown}
+            onTapDetained={() => engineRef.current?.handleMinigameTap()}
           />
 
           <MinigameOverlay

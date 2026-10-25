@@ -22,6 +22,9 @@ import {
   Zap,
   Siren,
   Compass,
+  MousePointer,
+  Target,
+  KeyRound,
 } from 'lucide-react';
 import { GameMatchState, CameraViewMode } from '../types/game';
 import { Radar } from './Radar';
@@ -34,6 +37,8 @@ interface HUDProps {
   isFullscreen?: boolean;
   isImmersiveMode?: boolean;
   isUIHidden?: boolean;
+  isPointerLocked?: boolean;
+  isTouchDevice?: boolean;
   abilityCooldowns?: Map<string, number>;
   onToggleCamera: () => void;
   onRecenterCamera?: () => void;
@@ -44,6 +49,8 @@ interface HUDProps {
   onOpenPhotoBooth: () => void;
   onOpenSupport?: () => void;
   onUseAbility: (ability: string) => void;
+  onInteractStation?: () => void;
+  onTapDetained?: () => void;
 }
 
 export const HUD: React.FC<HUDProps> = ({
@@ -54,6 +61,8 @@ export const HUD: React.FC<HUDProps> = ({
   isFullscreen = false,
   isImmersiveMode = false,
   isUIHidden = false,
+  isPointerLocked = false,
+  isTouchDevice = false,
   abilityCooldowns,
   onToggleCamera,
   onRecenterCamera,
@@ -64,6 +73,8 @@ export const HUD: React.FC<HUDProps> = ({
   onOpenPhotoBooth,
   onOpenSupport,
   onUseAbility,
+  onInteractStation,
+  onTapDetained,
 }) => {
   const isProtestor = matchState.localTeam === 'PROTESTOR';
   const minutes = Math.floor(Math.max(0, matchState.timeRemaining) / 60);
@@ -148,6 +159,35 @@ export const HUD: React.FC<HUDProps> = ({
             <div className="glass-panel px-3 py-1.5 rounded-xl border border-cyan-400/50 bg-cyan-950/70 text-cyan-300 text-xs font-extrabold tracking-wide uppercase flex items-center gap-1.5 animate-pulse shadow-xl shadow-cyan-500/20">
               <Tv className="w-3.5 h-3.5 text-cyan-400" />
               <span>MEDIA DRONE SPOTLIGHT (3X HYPE!)</span>
+            </div>
+          )}
+
+          {/* Active Mission Tracker Card */}
+          {matchState.activeMission && (
+            <div className="glass-panel p-2.5 rounded-2xl border border-purple-500/40 bg-slate-900/90 max-w-[210px] sm:max-w-xs shadow-xl pointer-events-auto">
+              <div className="flex items-center justify-between text-xs font-bold mb-1">
+                <span className="flex items-center gap-1.5 text-purple-300 uppercase tracking-wide text-[10px] sm:text-[11px] truncate">
+                  <span className="text-xs">{matchState.activeMission.icon || '🎯'}</span>
+                  <span className="truncate">{matchState.activeMission.title}</span>
+                </span>
+                <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-full bg-purple-500/20 text-purple-300 border border-purple-400/30 shrink-0">
+                  {matchState.activeMission.progress}/{matchState.activeMission.target}
+                </span>
+              </div>
+              <div className="w-full h-1.5 bg-slate-950 rounded-full overflow-hidden p-0.5 mb-1 border border-white/10">
+                <div
+                  className="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full transition-all duration-300"
+                  style={{
+                    width: `${Math.min(100, (matchState.activeMission.progress / matchState.activeMission.target) * 100)}%`
+                  }}
+                />
+              </div>
+              <div className="text-[10px] text-slate-300 leading-tight">
+                {matchState.activeMission.description}
+              </div>
+              <div className="text-[9px] text-amber-300 font-bold mt-1">
+                Reward: {matchState.activeMission.reward}
+              </div>
             </div>
           )}
         </div>
@@ -282,6 +322,97 @@ export const HUD: React.FC<HUDProps> = ({
             localPlayerId={matchState.localPlayerId}
           />
         </div>
+      </div>
+
+      {/* Center Screen Crosshair / Aim Point when Pointer Lock is Active */}
+      {isPointerLocked && !isOverlayHidden && (
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none flex items-center justify-center z-20">
+          <div className="w-2.5 h-2.5 rounded-full bg-cyan-400/90 shadow-[0_0_8px_rgba(34,211,238,0.8)] border border-white/60" />
+        </div>
+      )}
+
+      {/* Mid-Screen Center Alerts, Missions, Station Prompts & Banners */}
+      <div className="flex-1 flex flex-col items-center justify-start pointer-events-none mt-2 sm:mt-4 z-20 max-w-lg mx-auto w-full px-4 gap-2">
+        {/* Floating Dynamic Score & Action Popups */}
+        {matchState.floatingNotifications && matchState.floatingNotifications.length > 0 && (
+          <div className="flex flex-col items-center gap-1.5 pointer-events-none">
+            {matchState.floatingNotifications.map((notif) => {
+              let badgeColor = 'bg-cyan-500/30 text-cyan-200 border-cyan-400/60';
+              if (notif.type === 'SCORE') badgeColor = 'bg-pink-500/40 text-pink-100 border-pink-400/80';
+              else if (notif.type === 'MISSION') badgeColor = 'bg-amber-500/40 text-amber-100 border-amber-400/80 animate-bounce';
+              else if (notif.type === 'IMMUNITY') badgeColor = 'bg-emerald-500/40 text-emerald-100 border-emerald-400/80';
+              else if (notif.type === 'COMBO') badgeColor = 'bg-purple-500/40 text-purple-100 border-purple-400/80';
+              else if (notif.type === 'RESCUE') badgeColor = 'bg-rose-500/40 text-rose-100 border-rose-400/80';
+
+              return (
+                <div
+                  key={notif.id}
+                  className={`glass-panel px-4 py-1 rounded-full border text-xs sm:text-sm font-black shadow-2xl backdrop-blur-xl animate-fade-in ${badgeColor}`}
+                >
+                  {notif.text}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Ghost Shield / Invulnerability Banner */}
+        {((matchState.invulnerabilityTimer || 0) > 0) && (
+          <div className="glass-panel px-4 py-1.5 rounded-full border border-amber-400/80 bg-amber-950/90 text-amber-300 text-xs sm:text-sm font-black shadow-2xl shadow-amber-500/30 flex items-center gap-2 animate-pulse pointer-events-none">
+            <Shield className="w-4 h-4 text-amber-300 animate-spin" />
+            <span>GHOST SHIELD: {matchState.invulnerabilityTimer?.toFixed(1)}s (Immune to Police Tackle!)</span>
+          </div>
+        )}
+
+        {/* PC Pointer Lock Desktop Banner */}
+        {!isPointerLocked && !isTouchDevice && !isOverlayHidden && (
+          <div className="pointer-events-auto">
+            <div className="glass-panel px-4 py-1.5 rounded-full border border-cyan-400/50 bg-slate-900/85 text-cyan-300 text-xs font-semibold shadow-xl backdrop-blur-md flex items-center gap-2 animate-pulse">
+              <MousePointer className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+              <span>Click anywhere to lock mouse & look 360° (ESC to release cursor)</span>
+            </div>
+          </div>
+        )}
+
+        {/* Detention Jailbreak / Rapid Pick Lock Emergency Banner */}
+        {((matchState.detentionCountdown || 0) > 0) && (
+          <div className="pointer-events-auto w-full max-w-md">
+            <div className="glass-panel p-3.5 rounded-2xl border-2 border-rose-500/90 bg-rose-950/95 text-white shadow-2xl flex flex-col items-center gap-2 animate-fade-in backdrop-blur-xl">
+              <div className="flex items-center gap-2 text-rose-300 font-black text-sm sm:text-base animate-pulse">
+                <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0" />
+                <span>DETAINED IN BUS! Auto-Rescue in {Math.ceil(matchState.detentionCountdown!)}s</span>
+              </div>
+              <p className="text-[11px] text-slate-300 text-center leading-snug">
+                Mash <kbd className="px-1.5 py-0.5 rounded bg-black/60 border border-white/20 font-mono text-cyan-300">SPACE</kbd> or <kbd className="px-1.5 py-0.5 rounded bg-black/60 border border-white/20 font-mono text-cyan-300">E</kbd> or tap button to lockpick and break out instantly!
+              </p>
+              {onTapDetained && (
+                <button
+                  onClick={onTapDetained}
+                  className="w-full py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white font-black text-xs sm:text-sm uppercase tracking-wider shadow-lg active:scale-95 transition-transform flex items-center justify-center gap-2"
+                >
+                  <KeyRound className="w-4 h-4 text-amber-200" />
+                  <span>⚡ Mash To Pick Lock & Escape!</span>
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Interactive Station Proximity Prompt */}
+        {matchState.nearInteractiveStation && (
+          <div className="pointer-events-auto animate-bounce mt-1">
+            <button
+              onClick={onInteractStation}
+              className="glass-panel px-4 py-2.5 rounded-2xl border-2 border-emerald-400 bg-emerald-950/95 text-emerald-200 text-xs sm:text-sm font-black shadow-2xl shadow-emerald-500/30 flex items-center gap-2.5 active:scale-95 transition-transform backdrop-blur-xl"
+            >
+              <Coffee className="w-5 h-5 text-emerald-300 shrink-0" />
+              <span>{matchState.nearInteractiveStation.label}: {matchState.nearInteractiveStation.actionText}</span>
+              <span className="px-2 py-0.5 rounded-lg bg-emerald-500/30 text-white font-mono text-[10px] border border-emerald-300/40">
+                [E] or Click
+              </span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Bottom Center: Desktop Ability Bar & Stamina (hidden on mobile landscape, shown on desktop keyboards) */}

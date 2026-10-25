@@ -48,6 +48,7 @@ export class CharacterController {
   public dashTimer: number = 0;
   public dashDirection: THREE.Vector3 = new THREE.Vector3();
   public pursuitTimer: number = 0;
+  public stunTimer: number = 0;
   public policeLightLeft?: THREE.PointLight;
   public policeLightRight?: THREE.PointLight;
 
@@ -764,7 +765,8 @@ export class CharacterController {
    */
   public triggerParkourDash(camForward?: THREE.Vector3) {
     this.state.isGrappled = false;
-    this.dashTimer = 0.38;
+    this.dashTimer = 0.45;
+    this.state.invulnerabilityTimer = 2.0;
     if (camForward && (camForward.x !== 0 || camForward.z !== 0)) {
       this.dashDirection.set(camForward.x, 0, camForward.z).normalize();
     } else {
@@ -805,6 +807,28 @@ export class CharacterController {
     if (this.state.isGrappled) {
       this.mesh.rotation.y += Math.sin(Date.now() * 0.05) * 0.02;
       return;
+    }
+
+    // Stunned police officer / protestor state (holding ears, unable to move)
+    if (this.stunTimer > 0) {
+      this.stunTimer -= delta;
+      this.mesh.rotation.y += Math.sin(Date.now() * 0.02) * 0.03;
+      if (this.leftArmGroup) this.leftArmGroup.rotation.x = -Math.PI / 1.6;
+      if (this.rightArmGroup) this.rightArmGroup.rotation.x = -Math.PI / 1.6;
+      return;
+    }
+
+    // Grace / Invulnerability Timer
+    if (this.state.invulnerabilityTimer && this.state.invulnerabilityTimer > 0) {
+      this.state.invulnerabilityTimer -= delta;
+      if (this.auraRing) {
+        const mat = this.auraRing.material as THREE.MeshBasicMaterial;
+        mat.color.setHex(0xfacc15); // Golden ethereal shield
+        mat.opacity = 0.85 + Math.sin(Date.now() * 0.015) * 0.15;
+      }
+    } else if (this.auraRing && !this.state.isInHumanChain && !this.state.activePowerUp) {
+      const mat = this.auraRing.material as THREE.MeshBasicMaterial;
+      mat.opacity = 0;
     }
 
     // In Human Chain: interlocked arms stance

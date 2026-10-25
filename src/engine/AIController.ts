@@ -8,6 +8,8 @@ export interface AIState {
   behavior: 'PATROL' | 'PURSUIT' | 'ESCORT' | 'EVADE' | 'RESCUE' | 'CHANT';
   targetPos: THREE.Vector3;
   timer: number;
+  grappleCooldown?: number;
+  tackleWindupTimer?: number;
   assignedBusPos?: THREE.Vector3;
 }
 
@@ -64,14 +66,38 @@ export class AIController {
       input.slide = false;
 
       if (isPolice) {
+        if (ai.grappleCooldown && ai.grappleCooldown > 0) {
+          ai.grappleCooldown -= delta;
+        }
+
         // --- POLICE AI LOGIC ---
         // Find closest active (free) protestor
         let closestProtestor: CharacterController | null = null;
         let minDist = Infinity;
 
+        // Count how many cops are already pursuing the local player
+        let copsPursuingLocal = 0;
+        const localP = allPlayers.find((p) => p.state.isLocal);
+        for (const otherAi of this.aiUnits) {
+          if (otherAi !== ai && otherAi.controller.state.team === 'POLICE' && otherAi.behavior === 'PURSUIT') {
+            if (localP && otherAi.targetPos.distanceTo(localP.mesh.position) < 5) {
+              copsPursuingLocal++;
+            }
+          }
+        }
+
         for (let pIdx = 0; pIdx < allPlayers.length; pIdx++) {
           const p = allPlayers[pIdx];
           if (p.state.team === 'PROTESTOR' && !p.state.isDetained && !p.state.isGrappled) {
+            // Skip protestors in ghost grace period (5s immunity on spawn/revive)
+            if (p.state.invulnerabilityTimer && p.state.invulnerabilityTimer > 0) {
+              continue;
+            }
+            // Max 1 cop chasing local player simultaneously to prevent unfair dogpiling!
+            if (p.state.isLocal && copsPursuingLocal >= 1) {
+              continue;
+            }
+
             const dist = myPos.distanceTo(p.mesh.position);
             if (dist < minDist) {
               minDist = dist;
@@ -80,16 +106,25 @@ export class AIController {
           }
         }
 
-        // If a protestor is within 32m, switch to PURSUIT
-        if (closestProtestor && minDist < 32) {
+        // If a protestor is within 28m, switch to PURSUIT
+        if (closestProtestor && minDist < 28) {
           ai.behavior = 'PURSUIT';
           ai.targetPos.copy(closestProtestor.mesh.position);
 
-          // If within grapple range (2.0m), trigger catch!
-          if (minDist < 2.0) {
-            onTriggerGrapple(ai.controller, closestProtestor);
+          // If within tackle range (1.9m) and not on cooldown:
+          if (minDist < 1.9 && (!ai.grappleCooldown || ai.grappleCooldown <= 0)) {
+            ai.tackleWindupTimer = (ai.tackleWindupTimer || 0) + delta;
+            // 0.45s telegraph windup giving player a chance to dodge/vault/slide!
+            if (ai.tackleWindupTimer >= 0.45) {
+              ai.tackleWindupTimer = 0;
+              ai.grappleCooldown = 6.0; // 6s tackle cooldown
+              onTriggerGrapple(ai.controller, closestProtestor);
+            }
+          } else {
+            ai.tackleWindupTimer = 0;
           }
         } else {
+          ai.tackleWindupTimer = 0;
           // If no protestor nearby, patrol between observatory monuments
           if (ai.timer > 6 || myPos.distanceTo(ai.targetPos) < 3) {
             ai.targetPos = this.getRandomPatrolPoint();
