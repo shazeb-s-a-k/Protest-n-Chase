@@ -9,6 +9,8 @@ import {
   Unlock,
   AlertTriangle,
   Users,
+  Zap,
+  Siren,
 } from 'lucide-react';
 import { MovementInput } from '../engine/CharacterController';
 import { Team } from '../types/game';
@@ -18,6 +20,9 @@ interface MobileControlsProps {
   currentInput: MovementInput;
   team: Team;
   onUseAbility: (ability: string) => void;
+  onRotateCamera?: (deltaX: number, deltaY: number) => void;
+  onZoomCamera?: (deltaZoom: number) => void;
+  abilityCooldowns?: Map<string, number>;
   isUIIdle?: boolean;
   forceVisible?: boolean;
   onUserInteraction?: () => void;
@@ -28,6 +33,9 @@ export const MobileControls: React.FC<MobileControlsProps> = ({
   currentInput,
   team,
   onUseAbility,
+  onRotateCamera,
+  onZoomCamera,
+  abilityCooldowns,
   isUIIdle = false,
   forceVisible = false,
   onUserInteraction,
@@ -36,6 +44,11 @@ export const MobileControls: React.FC<MobileControlsProps> = ({
   const activeTouchIdRef = useRef<number | null>(null);
   const isPointerDownRef = useRef<boolean>(false);
   const centerCoordsRef = useRef<{ x: number; y: number } | null>(null);
+
+  // Dedicated Mobile Camera Touch Swipe & Pinch Refs
+  const activeCameraTouchIdRef = useRef<number | null>(null);
+  const lastCameraTouchPosRef = useRef<{ x: number; y: number } | null>(null);
+  const pinchStartDistRef = useRef<number | null>(null);
 
   const [knobPos, setKnobPos] = useState({ x: 0, y: 0 });
   const [floatingBasePos, setFloatingBasePos] = useState<{ x: number; y: number } | null>(null);
@@ -204,6 +217,74 @@ export const MobileControls: React.FC<MobileControlsProps> = ({
     }
   };
 
+  // ==============================================================
+  // Dedicated Mobile Camera Touch Swipe & Two-Finger Pinch Zoom
+  // ==============================================================
+  const handleCameraTouchStart = (e: React.TouchEvent) => {
+    onUserInteraction?.();
+    if (e.touches.length === 2) {
+      pinchStartDistRef.current = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      return;
+    }
+
+    if (activeCameraTouchIdRef.current !== null) return;
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const touch = e.changedTouches[i];
+      // Do not capture touches inside the bottom-left joystick area
+      if (touch.clientX < window.innerWidth * 0.42 && touch.clientY > window.innerHeight * 0.3) {
+        continue;
+      }
+      activeCameraTouchIdRef.current = touch.identifier;
+      lastCameraTouchPosRef.current = { x: touch.clientX, y: touch.clientY };
+      break;
+    }
+  };
+
+  const handleCameraTouchMove = (e: React.TouchEvent) => {
+    onUserInteraction?.();
+    if (e.touches.length === 2 && pinchStartDistRef.current !== null) {
+      e.preventDefault();
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const deltaZoom = (pinchStartDistRef.current - dist) * 0.02;
+      pinchStartDistRef.current = dist;
+      onZoomCamera?.(deltaZoom);
+      return;
+    }
+
+    if (activeCameraTouchIdRef.current === null || !lastCameraTouchPosRef.current) return;
+    for (let i = 0; i < e.touches.length; i++) {
+      const touch = e.touches[i];
+      if (touch.identifier === activeCameraTouchIdRef.current) {
+        e.preventDefault();
+        const deltaX = touch.clientX - lastCameraTouchPosRef.current.x;
+        const deltaY = touch.clientY - lastCameraTouchPosRef.current.y;
+        lastCameraTouchPosRef.current = { x: touch.clientX, y: touch.clientY };
+        onRotateCamera?.(deltaX, deltaY);
+        break;
+      }
+    }
+  };
+
+  const handleCameraTouchEnd = (e: React.TouchEvent) => {
+    if (e.touches.length < 2) {
+      pinchStartDistRef.current = null;
+    }
+    if (activeCameraTouchIdRef.current === null) return;
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      if (e.changedTouches[i].identifier === activeCameraTouchIdRef.current) {
+        activeCameraTouchIdRef.current = null;
+        lastCameraTouchPosRef.current = null;
+        break;
+      }
+    }
+  };
+
   const toggleSprint = () => {
     triggerHaptic(30);
     const nextSprint = !isSprinting;
@@ -223,6 +304,8 @@ export const MobileControls: React.FC<MobileControlsProps> = ({
     return null;
   }
 
+  const getCD = (k: string) => abilityCooldowns?.get(k) || 0;
+
   return (
     <div
       className={`absolute inset-0 pointer-events-none z-30 select-none overflow-hidden touch-none transition-opacity duration-300 ${
@@ -234,6 +317,17 @@ export const MobileControls: React.FC<MobileControlsProps> = ({
         paddingRight: 'max(env(safe-area-inset-right, 0px), 8px)',
       }}
     >
+      {/* ============================================================== */}
+      {/* 0. Fullscreen / Right-side Touch Camera Swipe & Pinch Surface   */}
+      {/* ============================================================== */}
+      <div
+        className="absolute inset-0 pointer-events-auto touch-none z-0"
+        onTouchStart={handleCameraTouchStart}
+        onTouchMove={handleCameraTouchMove}
+        onTouchEnd={handleCameraTouchEnd}
+        onTouchCancel={handleCameraTouchEnd}
+      />
+
       {/* ============================================================== */}
       {/* 1. Dynamic Left Steering Touch Zone (Covers left 45% of screen) */}
       {/* ============================================================== */}
@@ -256,7 +350,7 @@ export const MobileControls: React.FC<MobileControlsProps> = ({
           top: floatingBasePos ? `${floatingBasePos.y}px` : undefined,
           transform: floatingBasePos ? 'translate(-50%, -50%)' : undefined,
         }}
-        className={`pointer-events-none transition-all duration-150 absolute ${
+        className={`pointer-events-none transition-all duration-150 absolute z-10 ${
           !floatingBasePos
             ? isLandscape
               ? 'left-6 bottom-4'
@@ -279,7 +373,6 @@ export const MobileControls: React.FC<MobileControlsProps> = ({
               isLandscape ? 'w-13 h-13' : 'w-16 h-16'
             } rounded-full border border-white/10 pointer-events-none flex items-center justify-center`}
           >
-            {/* Direction Arrows */}
             <div className="text-[9px] font-mono text-white/30 uppercase tracking-widest pointer-events-none">
               MOVE
             </div>
@@ -331,12 +424,43 @@ export const MobileControls: React.FC<MobileControlsProps> = ({
                   triggerHaptic();
                   onUseAbility('MEGAPHONE');
                 }}
-                className={`${
+                className={`relative ${
                   isLandscape ? 'w-10 h-10' : 'w-11 h-11'
-                } rounded-2xl bg-gradient-to-br from-pink-500 to-rose-600 flex items-center justify-center shadow-lg shadow-pink-500/30 text-white active:scale-90 border border-white/20`}
+                } rounded-2xl bg-gradient-to-br from-pink-500 to-rose-600 flex items-center justify-center shadow-lg shadow-pink-500/30 text-white active:scale-90 border border-white/20 overflow-hidden`}
                 title="Megaphone Chant"
               >
                 <Megaphone className={isLandscape ? 'w-4 h-4' : 'w-5 h-5'} />
+                {getCD('MEGAPHONE') > 0 && (
+                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-[9px] font-mono font-bold text-pink-300">
+                    {Math.ceil(getCD('MEGAPHONE'))}s
+                  </div>
+                )}
+              </button>
+
+              {/* Parkour Vault Dash */}
+              <button
+                type="button"
+                style={{ touchAction: 'none' }}
+                onTouchStart={(e) => {
+                  e.preventDefault();
+                  triggerHaptic(40);
+                  onUseAbility('PARKOUR_DASH');
+                }}
+                onClick={() => {
+                  triggerHaptic(40);
+                  onUseAbility('PARKOUR_DASH');
+                }}
+                className={`relative ${
+                  isLandscape ? 'w-10 h-10' : 'w-11 h-11'
+                } rounded-2xl bg-gradient-to-br from-fuchsia-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-fuchsia-500/30 text-white active:scale-90 border border-white/20 overflow-hidden`}
+                title="Parkour Dash Vault"
+              >
+                <Zap className={isLandscape ? 'w-4 h-4' : 'w-5 h-5'} />
+                {getCD('PARKOUR_DASH') > 0 && (
+                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-[9px] font-mono font-bold text-cyan-300">
+                    {Math.ceil(getCD('PARKOUR_DASH'))}s
+                  </div>
+                )}
               </button>
 
               {/* Viral Live Hype */}
@@ -352,15 +476,20 @@ export const MobileControls: React.FC<MobileControlsProps> = ({
                   triggerHaptic();
                   onUseAbility('LIVESTREAM');
                 }}
-                className={`${
+                className={`relative ${
                   isLandscape ? 'w-10 h-10' : 'w-11 h-11'
-                } rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/30 text-white active:scale-90 border border-white/20`}
+                } rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/30 text-white active:scale-90 border border-white/20 overflow-hidden`}
                 title="Viral Live Hype"
               >
                 <Flame className={isLandscape ? 'w-4 h-4' : 'w-5 h-5'} />
+                {getCD('LIVESTREAM') > 0 && (
+                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-[9px] font-mono font-bold text-cyan-200">
+                    {Math.ceil(getCD('LIVESTREAM'))}s
+                  </div>
+                )}
               </button>
 
-              {/* Bus / CRS Van Jailbreak */}
+              {/* Bus Jailbreak */}
               <button
                 type="button"
                 style={{ touchAction: 'none' }}
@@ -373,9 +502,9 @@ export const MobileControls: React.FC<MobileControlsProps> = ({
                   triggerHaptic();
                   onUseAbility('BUS_RESCUE');
                 }}
-                className={`${
+                className={`relative ${
                   isLandscape ? 'w-10 h-10' : 'w-11 h-11'
-                } rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/30 text-white active:scale-90 border border-white/20`}
+                } rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/30 text-white active:scale-90 border border-white/20 overflow-hidden`}
                 title="Vehicle Jailbreak"
               >
                 <Unlock className={isLandscape ? 'w-4 h-4' : 'w-5 h-5'} />
@@ -394,10 +523,10 @@ export const MobileControls: React.FC<MobileControlsProps> = ({
                   triggerHaptic();
                   onUseAbility('HUMAN_CHAIN');
                 }}
-                className={`${
+                className={`relative ${
                   isLandscape ? 'w-10 h-10' : 'w-11 h-11'
-                } rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-purple-500/30 text-white active:scale-90 border border-white/20`}
-                title="Human Chain"
+                } rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-purple-500/30 text-white active:scale-90 border border-white/20 overflow-hidden`}
+                title="Human Chain Shield"
               >
                 <Users className={isLandscape ? 'w-4 h-4' : 'w-5 h-5'} />
               </button>
@@ -417,12 +546,43 @@ export const MobileControls: React.FC<MobileControlsProps> = ({
                   triggerHaptic();
                   onUseAbility('BARRICADE');
                 }}
-                className={`${
+                className={`relative ${
                   isLandscape ? 'w-10 h-10' : 'w-11 h-11'
-                } rounded-2xl bg-gradient-to-br from-amber-500 to-yellow-600 flex items-center justify-center shadow-lg text-white active:scale-90 border border-white/20`}
+                } rounded-2xl bg-gradient-to-br from-amber-500 to-yellow-600 flex items-center justify-center shadow-lg text-white active:scale-90 border border-white/20 overflow-hidden`}
                 title="Deploy Barricade"
               >
                 <Shield className={isLandscape ? 'w-4 h-4' : 'w-5 h-5'} />
+                {getCD('BARRICADE') > 0 && (
+                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-[9px] font-mono font-bold text-amber-200">
+                    {Math.ceil(getCD('BARRICADE'))}s
+                  </div>
+                )}
+              </button>
+
+              {/* Pursuit Boost Sprint */}
+              <button
+                type="button"
+                style={{ touchAction: 'none' }}
+                onTouchStart={(e) => {
+                  e.preventDefault();
+                  triggerHaptic(50);
+                  onUseAbility('PURSUIT_BOOST');
+                }}
+                onClick={() => {
+                  triggerHaptic(50);
+                  onUseAbility('PURSUIT_BOOST');
+                }}
+                className={`relative ${
+                  isLandscape ? 'w-10 h-10' : 'w-11 h-11'
+                } rounded-2xl bg-gradient-to-br from-red-500 via-rose-600 to-amber-500 flex items-center justify-center shadow-lg shadow-red-500/40 text-white active:scale-90 border border-white/20 overflow-hidden`}
+                title="Pursuit Siren Overdrive"
+              >
+                <Siren className={isLandscape ? 'w-4 h-4' : 'w-5 h-5'} />
+                {getCD('PURSUIT_BOOST') > 0 && (
+                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-[9px] font-mono font-bold text-rose-200">
+                    {Math.ceil(getCD('PURSUIT_BOOST'))}s
+                  </div>
+                )}
               </button>
 
               {/* Tear Gas Canister */}
@@ -438,12 +598,17 @@ export const MobileControls: React.FC<MobileControlsProps> = ({
                   triggerHaptic();
                   onUseAbility('SMOKE');
                 }}
-                className={`${
+                className={`relative ${
                   isLandscape ? 'w-10 h-10' : 'w-11 h-11'
-                } rounded-2xl bg-gradient-to-br from-slate-600 to-zinc-700 flex items-center justify-center shadow-lg text-white active:scale-90 border border-white/20`}
+                } rounded-2xl bg-gradient-to-br from-slate-600 to-zinc-700 flex items-center justify-center shadow-lg text-white active:scale-90 border border-white/20 overflow-hidden`}
                 title="Tear Gas Canister"
               >
                 <AlertTriangle className={isLandscape ? 'w-4 h-4' : 'w-5 h-5'} />
+                {getCD('SMOKE') > 0 && (
+                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-[9px] font-mono font-bold text-slate-200">
+                    {Math.ceil(getCD('SMOKE'))}s
+                  </div>
+                )}
               </button>
 
               {/* Water Cannon */}
@@ -459,12 +624,17 @@ export const MobileControls: React.FC<MobileControlsProps> = ({
                   triggerHaptic();
                   onUseAbility('WATER');
                 }}
-                className={`${
+                className={`relative ${
                   isLandscape ? 'w-10 h-10' : 'w-11 h-11'
-                } rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg text-white active:scale-90 border border-white/20`}
+                } rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg text-white active:scale-90 border border-white/20 overflow-hidden`}
                 title="Water Cannon"
               >
                 <Radio className={isLandscape ? 'w-4 h-4' : 'w-5 h-5'} />
+                {getCD('WATER') > 0 && (
+                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-[9px] font-mono font-bold text-blue-200">
+                    {Math.ceil(getCD('WATER'))}s
+                  </div>
+                )}
               </button>
             </div>
           )}

@@ -19,6 +19,8 @@ import {
   Heart,
   Maximize,
   Minimize,
+  Zap,
+  Siren,
 } from 'lucide-react';
 import { GameMatchState, CameraViewMode } from '../types/game';
 import { Radar } from './Radar';
@@ -31,6 +33,7 @@ interface HUDProps {
   isFullscreen?: boolean;
   isImmersiveMode?: boolean;
   isUIHidden?: boolean;
+  abilityCooldowns?: Map<string, number>;
   onToggleCamera: () => void;
   onToggleMute: () => void;
   onToggleFullscreen?: () => void;
@@ -49,6 +52,7 @@ export const HUD: React.FC<HUDProps> = ({
   isFullscreen = false,
   isImmersiveMode = false,
   isUIHidden = false,
+  abilityCooldowns,
   onToggleCamera,
   onToggleMute,
   onToggleFullscreen,
@@ -292,12 +296,36 @@ export const HUD: React.FC<HUDProps> = ({
                 onClick={() => onUseAbility('MEGAPHONE')}
                 className="flex flex-col items-center gap-1 group active:scale-90 transition-transform"
               >
-                <div className="w-13 h-13 rounded-2xl bg-gradient-to-br from-pink-500 to-rose-600 flex items-center justify-center shadow-lg shadow-pink-500/30 group-hover:brightness-110">
+                <div className="relative w-13 h-13 rounded-2xl bg-gradient-to-br from-pink-500 to-rose-600 flex items-center justify-center shadow-lg shadow-pink-500/30 group-hover:brightness-110 overflow-hidden">
                   <Megaphone className="w-6 h-6 text-white" />
+                  {(abilityCooldowns?.get('MEGAPHONE') || 0) > 0 && (
+                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center font-mono font-bold text-xs text-pink-300">
+                      {Math.ceil(abilityCooldowns!.get('MEGAPHONE')!)}s
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-1 text-[10px] font-bold text-pink-300">
-                  <span className="px-1 bg-black/40 rounded text-[9px]">Q</span>
+                  <span className="px-1 bg-black/40 rounded text-[9px]">1 / Q</span>
                   <span>Chant</span>
+                </div>
+              </button>
+
+              {/* Parkour Vault Dash */}
+              <button
+                onClick={() => onUseAbility('PARKOUR_DASH')}
+                className="flex flex-col items-center gap-1 group active:scale-90 transition-transform"
+              >
+                <div className="relative w-13 h-13 rounded-2xl bg-gradient-to-br from-fuchsia-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-fuchsia-500/30 group-hover:brightness-110 overflow-hidden">
+                  <Zap className="w-6 h-6 text-white" />
+                  {(abilityCooldowns?.get('PARKOUR_DASH') || 0) > 0 && (
+                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center font-mono font-bold text-xs text-cyan-300">
+                      {Math.ceil(abilityCooldowns!.get('PARKOUR_DASH')!)}s
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 text-[10px] font-bold text-cyan-300">
+                  <span className="px-1 bg-black/40 rounded text-[9px]">2 / Z</span>
+                  <span>Vault Dash</span>
                 </div>
               </button>
 
@@ -306,26 +334,17 @@ export const HUD: React.FC<HUDProps> = ({
                 onClick={() => onUseAbility('LIVESTREAM')}
                 className="flex flex-col items-center gap-1 group active:scale-90 transition-transform"
               >
-                <div className="w-13 h-13 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/30 group-hover:brightness-110">
+                <div className="relative w-13 h-13 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/30 group-hover:brightness-110 overflow-hidden">
                   <Flame className="w-6 h-6 text-white" />
+                  {(abilityCooldowns?.get('LIVESTREAM') || 0) > 0 && (
+                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center font-mono font-bold text-xs text-cyan-200">
+                      {Math.ceil(abilityCooldowns!.get('LIVESTREAM')!)}s
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-1 text-[10px] font-bold text-cyan-300">
-                  <span className="px-1 bg-black/40 rounded text-[9px]">F</span>
-                  <span>Hype</span>
-                </div>
-              </button>
-
-              {/* Bus Jailbreak */}
-              <button
-                onClick={() => onUseAbility('BUS_RESCUE')}
-                className="flex flex-col items-center gap-1 group active:scale-90 transition-transform"
-              >
-                <div className="w-13 h-13 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/30 group-hover:brightness-110">
-                  <Unlock className="w-6 h-6 text-white" />
-                </div>
-                <div className="flex items-center gap-1 text-[10px] font-bold text-emerald-300">
-                  <span className="px-1 bg-black/40 rounded text-[9px]">E</span>
-                  <span>Free Bus</span>
+                  <span className="px-1 bg-black/40 rounded text-[9px]">3 / F</span>
+                  <span>Live Hype</span>
                 </div>
               </button>
 
@@ -344,8 +363,22 @@ export const HUD: React.FC<HUDProps> = ({
                   <Users className="w-6 h-6 text-white" />
                 </div>
                 <div className="flex items-center gap-1 text-[10px] font-bold text-purple-300">
-                  <span className="px-1 bg-black/40 rounded text-[9px]">H</span>
-                  <span>Chain</span>
+                  <span className="px-1 bg-black/40 rounded text-[9px]">4 / H</span>
+                  <span>Chain Shield</span>
+                </div>
+              </button>
+
+              {/* Bus Jailbreak */}
+              <button
+                onClick={() => onUseAbility('BUS_RESCUE')}
+                className="flex flex-col items-center gap-1 group active:scale-90 transition-transform"
+              >
+                <div className="w-13 h-13 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/30 group-hover:brightness-110">
+                  <Unlock className="w-6 h-6 text-white" />
+                </div>
+                <div className="flex items-center gap-1 text-[10px] font-bold text-emerald-300">
+                  <span className="px-1 bg-black/40 rounded text-[9px]">E</span>
+                  <span>Free Bus</span>
                 </div>
               </button>
             </>
@@ -356,12 +389,36 @@ export const HUD: React.FC<HUDProps> = ({
                 onClick={() => onUseAbility('BARRICADE')}
                 className="flex flex-col items-center gap-1 group active:scale-90 transition-transform"
               >
-                <div className="w-13 h-13 rounded-2xl bg-gradient-to-br from-amber-500 to-yellow-600 flex items-center justify-center shadow-lg text-white">
+                <div className="relative w-13 h-13 rounded-2xl bg-gradient-to-br from-amber-500 to-yellow-600 flex items-center justify-center shadow-lg text-white overflow-hidden">
                   <Shield className="w-6 h-6" />
+                  {(abilityCooldowns?.get('BARRICADE') || 0) > 0 && (
+                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center font-mono font-bold text-xs text-amber-200">
+                      {Math.ceil(abilityCooldowns!.get('BARRICADE')!)}s
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-1 text-[10px] font-bold text-amber-300">
-                  <span className="px-1 bg-black/40 rounded text-[9px]">Q</span>
+                  <span className="px-1 bg-black/40 rounded text-[9px]">1 / Q</span>
                   <span>Barricade</span>
+                </div>
+              </button>
+
+              {/* Pursuit Siren Overdrive */}
+              <button
+                onClick={() => onUseAbility('PURSUIT_BOOST')}
+                className="flex flex-col items-center gap-1 group active:scale-90 transition-transform"
+              >
+                <div className="relative w-13 h-13 rounded-2xl bg-gradient-to-br from-red-500 via-rose-600 to-amber-500 flex items-center justify-center shadow-lg text-white overflow-hidden">
+                  <Siren className="w-6 h-6" />
+                  {(abilityCooldowns?.get('PURSUIT_BOOST') || 0) > 0 && (
+                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center font-mono font-bold text-xs text-rose-200">
+                      {Math.ceil(abilityCooldowns!.get('PURSUIT_BOOST')!)}s
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 text-[10px] font-bold text-rose-300">
+                  <span className="px-1 bg-black/40 rounded text-[9px]">2 / Z</span>
+                  <span>Pursuit Sprint</span>
                 </div>
               </button>
 
@@ -370,12 +427,17 @@ export const HUD: React.FC<HUDProps> = ({
                 onClick={() => onUseAbility('SMOKE')}
                 className="flex flex-col items-center gap-1 group active:scale-90 transition-transform"
               >
-                <div className="w-13 h-13 rounded-2xl bg-gradient-to-br from-slate-600 to-zinc-700 flex items-center justify-center shadow-lg text-white">
+                <div className="relative w-13 h-13 rounded-2xl bg-gradient-to-br from-slate-600 to-zinc-700 flex items-center justify-center shadow-lg text-white overflow-hidden">
                   <AlertTriangle className="w-6 h-6" />
+                  {(abilityCooldowns?.get('SMOKE') || 0) > 0 && (
+                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center font-mono font-bold text-xs text-slate-200">
+                      {Math.ceil(abilityCooldowns!.get('SMOKE')!)}s
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-1 text-[10px] font-bold text-slate-300">
-                  <span className="px-1 bg-black/40 rounded text-[9px]">R</span>
-                  <span>Smoke</span>
+                  <span className="px-1 bg-black/40 rounded text-[9px]">3 / R</span>
+                  <span>Tear Gas</span>
                 </div>
               </button>
 
@@ -384,11 +446,16 @@ export const HUD: React.FC<HUDProps> = ({
                 onClick={() => onUseAbility('WATER')}
                 className="flex flex-col items-center gap-1 group active:scale-90 transition-transform"
               >
-                <div className="w-13 h-13 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg text-white">
+                <div className="relative w-13 h-13 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg text-white overflow-hidden">
                   <Radio className="w-6 h-6" />
+                  {(abilityCooldowns?.get('WATER') || 0) > 0 && (
+                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center font-mono font-bold text-xs text-blue-200">
+                      {Math.ceil(abilityCooldowns!.get('WATER')!)}s
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-1 text-[10px] font-bold text-blue-300">
-                  <span className="px-1 bg-black/40 rounded text-[9px]">F</span>
+                  <span className="px-1 bg-black/40 rounded text-[9px]">4 / F</span>
                   <span>Water Surge</span>
                 </div>
               </button>

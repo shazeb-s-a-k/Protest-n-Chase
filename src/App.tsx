@@ -329,7 +329,8 @@ export const App: React.FC = () => {
         case 'KeyC':
           inputRef.current.slide = true;
           break;
-        // Abilities
+        // Abilities Shortcuts (1-4, Q, Z, F, R, E, H)
+        case 'Digit1':
         case 'KeyQ':
           if (matchState.localTeam === 'PROTESTOR') {
             engineRef.current.triggerMegaphoneBlast();
@@ -337,11 +338,28 @@ export const App: React.FC = () => {
             engineRef.current.deployBarricade();
           }
           break;
+        case 'Digit2':
+        case 'KeyZ':
+          if (matchState.localTeam === 'PROTESTOR') {
+            engineRef.current.triggerParkourDash();
+          } else {
+            engineRef.current.triggerPursuitBoost();
+          }
+          break;
+        case 'Digit3':
         case 'KeyF':
           if (matchState.localTeam === 'PROTESTOR') {
             engineRef.current.triggerLiveStreamHype();
           } else {
             engineRef.current.fireWaterCannon();
+          }
+          break;
+        case 'Digit4':
+        case 'KeyH':
+          if (matchState.localTeam === 'PROTESTOR') {
+            engineRef.current.toggleHumanChain();
+          } else {
+            engineRef.current.throwSmokeCanister();
           }
           break;
         case 'KeyR':
@@ -352,11 +370,6 @@ export const App: React.FC = () => {
         case 'KeyE':
           if (matchState.localTeam === 'PROTESTOR') {
             engineRef.current.triggerBusJailbreak();
-          }
-          break;
-        case 'KeyH':
-          if (matchState.localTeam === 'PROTESTOR') {
-            engineRef.current.toggleHumanChain();
           }
           break;
         case 'KeyP':
@@ -428,6 +441,12 @@ export const App: React.FC = () => {
   const handleUseAbility = (ability: string) => {
     if (!engineRef.current) return;
     switch (ability) {
+      case 'PARKOUR_DASH':
+        engineRef.current.triggerParkourDash();
+        break;
+      case 'PURSUIT_BOOST':
+        engineRef.current.triggerPursuitBoost();
+        break;
       case 'MEGAPHONE':
         engineRef.current.triggerMegaphoneBlast();
         break;
@@ -558,6 +577,7 @@ export const App: React.FC = () => {
             isFullscreen={isFullscreen}
             isImmersiveMode={isImmersiveMode}
             isUIHidden={isUIIdle}
+            abilityCooldowns={engineRef.current?.abilityCooldowns}
             onToggleCamera={handleToggleCamera}
             onToggleMute={handleToggleMute}
             onToggleFullscreen={toggleFullscreen}
@@ -580,6 +600,9 @@ export const App: React.FC = () => {
             currentInput={inputRef.current}
             team={matchState.localTeam}
             onUseAbility={handleUseAbility}
+            onRotateCamera={(dx, dy) => engineRef.current?.rotateCamera(dx, dy)}
+            onZoomCamera={(dz) => engineRef.current?.zoomCamera(dz)}
+            abilityCooldowns={engineRef.current?.abilityCooldowns}
             isUIIdle={isUIIdle}
             onUserInteraction={resetUIIdleTimer}
           />

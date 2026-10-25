@@ -38,8 +38,15 @@ export class CharacterController {
   private animTimer: number = 0;
 
   // Collision
-  public radius: number = 0.55;
-  public height: number = 1.85;
+  public radius: number = 0.38;
+  public height: number = 1.80;
+
+  // Ability Overdrive & Dash State
+  public dashTimer: number = 0;
+  public dashDirection: THREE.Vector3 = new THREE.Vector3();
+  public pursuitTimer: number = 0;
+  public policeLightLeft?: THREE.PointLight;
+  public policeLightRight?: THREE.PointLight;
 
   // Zero-GC scratch instances to eliminate thousands of allocations per second
   private static _scratchMoveDir = new THREE.Vector3();
@@ -232,6 +239,17 @@ export class CharacterController {
       const led = new THREE.Mesh(ledGeo, ledMat);
       led.position.set(-0.18, 0.47, 0.31);
       torsoGroup.add(led);
+
+      // Emergency Tactical Shoulder Strobes for Pursuit Overdrive
+      const leftBeacon = new THREE.PointLight(0xef4444, 0, 5);
+      leftBeacon.position.set(-0.35, 0.58, 0);
+      torsoGroup.add(leftBeacon);
+      this.policeLightLeft = leftBeacon;
+
+      const rightBeacon = new THREE.PointLight(0x3b82f6, 0, 5);
+      rightBeacon.position.set(0.35, 0.58, 0);
+      torsoGroup.add(rightBeacon);
+      this.policeLightRight = rightBeacon;
     }
 
     root.add(torsoGroup);
@@ -739,9 +757,42 @@ export class CharacterController {
   }
 
   /**
+   * Triggers high-speed parkour dash vault for protestors
+   */
+  public triggerParkourDash(camForward?: THREE.Vector3) {
+    this.state.isGrappled = false;
+    this.dashTimer = 0.38;
+    if (camForward && (camForward.x !== 0 || camForward.z !== 0)) {
+      this.dashDirection.set(camForward.x, 0, camForward.z).normalize();
+    } else {
+      this.dashDirection.set(Math.sin(this.mesh.rotation.y), 0, Math.cos(this.mesh.rotation.y));
+    }
+    audioManager.playBreakoutDash();
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate(45);
+    }
+  }
+
+  /**
+   * Triggers tactical pursuit overdrive sprint for police officers
+   */
+  public triggerPursuitBoost(duration = 3.5) {
+    this.pursuitTimer = duration;
+    audioManager.startSiren(0.35);
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate(55);
+    }
+  }
+
+  /**
    * Updates player physics, movement, and procedural animations
    */
-  public update(delta: number, input: MovementInput, colliders: Collider[]) {
+  public update(
+    delta: number,
+    input: MovementInput,
+    colliders: Collider[],
+    cameraYaw: number = 0
+  ) {
     if (this.state.isDetained) {
       this.animTimer += delta * 2;
       if (this.leftArmGroup) this.leftArmGroup.rotation.x = Math.sin(this.animTimer) * 0.2;
@@ -767,18 +818,46 @@ export class CharacterController {
     const baseSpeed = isProtestor ? 11.5 : 8.5;
     let speed = baseSpeed;
 
-    // Sprint & Stamina
-    if (input.sprint && this.currentStamina > 5) {
-      speed *= isProtestor ? 1.55 : 1.45;
-      this.currentStamina = Math.max(0, this.currentStamina - delta * 25);
-      this.state.isSprinting = true;
-    } else {
-      this.currentStamina = Math.min(this.maxStamina, this.currentStamina + delta * 18);
-      this.state.isSprinting = false;
+    // 1. Check Active Overdrive Abilities
+    const isDashing = this.dashTimer > 0;
+    if (isDashing) {
+      this.dashTimer -= delta;
+      speed = 24.5;
     }
 
-    // Slide Mechanic (Subway Surfers parkour slide)
-    if (input.slide && this.isGrounded && !this.state.isSliding) {
+    const isPursuit = this.pursuitTimer > 0;
+    if (isPursuit) {
+      this.pursuitTimer -= delta;
+      speed *= 1.72; // Overdrive sprint
+
+      // Alternate shoulder strobes (Red / Blue)
+      const strobePhase = Math.floor((this.pursuitTimer * 12) % 2);
+      if (this.policeLightLeft) this.policeLightLeft.intensity = strobePhase === 0 ? 4.5 : 0;
+      if (this.policeLightRight) this.policeLightRight.intensity = strobePhase === 1 ? 4.5 : 0;
+
+      if (this.pursuitTimer <= 0) {
+        if (this.policeLightLeft) this.policeLightLeft.intensity = 0;
+        if (this.policeLightRight) this.policeLightRight.intensity = 0;
+        audioManager.stopSiren();
+      }
+    }
+
+    // 2. Sprint & Stamina Mechanics
+    if (!isDashing && !isPursuit) {
+      if (input.sprint && this.currentStamina > 5) {
+        speed *= isProtestor ? 1.55 : 1.45;
+        this.currentStamina = Math.max(0, this.currentStamina - delta * 25);
+        this.state.isSprinting = true;
+      } else {
+        this.currentStamina = Math.min(this.maxStamina, this.currentStamina + delta * 18);
+        this.state.isSprinting = false;
+      }
+    } else {
+      this.state.isSprinting = true;
+    }
+
+    // 3. Slide Mechanic (Parkour slide)
+    if (input.slide && this.isGrounded && !this.state.isSliding && !isDashing) {
       this.state.isSliding = true;
       audioManager.playParkourAction('SLIDE');
       if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
@@ -789,7 +868,7 @@ export class CharacterController {
       }, 550);
     }
 
-    // Jump Mechanic
+    // 4. Jump Mechanic
     if (input.jump && this.isGrounded && !this.state.isSliding) {
       this.velocity.y = isProtestor ? 8.5 : 7.2;
       this.isGrounded = false;
@@ -800,26 +879,66 @@ export class CharacterController {
       }
     }
 
-    // Gravity
+    // 5. Gravity
     if (!this.isGrounded) {
       this.velocity.y -= 22 * delta;
     }
 
-    // Movement Direction calculation (Zero GC allocation)
+    // 6. Movement Direction calculation (Zero-GC)
     const moveDir = CharacterController._scratchMoveDir.set(0, 0, 0);
-    if (input.moveForward !== 0 || input.moveRight !== 0) {
-      moveDir.set(input.moveRight, 0, -input.moveForward).normalize();
 
+    if (isDashing) {
+      moveDir.copy(this.dashDirection);
       const targetAngle = Math.atan2(moveDir.x, moveDir.z);
       this.mesh.rotation.y = targetAngle;
       this.state.rotation = targetAngle;
+    } else if (this.state.isAI) {
+      if (input.moveForward !== 0) {
+        moveDir.set(
+          Math.sin(this.mesh.rotation.y) * input.moveForward,
+          0,
+          Math.cos(this.mesh.rotation.y) * input.moveForward
+        );
+      }
+    } else if (input.moveForward !== 0 || input.moveRight !== 0) {
+      // Calculate camera-relative direction in world coordinates
+      const forwardX = -Math.sin(cameraYaw);
+      const forwardZ = -Math.cos(cameraYaw);
+      const rightX = Math.cos(cameraYaw);
+      const rightZ = -Math.sin(cameraYaw);
+
+      moveDir.set(
+        forwardX * input.moveForward + rightX * input.moveRight,
+        0,
+        forwardZ * input.moveForward + rightZ * input.moveRight
+      );
+
+      if (moveDir.lengthSq() > 0.001) {
+        moveDir.normalize();
+        const targetAngle = Math.atan2(moveDir.x, moveDir.z);
+
+        // Smooth shortest-arc character turning
+        let diff = targetAngle - this.mesh.rotation.y;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        this.mesh.rotation.y += diff * Math.min(1.0, delta * 18);
+        this.state.rotation = this.mesh.rotation.y;
+      }
     }
 
     const nextX = this.mesh.position.x + moveDir.x * speed * delta;
     const nextZ = this.mesh.position.z + moveDir.z * speed * delta;
     const nextY = Math.max(0, this.mesh.position.y + this.velocity.y * delta);
 
-    const newPos = this.resolveCollisions(nextX, nextY, nextZ, colliders);
+    const newPos = this.resolveCollisions(
+      this.mesh.position.x,
+      this.mesh.position.y,
+      this.mesh.position.z,
+      nextX,
+      nextY,
+      nextZ,
+      colliders
+    );
 
     this.mesh.position.copy(newPos);
     this.state.position.x = newPos.x;
@@ -833,51 +952,125 @@ export class CharacterController {
       this.state.isJumping = false;
     }
 
-    this.animateLimbs(delta, moveDir.lengthSq() > 0, speed);
+    this.animateLimbs(delta, moveDir.lengthSq() > 0 || isDashing, speed);
   }
 
+  /**
+   * Continuous cylinder-vs-AABB closest-point collision resolution
+   * with multi-pass relaxation, sub-stepping to eliminate tunneling,
+   * and smooth tangent wall-sliding so players never stick or get trapped.
+   */
   private resolveCollisions(
+    startX: number,
+    startY: number,
+    startZ: number,
     targetX: number,
     targetY: number,
     targetZ: number,
     colliders: Collider[]
   ): THREE.Vector3 {
-    const playerBox = CharacterController._scratchPlayerBox;
     const halfR = this.radius;
     const charHeight = this.state.isSliding ? 0.7 : this.height;
 
-    let resolvedX = targetX;
-    CharacterController._scratchBoxCenter.set(targetX, targetY + charHeight / 2, this.mesh.position.z);
-    CharacterController._scratchBoxSize.set(halfR * 2, charHeight, halfR * 2);
-    playerBox.setFromCenterAndSize(CharacterController._scratchBoxCenter, CharacterController._scratchBoxSize);
+    const totalDx = targetX - startX;
+    const totalDz = targetZ - startZ;
+    const horizontalDist = Math.hypot(totalDx, totalDz);
 
-    for (let i = 0; i < colliders.length; i++) {
-      const c = colliders[i];
-      if (this.state.isSliding && c.type === 'BARRICADE' && targetY < 0.8) {
-        continue;
-      }
-      if (c.box.intersectsBox(playerBox)) {
-        resolvedX = this.mesh.position.x;
-        break;
+    // Sub-stepping to completely eliminate tunneling at sprint or dash speeds
+    const numSteps = Math.min(4, Math.max(1, Math.ceil(horizontalDist / 0.14)));
+    const stepDx = totalDx / numSteps;
+    const stepDz = totalDz / numSteps;
+
+    let currX = startX;
+    let currZ = startZ;
+    let currY = targetY;
+
+    for (let step = 0; step < numSteps; step++) {
+      currX += stepDx;
+      currZ += stepDz;
+
+      // Relaxation iterations (2 passes) to resolve multiple colliders (e.g. corners)
+      for (let pass = 0; pass < 2; pass++) {
+        for (let i = 0; i < colliders.length; i++) {
+          const c = colliders[i];
+          const min = c.box.min;
+          const max = c.box.max;
+
+          // Slide underneath barricades if sliding
+          if (this.state.isSliding && c.type === 'BARRICADE' && currY < 0.8) {
+            continue;
+          }
+
+          // Vertical overlap check
+          const playerBottom = currY;
+          const playerTop = currY + charHeight;
+
+          // If obstacle is below feet, check if we can stand on it
+          if (max.y <= playerBottom + 0.15) {
+            if (
+              currX >= min.x - halfR &&
+              currX <= max.x + halfR &&
+              currZ >= min.z - halfR &&
+              currZ <= max.z + halfR
+            ) {
+              if (startY >= max.y - 0.2) {
+                currY = Math.max(currY, max.y);
+                this.isGrounded = true;
+                this.velocity.y = 0;
+              }
+            }
+            continue;
+          }
+
+          // If obstacle is overhead
+          if (min.y >= playerTop - 0.05) {
+            continue;
+          }
+
+          // Horizontal 2D closest point on AABB to player center (currX, currZ)
+          const clampedX = Math.max(min.x, Math.min(max.x, currX));
+          const clampedZ = Math.max(min.z, Math.min(max.z, currZ));
+
+          const diffX = currX - clampedX;
+          const diffZ = currZ - clampedZ;
+          const distSq = diffX * diffX + diffZ * diffZ;
+
+          if (distSq < 0.00001) {
+            // Player center is inside the bounding box - eject along shallowest axis
+            const dLeft = currX - min.x;
+            const dRight = max.x - currX;
+            const dBack = currZ - min.z;
+            const dFront = max.z - currZ;
+
+            const minDist = Math.min(dLeft, dRight, dBack, dFront);
+            if (minDist === dLeft) {
+              currX = min.x - halfR - 0.01;
+            } else if (minDist === dRight) {
+              currX = max.x + halfR + 0.01;
+            } else if (minDist === dBack) {
+              currZ = min.z - halfR - 0.01;
+            } else {
+              currZ = max.z + halfR + 0.01;
+            }
+          } else if (distSq < halfR * halfR) {
+            // Overlapping cylinder boundary - smooth push-out along contact normal
+            const dist = Math.sqrt(distSq);
+            const nx = diffX / dist;
+            const nz = diffZ / dist;
+            const penetration = halfR - dist;
+
+            currX += nx * (penetration + 0.003);
+            currZ += nz * (penetration + 0.003);
+          }
+        }
       }
     }
 
-    let resolvedZ = targetZ;
-    CharacterController._scratchBoxCenter.set(resolvedX, targetY + charHeight / 2, targetZ);
-    playerBox.setFromCenterAndSize(CharacterController._scratchBoxCenter, CharacterController._scratchBoxSize);
+    // Keep within world bounds
+    currX = Math.max(-80, Math.min(80, currX));
+    currZ = Math.max(-80, Math.min(80, currZ));
 
-    for (let i = 0; i < colliders.length; i++) {
-      const c = colliders[i];
-      if (this.state.isSliding && c.type === 'BARRICADE' && targetY < 0.8) {
-        continue;
-      }
-      if (c.box.intersectsBox(playerBox)) {
-        resolvedZ = this.mesh.position.z;
-        break;
-      }
-    }
-
-    return CharacterController._scratchResolvedPos.set(resolvedX, targetY, resolvedZ);
+    return CharacterController._scratchResolvedPos.set(currX, currY, currZ);
   }
 
   /**

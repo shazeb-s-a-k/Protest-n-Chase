@@ -58,10 +58,13 @@ export class GameEngine {
   // Match State
   public matchState: GameMatchState;
   public cameraMode: CameraViewMode = 'CHASE';
-  private cameraDistance: number = 7.5;
-  private cameraOrbitAngle: number = 0;
+  public cameraDistance: number = 7.5;
+  public cameraYaw: number = 0;
+  public cameraPitch: number = 0.28;
   private isMouseDragging: boolean = false;
   private previousMouseX: number = 0;
+  private previousMouseY: number = 0;
+  public abilityCooldowns: Map<string, number> = new Map();
 
   private clock: THREE.Clock = new THREE.Clock();
   private animationFrameId: number | null = null;
@@ -271,37 +274,97 @@ export class GameEngine {
     }
   }
 
+  public rotateCamera(deltaX: number, deltaY: number = 0) {
+    this.cameraYaw -= deltaX * 0.007;
+    this.cameraPitch = THREE.MathUtils.clamp(this.cameraPitch + deltaY * 0.005, -0.22, 0.72);
+  }
+
+  public zoomCamera(deltaZoom: number) {
+    this.cameraDistance = THREE.MathUtils.clamp(
+      this.cameraDistance + deltaZoom,
+      3.5,
+      16.0
+    );
+  }
+
   private setupMouseControls() {
     const el = this.renderer.domElement;
 
+    // Desktop Mouse Drag (left or right mouse button)
     el.addEventListener('mousedown', (e) => {
       if (e.button === 2 || e.button === 0) {
         this.isMouseDragging = true;
         this.previousMouseX = e.clientX;
+        this.previousMouseY = e.clientY;
       }
     });
 
     window.addEventListener('mousemove', (e) => {
       if (!this.isMouseDragging) return;
       const deltaX = e.clientX - this.previousMouseX;
+      const deltaY = e.clientY - this.previousMouseY;
       this.previousMouseX = e.clientX;
-      this.cameraOrbitAngle -= deltaX * 0.006;
+      this.previousMouseY = e.clientY;
+      this.rotateCamera(deltaX, deltaY);
     });
 
     window.addEventListener('mouseup', () => {
       this.isMouseDragging = false;
     });
 
-    el.addEventListener('wheel', (e) => {
-      e.preventDefault();
-      this.cameraDistance = THREE.MathUtils.clamp(
-        this.cameraDistance + e.deltaY * 0.01,
-        4.5,
-        14.0
-      );
-    }, { passive: false });
+    el.addEventListener(
+      'wheel',
+      (e) => {
+        e.preventDefault();
+        this.zoomCamera(e.deltaY * 0.008);
+      },
+      { passive: false }
+    );
 
     el.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    // Direct Touch Event Fallback on Canvas
+    let touchPrevX = 0;
+    let touchPrevY = 0;
+    let touchDistStart = 0;
+
+    el.addEventListener(
+      'touchstart',
+      (e) => {
+        if (e.touches.length === 1) {
+          touchPrevX = e.touches[0].clientX;
+          touchPrevY = e.touches[0].clientY;
+        } else if (e.touches.length === 2) {
+          touchDistStart = Math.hypot(
+            e.touches[0].clientX - e.touches[1].clientX,
+            e.touches[0].clientY - e.touches[1].clientY
+          );
+        }
+      },
+      { passive: true }
+    );
+
+    el.addEventListener(
+      'touchmove',
+      (e) => {
+        if (e.touches.length === 1) {
+          const deltaX = e.touches[0].clientX - touchPrevX;
+          const deltaY = e.touches[0].clientY - touchPrevY;
+          touchPrevX = e.touches[0].clientX;
+          touchPrevY = e.touches[0].clientY;
+          this.rotateCamera(deltaX, deltaY);
+        } else if (e.touches.length === 2) {
+          const dist = Math.hypot(
+            e.touches[0].clientX - e.touches[1].clientX,
+            e.touches[0].clientY - e.touches[1].clientY
+          );
+          const deltaDist = (touchDistStart - dist) * 0.02;
+          touchDistStart = dist;
+          this.zoomCamera(deltaDist);
+        }
+      },
+      { passive: true }
+    );
   }
 
   private spawnLocalPlayer(team: Team) {
@@ -309,6 +372,11 @@ export class GameEngine {
     const spawnPos = isProtestor
       ? new THREE.Vector3((Math.random() - 0.5) * 6, 0, 18)
       : new THREE.Vector3((Math.random() - 0.5) * 6, 0, 46);
+
+    // Initial camera orient towards map center
+    this.cameraYaw = isProtestor ? 0 : Math.PI;
+    this.cameraPitch = 0.28;
+    this.cameraDistance = 7.5;
 
     const state: PlayerState = {
       id: this.matchState.localPlayerId,
@@ -495,11 +563,25 @@ export class GameEngine {
     return this.matchState.humanChainActive;
   }
 
-  // --- ABILITIES ---
+  // --- ABILITIES & COOLDOWNS ---
+
+  public getAbilityCooldown(ability: string): number {
+    return this.abilityCooldowns.get(ability) || 0;
+  }
+
+  public setAbilityCooldown(ability: string, duration: number) {
+    this.abilityCooldowns.set(ability, duration);
+  }
 
   public triggerMegaphoneBlast() {
     if (!this.localPlayer || this.localPlayer.state.team !== 'PROTESTOR') return;
     if (this.localPlayer.state.isDetained || this.localPlayer.state.isGrappled) return;
+
+    if (this.getAbilityCooldown('MEGAPHONE') > 0) {
+      audioManager.playCanisterKick();
+      return;
+    }
+    this.setAbilityCooldown('MEGAPHONE', 5.0);
 
     audioManager.playMegaphoneChant();
     const pos = this.localPlayer.mesh.position.clone();
@@ -543,10 +625,74 @@ export class GameEngine {
     }
   }
 
+  public triggerParkourDash() {
+    if (!this.localPlayer || this.localPlayer.state.team !== 'PROTESTOR') return;
+    if (this.localPlayer.state.isDetained) return;
+
+    if (this.getAbilityCooldown('PARKOUR_DASH') > 0) {
+      audioManager.playCanisterKick();
+      return;
+    }
+    this.setAbilityCooldown('PARKOUR_DASH', 4.0);
+
+    // Forward direction in horizontal plane relative to camera
+    const camForward = new THREE.Vector3(
+      -Math.sin(this.cameraYaw),
+      0,
+      -Math.cos(this.cameraYaw)
+    ).normalize();
+
+    this.localPlayer.triggerParkourDash(camForward);
+    const pos = this.localPlayer.mesh.position.clone();
+    this.particleSystem.spawnLiveStreamEmoji(pos, '⚡️');
+
+    if (this.onLiveStreamComment) {
+      this.onLiveStreamComment('💨 Extreme parkour burst through security! #Awaaz');
+    }
+
+    if (this.matchState.mode === 'MULTIPLAYER') {
+      this.networkManager.broadcast({
+        type: 'ABILITY_USED',
+        payload: { ability: 'PARKOUR_DASH', position: pos },
+        senderId: this.matchState.localPlayerId,
+        timestamp: Date.now(),
+      });
+    }
+  }
+
+  public triggerPursuitBoost() {
+    if (!this.localPlayer || this.localPlayer.state.team !== 'POLICE') return;
+
+    if (this.getAbilityCooldown('PURSUIT_BOOST') > 0) {
+      audioManager.playCanisterKick();
+      return;
+    }
+    this.setAbilityCooldown('PURSUIT_BOOST', 6.0);
+
+    this.localPlayer.triggerPursuitBoost(3.5);
+    const pos = this.localPlayer.mesh.position.clone();
+    this.particleSystem.spawnLiveStreamEmoji(pos, '🚨');
+
+    if (this.matchState.mode === 'MULTIPLAYER') {
+      this.networkManager.broadcast({
+        type: 'ABILITY_USED',
+        payload: { ability: 'PURSUIT_BOOST', position: pos },
+        senderId: this.matchState.localPlayerId,
+        timestamp: Date.now(),
+      });
+    }
+  }
+
   public triggerLiveStreamHype() {
     if (!this.localPlayer || this.localPlayer.state.team !== 'PROTESTOR') return;
-    const pos = this.localPlayer.mesh.position.clone();
 
+    if (this.getAbilityCooldown('LIVESTREAM') > 0) {
+      audioManager.playCanisterKick();
+      return;
+    }
+    this.setAbilityCooldown('LIVESTREAM', 6.0);
+
+    const pos = this.localPlayer.mesh.position.clone();
     const emojis = ['❤️', '🔥', '✊', '⚡️', '🌟'];
     const chosenEmoji = emojis[Math.floor(Math.random() * emojis.length)];
     this.particleSystem.spawnLiveStreamEmoji(pos, chosenEmoji);
@@ -571,6 +717,13 @@ export class GameEngine {
 
   public deployBarricade() {
     if (!this.localPlayer || this.localPlayer.state.team !== 'POLICE') return;
+
+    if (this.getAbilityCooldown('BARRICADE') > 0) {
+      audioManager.playCanisterKick();
+      return;
+    }
+    this.setAbilityCooldown('BARRICADE', 6.0);
+
     const pos = this.localPlayer.mesh.position.clone();
     const rot = this.localPlayer.mesh.rotation.y;
 
@@ -585,6 +738,13 @@ export class GameEngine {
 
   public throwSmokeCanister() {
     if (!this.localPlayer || this.localPlayer.state.team !== 'POLICE') return;
+
+    if (this.getAbilityCooldown('SMOKE') > 0) {
+      audioManager.playCanisterKick();
+      return;
+    }
+    this.setAbilityCooldown('SMOKE', 7.0);
+
     const pos = this.localPlayer.mesh.position.clone();
     const rot = this.localPlayer.mesh.rotation.y;
 
@@ -622,6 +782,13 @@ export class GameEngine {
 
   public fireWaterCannon() {
     if (!this.localPlayer || this.localPlayer.state.team !== 'POLICE') return;
+
+    if (this.getAbilityCooldown('WATER') > 0) {
+      audioManager.playCanisterKick();
+      return;
+    }
+    this.setAbilityCooldown('WATER', 6.0);
+
     const pos = this.localPlayer.mesh.position.clone();
     const rot = this.localPlayer.mesh.rotation.y;
     const forward = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), rot);
@@ -784,19 +951,24 @@ export class GameEngine {
   public snapCameraToPlayer() {
     if (!this.localPlayer) return;
     const targetPos = this.localPlayer.mesh.position;
-    const playerRot = this.localPlayer.mesh.rotation.y;
-    const finalRot = playerRot + this.cameraOrbitAngle;
 
     if (this.cameraMode === 'CHASE') {
-      const cameraHeight = 3.2;
-      const backAngle = finalRot + Math.PI;
+      const cosPitch = Math.cos(this.cameraPitch);
+      const sinPitch = Math.sin(this.cameraPitch);
+      const sinYaw = Math.sin(this.cameraYaw);
+      const cosYaw = Math.cos(this.cameraYaw);
+
+      const offsetX = sinYaw * cosPitch * this.cameraDistance;
+      const offsetY = sinPitch * this.cameraDistance + 2.0;
+      const offsetZ = cosYaw * cosPitch * this.cameraDistance;
+
       GameEngine._idealCamPos.set(
-        targetPos.x + Math.sin(backAngle) * this.cameraDistance,
-        Math.max(1.2, targetPos.y + cameraHeight),
-        targetPos.z + Math.cos(backAngle) * this.cameraDistance
+        targetPos.x + offsetX,
+        Math.max(1.0, targetPos.y + offsetY),
+        targetPos.z + offsetZ
       );
       this.camera.position.copy(GameEngine._idealCamPos);
-      GameEngine._lookTarget.set(targetPos.x, targetPos.y + 1.6, targetPos.z);
+      GameEngine._lookTarget.set(targetPos.x, targetPos.y + 1.45, targetPos.z);
       this.camera.lookAt(GameEngine._lookTarget);
       this.camera.updateProjectionMatrix();
     }
@@ -822,10 +994,39 @@ export class GameEngine {
         if (hasChai) {
           this.localPlayer.currentStamina = 100;
         }
-        this.localPlayer.update(delta, this.currentInput, this.colliders);
+        this.localPlayer.update(delta, this.currentInput, this.colliders, this.cameraYaw);
       }
 
-      // 3. Update Power-Up Active Duration
+      // 3. Ability Cooldown Ticks & Overdrive Collision Detection
+      this.abilityCooldowns.forEach((cd, key) => {
+        if (cd > 0) {
+          this.abilityCooldowns.set(key, Math.max(0, cd - delta));
+        }
+      });
+
+      if (
+        this.localPlayer &&
+        this.localPlayer.state.team === 'POLICE' &&
+        this.localPlayer.pursuitTimer > 0
+      ) {
+        const pPos = this.localPlayer.mesh.position;
+        this.aiPlayers.forEach((ai) => {
+          if (ai.state.team === 'PROTESTOR' && !ai.state.isDetained && !ai.state.isGrappled) {
+            if (ai.mesh.position.distanceTo(pPos) < 2.0) {
+              ai.state.isGrappled = true;
+              audioManager.playBreakoutDash();
+              this.particleSystem.spawnLiveStreamEmoji(ai.mesh.position, '💥');
+              setTimeout(() => {
+                ai.state.isDetained = true;
+                ai.state.isGrappled = false;
+                this.matchState.detainedScore = (this.matchState.detainedScore || 0) + 1;
+              }, 800);
+            }
+          }
+        });
+      }
+
+      // 4. Update Power-Up Active Duration
       if (this.matchState.activePowerUp && this.matchState.powerUpTimeLeft > 0) {
         this.matchState.powerUpTimeLeft -= delta;
         if (this.matchState.powerUpTimeLeft <= 0) {
@@ -1053,20 +1254,25 @@ export class GameEngine {
     if (!this.localPlayer) return;
 
     const targetPos = this.localPlayer.mesh.position;
-    const playerRot = this.localPlayer.mesh.rotation.y;
-    const finalRot = playerRot + this.cameraOrbitAngle;
 
     if (this.cameraMode === 'CHASE') {
-      const cameraHeight = 3.2;
-      const backAngle = finalRot + Math.PI;
+      const cosPitch = Math.cos(this.cameraPitch);
+      const sinPitch = Math.sin(this.cameraPitch);
+      const sinYaw = Math.sin(this.cameraYaw);
+      const cosYaw = Math.cos(this.cameraYaw);
+
+      const offsetX = sinYaw * cosPitch * this.cameraDistance;
+      const offsetY = sinPitch * this.cameraDistance + 2.0;
+      const offsetZ = cosYaw * cosPitch * this.cameraDistance;
+
       GameEngine._idealCamPos.set(
-        targetPos.x + Math.sin(backAngle) * this.cameraDistance,
-        Math.max(1.2, targetPos.y + cameraHeight),
-        targetPos.z + Math.cos(backAngle) * this.cameraDistance
+        targetPos.x + offsetX,
+        Math.max(1.0, targetPos.y + offsetY),
+        targetPos.z + offsetZ
       );
 
-      this.camera.position.lerp(GameEngine._idealCamPos, Math.min(1.0, delta * 9));
-      GameEngine._lookTarget.set(targetPos.x, targetPos.y + 1.6, targetPos.z);
+      this.camera.position.lerp(GameEngine._idealCamPos, Math.min(1.0, delta * 11));
+      GameEngine._lookTarget.set(targetPos.x, targetPos.y + 1.45, targetPos.z);
       this.camera.lookAt(GameEngine._lookTarget);
 
       const targetFOV = this.localPlayer.state.isSprinting ? 75 : 65;
@@ -1077,12 +1283,15 @@ export class GameEngine {
       this.camera.position.lerp(GameEngine._tacticalPos, Math.min(1.0, delta * 6));
       this.camera.lookAt(targetPos);
     } else {
-      GameEngine._headPos.set(targetPos.x, targetPos.y + 1.7, targetPos.z);
+      GameEngine._headPos.set(targetPos.x, targetPos.y + 1.65, targetPos.z);
       this.camera.position.copy(GameEngine._headPos);
+      const lookDirX = -Math.sin(this.cameraYaw) * Math.cos(this.cameraPitch);
+      const lookDirY = -Math.sin(this.cameraPitch);
+      const lookDirZ = -Math.cos(this.cameraYaw) * Math.cos(this.cameraPitch);
       GameEngine._frontDir.set(
-        GameEngine._headPos.x + Math.sin(finalRot),
-        GameEngine._headPos.y,
-        GameEngine._headPos.z + Math.cos(finalRot)
+        GameEngine._headPos.x + lookDirX,
+        GameEngine._headPos.y + lookDirY,
+        GameEngine._headPos.z + lookDirZ
       );
       this.camera.lookAt(GameEngine._frontDir);
     }

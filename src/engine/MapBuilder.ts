@@ -1885,9 +1885,14 @@ export class MapBuilder {
 
     this.busPositions.push({ x, y: 0, z, id: busId });
 
+    const cosR = Math.abs(Math.cos(rot));
+    const sinR = Math.abs(Math.sin(rot));
+    const bbX = busWidth * cosR + busLength * sinR;
+    const bbZ = busWidth * sinR + busLength * cosR;
+
     const box = new THREE.Box3().setFromCenterAndSize(
       new THREE.Vector3(x, busHeight / 2, z),
-      new THREE.Vector3(busWidth, busHeight, busLength)
+      new THREE.Vector3(bbX, busHeight, bbZ)
     );
     this.colliders.push({ box, type: 'BUS', interactiveId: busId });
   }
@@ -2006,9 +2011,14 @@ export class MapBuilder {
 
     scene.add(barricadeGroup);
 
+    const cosR = Math.abs(Math.cos(rot));
+    const sinR = Math.abs(Math.sin(rot));
+    const bbX = width * cosR + 0.8 * sinR;
+    const bbZ = width * sinR + 0.8 * cosR;
+
     const box = new THREE.Box3().setFromCenterAndSize(
       new THREE.Vector3(x, height / 2, z),
-      new THREE.Vector3(width, height, 0.8)
+      new THREE.Vector3(bbX, height, bbZ)
     );
     this.colliders.push({ box, type: 'BARRICADE' });
 
@@ -2408,9 +2418,14 @@ export class MapBuilder {
 
     this.busPositions.push({ x, y: 0, z, id: busId });
 
+    const cosR = Math.abs(Math.cos(rot));
+    const sinR = Math.abs(Math.sin(rot));
+    const bbX = vanWidth * cosR + vanLength * sinR;
+    const bbZ = vanWidth * sinR + vanLength * cosR;
+
     const box = new THREE.Box3().setFromCenterAndSize(
       new THREE.Vector3(x, vanHeight / 2, z),
-      new THREE.Vector3(vanWidth, vanHeight, vanLength)
+      new THREE.Vector3(bbX, vanHeight, bbZ)
     );
     this.colliders.push({ box, type: 'BUS', interactiveId: busId });
   }
