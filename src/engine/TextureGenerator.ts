@@ -1335,6 +1335,107 @@ export class TextureGenerator {
   }
 
   /**
+   * Generates Modernist Opéra Bastille Architectural Glass Curtain Wall
+   * Features fine graphite steel mullions, reflective glazing, and warm interior foyer lights
+   */
+  public static getOperaBastilleGlassTexture(): { map: THREE.CanvasTexture; bumpMap: THREE.CanvasTexture } {
+    const mapKey = 'opera_bastille_glass_diffuse';
+    const bumpKey = 'opera_bastille_glass_bump';
+    if (this.cache.has(mapKey) && this.cache.has(bumpKey)) {
+      return { map: this.cache.get(mapKey)!, bumpMap: this.cache.get(bumpKey)! };
+    }
+
+    const width = 512;
+    const height = 512;
+
+    // Diffuse Canvas
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d')!;
+
+    // Deep tinted architectural glass base
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(0, 0, width, height);
+
+    // Warm tiered foyer balconies glowing from within
+    const foyerY = [120, 240, 360];
+    foyerY.forEach((fy) => {
+      ctx.fillStyle = 'rgba(254, 240, 138, 0.22)';
+      ctx.fillRect(0, fy, width, 40);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+      ctx.fillRect(0, fy + 38, width, 4);
+    });
+
+    // Dark graphite metallic mullion grid
+    ctx.strokeStyle = '#334155';
+    ctx.lineWidth = 3;
+    const gridX = 32;
+    const gridY = 48;
+    for (let x = 0; x <= width; x += gridX) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, height);
+      ctx.stroke();
+    }
+    for (let y = 0; y <= height; y += gridY) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(width, y);
+      ctx.stroke();
+    }
+
+    // Glass panel diagonal sky reflections
+    ctx.fillStyle = 'rgba(56, 189, 248, 0.08)';
+    for (let x = 0; x < width; x += gridX) {
+      for (let y = 0; y < height; y += gridY) {
+        ctx.beginPath();
+        ctx.moveTo(x + 2, y + 2);
+        ctx.lineTo(x + gridX - 2, y + 2);
+        ctx.lineTo(x + 2, y + gridY - 2);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+
+    const diffuseTex = new THREE.CanvasTexture(canvas);
+    diffuseTex.wrapS = THREE.RepeatWrapping;
+    diffuseTex.wrapT = THREE.RepeatWrapping;
+    diffuseTex.repeat.set(4, 3);
+
+    // Bump Canvas (Silicone joints and mullion depth)
+    const bumpCanvas = document.createElement('canvas');
+    bumpCanvas.width = width;
+    bumpCanvas.height = height;
+    const bCtx = bumpCanvas.getContext('2d')!;
+    bCtx.fillStyle = '#808080';
+    bCtx.fillRect(0, 0, width, height);
+    bCtx.strokeStyle = '#202020';
+    bCtx.lineWidth = 3;
+    for (let x = 0; x <= width; x += gridX) {
+      bCtx.beginPath();
+      bCtx.moveTo(x, 0);
+      bCtx.lineTo(x, height);
+      bCtx.stroke();
+    }
+    for (let y = 0; y <= height; y += gridY) {
+      bCtx.beginPath();
+      bCtx.moveTo(0, y);
+      bCtx.lineTo(width, y);
+      bCtx.stroke();
+    }
+
+    const bumpTex = new THREE.CanvasTexture(bumpCanvas);
+    bumpTex.wrapS = THREE.RepeatWrapping;
+    bumpTex.wrapT = THREE.RepeatWrapping;
+    bumpTex.repeat.set(4, 3);
+
+    this.cache.set(mapKey, diffuseTex);
+    this.cache.set(bumpKey, bumpTex);
+    return { map: diffuseTex, bumpMap: bumpTex };
+  }
+
+  /**
    * Pre-generates 100% of PBR textures into device RAM and uploads them directly
    * into GPU VRAM units via renderer.initTexture so there are ZERO mid-game stutters!
    */
@@ -1359,6 +1460,7 @@ export class TextureGenerator {
     this.getGTABoulevardRoadTexture();
     this.getZebraCrosswalkTexture();
     this.getHaussmannFacadeTexture();
+    this.getOperaBastilleGlassTexture();
     this.getPalmBarkTexture();
     this.getPalmFrondTexture();
     this.getNeonSignTexture('AWAAZ', '#00f0ff');

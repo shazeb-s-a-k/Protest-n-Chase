@@ -26,6 +26,7 @@ export class CharacterController {
   public currentStamina: number = 100;
   public maxStamina: number = 100;
   public particleSystem: ParticleSystem | null = null;
+  public isInPuddle: boolean = false;
 
   // Visual Limbs for procedural animation
   private leftArmGroup?: THREE.Group;
@@ -896,6 +897,9 @@ export class CharacterController {
       const targetAngle = Math.atan2(moveDir.x, moveDir.z);
       this.mesh.rotation.y = targetAngle;
       this.state.rotation = targetAngle;
+      if (Math.random() < 0.35) {
+        this.particleSystem?.spawnSpeedLines(this.mesh.position, moveDir);
+      }
     } else if (this.state.isAI) {
       if (input.moveForward !== 0) {
         moveDir.set(
@@ -1131,6 +1135,10 @@ export class CharacterController {
       if (this.state.isLocal && this.isGrounded) {
         if (Math.sin(prevTimer) * Math.sin(this.animTimer) < 0) {
           audioManager.playFootstep(this.state.isSprinting);
+          if (this.isInPuddle) {
+            audioManager.playPuddleSplash();
+            this.particleSystem?.spawnPuddleSplash(this.mesh.position);
+          }
         }
       }
 

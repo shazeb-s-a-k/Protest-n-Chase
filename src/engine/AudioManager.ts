@@ -539,6 +539,130 @@ class AudioManager {
   }
 
   /**
+   * Sound 14: Liquid Puddle Splash / Rain Water Touchdown
+   */
+  public playPuddleSplash() {
+    if (this.isMuted) return;
+    this.init();
+    if (!this.ctx || !this.sfxGain) return;
+
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(380 + Math.random() * 80, t);
+    osc.frequency.exponentialRampToValueAtTime(95, t + 0.08);
+
+    gain.gain.setValueAtTime(0.18, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
+
+    osc.connect(gain);
+    gain.connect(this.sfxGain);
+    osc.start(t);
+    osc.stop(t + 0.1);
+  }
+
+  /**
+   * Sound 15: Media Press Drone Camera Shutter & Strobe Flash
+   */
+  public playCameraFlash() {
+    if (this.isMuted) return;
+    this.init();
+    if (!this.ctx || !this.sfxGain) return;
+
+    const t = this.ctx.currentTime;
+
+    // Shutter Click
+    const clickOsc = this.ctx.createOscillator();
+    const clickGain = this.ctx.createGain();
+    clickOsc.type = 'square';
+    clickOsc.frequency.setValueAtTime(1600, t);
+    clickOsc.frequency.exponentialRampToValueAtTime(120, t + 0.035);
+    clickGain.gain.setValueAtTime(0.22, t);
+    clickGain.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
+    clickOsc.connect(clickGain);
+    clickGain.connect(this.sfxGain);
+    clickOsc.start(t);
+    clickOsc.stop(t + 0.045);
+
+    // Capacitor Recharge Whine
+    const whineOsc = this.ctx.createOscillator();
+    const whineGain = this.ctx.createGain();
+    whineOsc.type = 'sine';
+    whineOsc.frequency.setValueAtTime(1800, t + 0.04);
+    whineOsc.frequency.exponentialRampToValueAtTime(4200, t + 0.35);
+    whineGain.gain.setValueAtTime(0.08, t + 0.04);
+    whineGain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+    whineOsc.connect(whineGain);
+    whineGain.connect(this.sfxGain);
+    whineOsc.start(t + 0.04);
+    whineOsc.stop(t + 0.36);
+  }
+
+  /**
+   * Sound 16: Tactical Police Walkie-Talkie Radio Squelch & Roger Chirp
+   */
+  public playPoliceRadioChatter() {
+    if (this.isMuted) return;
+    this.init();
+    if (!this.ctx || !this.sfxGain) return;
+
+    const t = this.ctx.currentTime;
+
+    // Dual-tone roger beep
+    const beep1 = this.ctx.createOscillator();
+    const beep2 = this.ctx.createOscillator();
+    const bGain = this.ctx.createGain();
+
+    beep1.type = 'sine';
+    beep1.frequency.setValueAtTime(880, t);
+    beep1.frequency.setValueAtTime(1320, t + 0.07);
+
+    bGain.gain.setValueAtTime(0.14, t);
+    bGain.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
+
+    beep1.connect(bGain);
+    bGain.connect(this.sfxGain);
+    beep1.start(t);
+    beep1.stop(t + 0.17);
+  }
+
+  /**
+   * Sound 17: Triumphant Grand Brass Victory Fanfare
+   */
+  public playVictoryFanfare() {
+    if (this.isMuted) return;
+    this.init();
+    if (!this.ctx || !this.sfxGain) return;
+
+    const t = this.ctx.currentTime;
+    // Chords: C4, E4, G4, high C5 triumph
+    const notes = [
+      { freq: 261.63, start: 0, dur: 0.14 },
+      { freq: 329.63, start: 0.14, dur: 0.14 },
+      { freq: 392.00, start: 0.28, dur: 0.18 },
+      { freq: 523.25, start: 0.46, dur: 0.75 },
+    ];
+
+    notes.forEach((n) => {
+      const osc = this.ctx!.createOscillator();
+      const gain = this.ctx!.createGain();
+
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(n.freq, t + n.start);
+
+      gain.gain.setValueAtTime(0.24, t + n.start);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + n.start + n.dur);
+
+      osc.connect(gain);
+      gain.connect(this.sfxGain!);
+      osc.start(t + n.start);
+      osc.stop(t + n.start + n.dur + 0.05);
+    });
+  }
+
+  /**
    * Ambient Rhythm Loop (protest beat every 700ms)
    */
   public startAmbientProtestLoop() {

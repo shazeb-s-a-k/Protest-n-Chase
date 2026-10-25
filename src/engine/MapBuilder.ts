@@ -1107,6 +1107,103 @@ export class MapBuilder {
     const gantry2 = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.2, 7.5, 8), gantryMat);
     gantry2.position.set(-53.8, 3.75, 35);
     scene.add(gantry2);
+
+    // 4. Authentic Roadside Delhi Chai Tapri Stall
+    this.createDelhiChaiTapri(scene, -46, -14, -Math.PI / 3);
+  }
+
+  /**
+   * Authentic Delhi Roadside Chai Tapri Stall on Sansad Marg
+   * Corrugated tin awning, wooden counter, brass samovar kettle, cutting chai glasses, and seating bench
+   */
+  public createDelhiChaiTapri(scene: THREE.Scene, x: number, z: number, rot = 0) {
+    const tapriGroup = new THREE.Group();
+    tapriGroup.position.set(x, 0, z);
+    tapriGroup.rotation.y = rot;
+
+    const woodMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.8 });
+    const tinMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.7, roughness: 0.45 });
+    const brassMat = new THREE.MeshStandardMaterial({ color: 0xd97706, metalness: 0.9, roughness: 0.2 });
+
+    // 1. Platform Base & Bamboo Posts
+    const base = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.2, 2.4), woodMat);
+    base.position.y = 0.1;
+    tapriGroup.add(base);
+
+    [-1.6, 1.6].forEach((px) => {
+      [-1.0, 1.0].forEach((pz) => {
+        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 2.7, 8), woodMat);
+        post.position.set(px, 1.35, pz);
+        tapriGroup.add(post);
+      });
+    });
+
+    // 2. Slanted Weathered Tin Awning Roof
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.08, 3.0), tinMat);
+    roof.position.set(0, 2.7, 0);
+    roof.rotation.x = -0.15;
+    roof.castShadow = true;
+    tapriGroup.add(roof);
+
+    // 3. Wooden Counter
+    const counter = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.9, 0.9), woodMat);
+    counter.position.set(0, 0.55, 0.3);
+    counter.castShadow = true;
+    tapriGroup.add(counter);
+
+    // 4. Steaming Traditional Brass Chai Samovar / Kettle
+    const kettle = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.32, 0.65, 12), brassMat);
+    kettle.position.set(-0.7, 1.3, 0.3);
+    tapriGroup.add(kettle);
+
+    const kettleLid = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 8, 0, Math.PI * 2, 0, Math.PI / 2), brassMat);
+    kettleLid.position.set(-0.7, 1.62, 0.3);
+    tapriGroup.add(kettleLid);
+
+    // Warm Stove Glow
+    const stoveLight = new THREE.PointLight(0xf97316, 1.8, 4);
+    stoveLight.position.set(-0.7, 1.0, 0.3);
+    tapriGroup.add(stoveLight);
+
+    // 5. Traditional Wooden Bench for Patrons
+    const bench = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.45, 0.5), woodMat);
+    bench.position.set(0, 0.35, -1.2);
+    bench.castShadow = true;
+    tapriGroup.add(bench);
+
+    // 6. Hand-painted Hindi/English Signboard
+    const signCanvas = document.createElement('canvas');
+    signCanvas.width = 512;
+    signCanvas.height = 128;
+    const sCtx = signCanvas.getContext('2d');
+    if (sCtx) {
+      sCtx.fillStyle = '#ea580c';
+      sCtx.fillRect(0, 0, 512, 128);
+      sCtx.strokeStyle = '#ffffff';
+      sCtx.lineWidth = 4;
+      sCtx.strokeRect(6, 6, 500, 116);
+      sCtx.fillStyle = '#ffffff';
+      sCtx.textAlign = 'center';
+      sCtx.font = 'bold 36px Outfit, sans-serif';
+      sCtx.fillText('गरम चाय • SPECIAL TAPRI CHAI', 256, 54);
+      sCtx.font = '600 20px Space Grotesk, sans-serif';
+      sCtx.fillText('SAMOSA & BUN MASKA • SANSAD MARG', 256, 96);
+    }
+    const signTex = new THREE.CanvasTexture(signCanvas);
+    const signMesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(2.8, 0.7),
+      new THREE.MeshStandardMaterial({ map: signTex, roughness: 0.4 })
+    );
+    signMesh.position.set(0, 2.3, 1.25);
+    tapriGroup.add(signMesh);
+
+    scene.add(tapriGroup);
+
+    const box = new THREE.Box3().setFromCenterAndSize(
+      new THREE.Vector3(x, 1.4, z),
+      new THREE.Vector3(4.0, 2.8, 3.2)
+    );
+    this.colliders.push({ box, type: 'WALL' });
   }
 
   /**
@@ -2397,8 +2494,9 @@ export class MapBuilder {
     // 2. Colonne de Juillet
     this.createJulyColumn(scene, creamStoneMat);
 
-    // 3. Haussmannian Perimeter Architecture
+    // 3. Haussmannian Perimeter Architecture & Monumental Opéra Bastille
     this.createParisianBuildings(scene, creamStoneMat, zincRoofMat);
+    this.createOperaBastille(scene);
 
     // 4. Parisian Metro Entrance
     this.createParisMetroEntrance(scene, -25, 14);
@@ -3059,5 +3157,279 @@ export class MapBuilder {
     );
     bistroSign.position.set(0, 6.5, -67);
     scene.add(bistroSign);
+
+    // Authentic Bancs Davioud (Parisian Park Benches)
+    const benchPositions = [
+      { x: -36, z: 52, rot: 0 },
+      { x: 36, z: 52, rot: 0 },
+      { x: -36, z: -52, rot: Math.PI },
+      { x: 36, z: -52, rot: Math.PI },
+      { x: -18, z: 28, rot: Math.PI / 4 },
+      { x: 18, z: 28, rot: -Math.PI / 4 },
+    ];
+    benchPositions.forEach((bp) => this.createBancDavioud(scene, bp.x, bp.z, bp.rot));
+
+    // Fontaine Wallace (Historic Drinking Fountains)
+    this.createFontaineWallace(scene, -26, 30);
+    this.createFontaineWallace(scene, 26, -30);
+
+    // Candélabres Parisiens (Ornate Double-Globe Street Lamps)
+    const lampPositions = [
+      { x: -48, z: 42 },
+      { x: -12, z: 42 },
+      { x: 12, z: 42 },
+      { x: 48, z: 42 },
+      { x: -48, z: -42 },
+      { x: -12, z: -42 },
+      { x: 12, z: -42 },
+      { x: 48, z: -42 },
+    ];
+    lampPositions.forEach((lp) => this.createCandelabreParisien(scene, lp.x, lp.z));
+  }
+
+  /**
+   * Monumental Opéra Bastille (Inaugurated 1989 on Place de la Bastille)
+   * Curved modernist glass facade, white granite portico, fly tower, interior foyer lighting & neon sign
+   */
+  public createOperaBastille(scene: THREE.Scene) {
+    const operaGroup = new THREE.Group();
+    operaGroup.position.set(58, 0, 0);
+
+    const operaHeight = 32;
+    const operaWidth = 16;
+    const operaDepth = 48;
+
+    const graniteWhiteMat = new THREE.MeshStandardMaterial({
+      color: 0xf1f5f9,
+      roughness: 0.35,
+      metalness: 0.15,
+    });
+    const glassPBR = TextureGenerator.getOperaBastilleGlassTexture();
+    const glassMat = new THREE.MeshStandardMaterial({
+      map: glassPBR.map,
+      bumpMap: glassPBR.bumpMap,
+      bumpScale: 0.06,
+      roughness: 0.1,
+      metalness: 0.85,
+    });
+    const steelDarkMat = new THREE.MeshStandardMaterial({
+      color: 0x0f172a,
+      roughness: 0.6,
+      metalness: 0.8,
+    });
+
+    // 1. Monumental Stepped Base / Forecourt
+    const baseSteps = new THREE.Mesh(
+      new THREE.BoxGeometry(operaWidth + 8, 2.4, operaDepth + 4),
+      graniteWhiteMat
+    );
+    baseSteps.position.set(-2, 1.2, 0);
+    baseSteps.receiveShadow = true;
+    operaGroup.add(baseSteps);
+
+    // 2. Main Building Body
+    const mainBody = new THREE.Mesh(
+      new THREE.BoxGeometry(operaWidth, operaHeight - 2.4, operaDepth),
+      graniteWhiteMat
+    );
+    mainBody.position.set(2, (operaHeight - 2.4) / 2 + 2.4, 0);
+    mainBody.castShadow = true;
+    mainBody.receiveShadow = true;
+    operaGroup.add(mainBody);
+
+    // 3. Iconic Curved Glass Atrium Facade (Facing West towards Colonne de Juillet)
+    const glassFacade = new THREE.Mesh(
+      new THREE.CylinderGeometry(24, 24, operaHeight - 4, 32, 1, false, -Math.PI / 2.5, Math.PI / 1.25),
+      glassMat
+    );
+    glassFacade.position.set(-6, operaHeight / 2 + 1, 0);
+    glassFacade.rotation.y = Math.PI / 2;
+    glassFacade.castShadow = true;
+    operaGroup.add(glassFacade);
+
+    // 4. Central Fly Tower (Stage Cube Volume on top)
+    const flyTower = new THREE.Mesh(
+      new THREE.BoxGeometry(12, 10, 24),
+      steelDarkMat
+    );
+    flyTower.position.set(4, operaHeight + 5, 0);
+    flyTower.castShadow = true;
+    operaGroup.add(flyTower);
+
+    // 5. Interior Warm Foyer Light
+    const foyerLight = new THREE.PointLight(0xffedd5, 3.5, 45);
+    foyerLight.position.set(-4, 12, 0);
+    operaGroup.add(foyerLight);
+
+    // 6. Architectural Neon Sign: "OPÉRA BASTILLE"
+    const signCanvas = document.createElement('canvas');
+    signCanvas.width = 1024;
+    signCanvas.height = 160;
+    const sCtx = signCanvas.getContext('2d');
+    if (sCtx) {
+      sCtx.fillStyle = '#0f172a';
+      sCtx.fillRect(0, 0, 1024, 160);
+      sCtx.fillStyle = '#ffffff';
+      sCtx.textAlign = 'center';
+      sCtx.font = 'bold 52px Outfit, sans-serif';
+      sCtx.fillText('OPÉRA NATIONAL DE PARIS • BASTILLE', 512, 100);
+    }
+    const signTex = new THREE.CanvasTexture(signCanvas);
+    const signMesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(16, 2.5),
+      new THREE.MeshStandardMaterial({
+        map: signTex,
+        roughness: 0.2,
+        emissive: 0xffffff,
+        emissiveIntensity: 0.8,
+      })
+    );
+    signMesh.rotation.y = -Math.PI / 2;
+    signMesh.position.set(-7.5, 14, 0);
+    operaGroup.add(signMesh);
+
+    scene.add(operaGroup);
+
+    const box = new THREE.Box3().setFromCenterAndSize(
+      new THREE.Vector3(58, operaHeight / 2, 0),
+      new THREE.Vector3(22, operaHeight + 10, operaDepth + 6)
+    );
+    this.colliders.push({ box, type: 'WALL' });
+  }
+
+  /**
+   * Classic Parisian Banc Davioud (Curved Dark Green Cast-Iron & Wood Slats)
+   */
+  public createBancDavioud(scene: THREE.Scene, x: number, z: number, rot = 0) {
+    const benchGroup = new THREE.Group();
+    benchGroup.position.set(x, 0, z);
+    benchGroup.rotation.y = rot;
+
+    const ironMat = new THREE.MeshStandardMaterial({ color: 0x14532d, metalness: 0.8, roughness: 0.35 });
+    const woodMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.7 });
+
+    // Cast iron side frames
+    [-1.2, 1.2].forEach((sx) => {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.75, 0.65), ironMat);
+      leg.position.set(sx, 0.38, 0);
+      benchGroup.add(leg);
+    });
+
+    // Horizontal wooden seating slats
+    for (let s = -0.22; s <= 0.22; s += 0.11) {
+      const slat = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.05, 0.08), woodMat);
+      slat.position.set(0, 0.45, s);
+      slat.castShadow = true;
+      benchGroup.add(slat);
+    }
+
+    // Backrest slats
+    for (let b = 0.55; b <= 0.85; b += 0.1) {
+      const slat = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.08, 0.05), woodMat);
+      slat.position.set(0, b, -0.28);
+      slat.castShadow = true;
+      benchGroup.add(slat);
+    }
+
+    scene.add(benchGroup);
+
+    const box = new THREE.Box3().setFromCenterAndSize(
+      new THREE.Vector3(x, 0.45, z),
+      new THREE.Vector3(2.6, 0.9, 0.8)
+    );
+    this.colliders.push({ box, type: 'WALL' });
+  }
+
+  /**
+   * Iconic Parisian Fontaine Wallace (Charles-Auguste Lebourg 1872)
+   */
+  public createFontaineWallace(scene: THREE.Scene, x: number, z: number) {
+    const fGroup = new THREE.Group();
+    fGroup.position.set(x, 0, z);
+
+    const greenMat = new THREE.MeshStandardMaterial({ color: 0x14532d, metalness: 0.85, roughness: 0.3 });
+
+    // Octagonal Pedestal
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.75, 0.8, 8), greenMat);
+    base.position.y = 0.4;
+    fGroup.add(base);
+
+    // 4 Caryatid Statues supporting the dome
+    for (let i = 0; i < 4; i++) {
+      const angle = (i / 4) * Math.PI * 2;
+      const caryatid = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 1.2, 6), greenMat);
+      caryatid.position.set(Math.cos(angle) * 0.35, 1.4, Math.sin(angle) * 0.35);
+      fGroup.add(caryatid);
+    }
+
+    // Dome Cupola with Dolphin Spire
+    const dome = new THREE.Mesh(
+      new THREE.SphereGeometry(0.7, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2),
+      greenMat
+    );
+    dome.position.y = 2.0;
+    fGroup.add(dome);
+
+    const spire = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.4, 8), greenMat);
+    spire.position.y = 2.9;
+    fGroup.add(spire);
+
+    scene.add(fGroup);
+
+    const box = new THREE.Box3().setFromCenterAndSize(
+      new THREE.Vector3(x, 1.5, z),
+      new THREE.Vector3(1.4, 3.0, 1.4)
+    );
+    this.colliders.push({ box, type: 'WALL' });
+  }
+
+  /**
+   * Candélabre Parisien (Ornate Double-Globe Parisian Bronze Streetlamp)
+   */
+  public createCandelabreParisien(scene: THREE.Scene, x: number, z: number) {
+    const lampGroup = new THREE.Group();
+    lampGroup.position.set(x, 0, z);
+
+    const bronzeMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.9, roughness: 0.25 });
+    const globeMat = new THREE.MeshStandardMaterial({
+      color: 0xffedd5,
+      emissive: 0xffedd5,
+      emissiveIntensity: 2.2,
+      roughness: 0.1,
+    });
+
+    // Fluted Column Post
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.18, 5.5, 12), bronzeMat);
+    post.position.y = 2.75;
+    post.castShadow = true;
+    lampGroup.add(post);
+
+    // Base Plinth
+    const plinth = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.4, 0.8, 8), bronzeMat);
+    plinth.position.y = 0.4;
+    lampGroup.add(plinth);
+
+    // Twin Curved Arms
+    [-0.75, 0.75].forEach((lx) => {
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.08, 0.08), bronzeMat);
+      arm.position.set(lx / 2, 5.2, 0);
+      lampGroup.add(arm);
+
+      const globe = new THREE.Mesh(new THREE.SphereGeometry(0.28, 12, 12), globeMat);
+      globe.position.set(lx, 5.4, 0);
+      lampGroup.add(globe);
+
+      const light = new THREE.PointLight(0xffedd5, 1.8, 16);
+      light.position.set(lx, 5.4, 0);
+      lampGroup.add(light);
+    });
+
+    scene.add(lampGroup);
+
+    const box = new THREE.Box3().setFromCenterAndSize(
+      new THREE.Vector3(x, 2.8, z),
+      new THREE.Vector3(1.8, 5.6, 0.8)
+    );
+    this.colliders.push({ box, type: 'WALL' });
   }
 }

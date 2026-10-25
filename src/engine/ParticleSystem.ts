@@ -235,6 +235,129 @@ export class ParticleSystem {
   }
 
   /**
+   * Spawns translucent water droplets and expanding ripple when splashing in puddles or rain
+   */
+  public spawnPuddleSplash(origin: THREE.Vector3) {
+    const count = 10;
+    for (let i = 0; i < count; i++) {
+      const geo = new THREE.SphereGeometry(0.08 + Math.random() * 0.08, 6, 6);
+      const mesh = new THREE.Mesh(geo, this.waterMaterial.clone());
+      mesh.position.set(
+        origin.x + (Math.random() - 0.5) * 0.4,
+        0.05,
+        origin.z + (Math.random() - 0.5) * 0.4
+      );
+      this.scene.add(mesh);
+
+      this.particles.push({
+        mesh,
+        velocity: new THREE.Vector3(
+          (Math.random() - 0.5) * 2.4,
+          1.8 + Math.random() * 2.2,
+          (Math.random() - 0.5) * 2.4
+        ),
+        life: 0,
+        maxLife: 0.38,
+        scaleGrowth: -0.8,
+        initialScale: 1.0,
+      });
+    }
+
+    // Expanding ground water ring ripple
+    const ringGeo = new THREE.RingGeometry(0.1, 0.25, 16);
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: 0x38bdf8,
+      transparent: true,
+      opacity: 0.7,
+      side: THREE.DoubleSide,
+    });
+    const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+    ringMesh.rotation.x = -Math.PI / 2;
+    ringMesh.position.set(origin.x, 0.03, origin.z);
+    this.scene.add(ringMesh);
+
+    this.soundwaves.push({
+      mesh: ringMesh,
+      life: 0,
+      maxLife: 0.4,
+      radiusGrowth: 3.5,
+    });
+  }
+
+  /**
+   * Spawns an intense photographic camera flash strobe and expanding halo
+   */
+  public spawnCameraFlash(origin: THREE.Vector3) {
+    // High-intensity flash pointlight
+    const flashLight = new THREE.PointLight(0xffffff, 8.0, 30);
+    flashLight.position.copy(origin);
+    flashLight.position.y += 1.8;
+    this.scene.add(flashLight);
+
+    // Expanding flash ring
+    const ringGeo = new THREE.RingGeometry(0.2, 0.6, 24);
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.95,
+      side: THREE.DoubleSide,
+    });
+    const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+    ringMesh.position.copy(origin);
+    ringMesh.position.y += 1.8;
+    this.scene.add(ringMesh);
+
+    this.soundwaves.push({
+      mesh: ringMesh,
+      life: 0,
+      maxLife: 0.22,
+      radiusGrowth: 28,
+    });
+
+    setTimeout(() => {
+      this.scene.remove(flashLight);
+      flashLight.dispose();
+    }, 120);
+  }
+
+  /**
+   * Spawns dynamic anime/GTA speed streaks during overdrive sprint or breakout dash
+   */
+  public spawnSpeedLines(origin: THREE.Vector3, forwardDir: THREE.Vector3) {
+    const count = 4;
+    const lineMat = new THREE.MeshBasicMaterial({
+      color: 0x38bdf8,
+      transparent: true,
+      opacity: 0.75,
+    });
+
+    for (let i = 0; i < count; i++) {
+      const geo = new THREE.CylinderGeometry(0.02, 0.04, 1.2, 4);
+      const mesh = new THREE.Mesh(geo, lineMat);
+      mesh.position.set(
+        origin.x + (Math.random() - 0.5) * 0.8,
+        origin.y + 0.4 + Math.random() * 1.2,
+        origin.z + (Math.random() - 0.5) * 0.8
+      );
+      mesh.rotation.x = Math.PI / 2;
+      this.scene.add(mesh);
+
+      this.particles.push({
+        mesh,
+        velocity: new THREE.Vector3(
+          -forwardDir.x * 6 + (Math.random() - 0.5),
+          0.2,
+          -forwardDir.z * 6 + (Math.random() - 0.5)
+        ),
+        life: 0,
+        maxLife: 0.28,
+        scaleGrowth: 0.5,
+        initialScale: 1.0,
+      });
+    }
+  }
+
+  /**
    * Spawns floating Gen-Z live-stream emoji sprites (hearts, megaphones, lightning)
    * Uses persistent texture cache for Zero-GC
    */

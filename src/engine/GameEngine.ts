@@ -91,6 +91,9 @@ export class GameEngine {
   private static readonly _headPos = new THREE.Vector3();
   private static readonly _frontDir = new THREE.Vector3();
   private static readonly _tacticalPos = new THREE.Vector3();
+  private static readonly _camRay = new THREE.Ray();
+  private static readonly _hitPoint = new THREE.Vector3();
+  private droneFlashTimer: number = 0;
   private _radarEntitiesPool: RadarEntity[] = [];
 
   constructor(
@@ -674,6 +677,7 @@ export class GameEngine {
     this.setAbilityCooldown('PURSUIT_BOOST', 6.0);
 
     this.localPlayer.triggerPursuitBoost(3.5);
+    audioManager.playPoliceRadioChatter();
     const pos = this.localPlayer.mesh.position.clone();
     this.particleSystem.spawnLiveStreamEmoji(pos, '🚨');
 
@@ -827,6 +831,7 @@ export class GameEngine {
     this.matchState.minigameProgress = 40;
 
     audioManager.startSiren(0.2);
+    audioManager.playPoliceRadioChatter();
     audioManager.playTensionHeartbeat();
 
     if (this.onMinigameTrigger) {
@@ -931,6 +936,7 @@ export class GameEngine {
       this.matchState.isGameOver = true;
       this.matchState.winner = 'PROTESTOR';
       audioManager.playCrowdCheer(1.0);
+      audioManager.playVictoryFanfare();
       if (this.localPlayer) {
         this.particleSystem.spawnConfettiSurge(this.localPlayer.mesh.position);
       }
@@ -939,6 +945,7 @@ export class GameEngine {
       this.matchState.winner = 'POLICE';
       audioManager.playHandcuffClick();
       if (this.localPlayer && this.localPlayer.state.team === 'POLICE') {
+        audioManager.playVictoryFanfare();
         this.particleSystem.spawnConfettiSurge(this.localPlayer.mesh.position);
       }
     }
@@ -977,6 +984,42 @@ export class GameEngine {
         Math.max(1.0, targetPos.y + offsetY),
         targetPos.z + offsetZ
       );
+
+      const headX = targetPos.x;
+      const headY = targetPos.y + 1.45;
+      const headZ = targetPos.z;
+      const toCamX = GameEngine._idealCamPos.x - headX;
+      const toCamY = GameEngine._idealCamPos.y - headY;
+      const toCamZ = GameEngine._idealCamPos.z - headZ;
+      const fullDist = Math.hypot(toCamX, toCamY, toCamZ);
+
+      if (fullDist > 0.1) {
+        GameEngine._camRay.origin.set(headX, headY, headZ);
+        GameEngine._camRay.direction.set(toCamX / fullDist, toCamY / fullDist, toCamZ / fullDist);
+
+        let closestHitDist = fullDist;
+        for (let i = 0; i < this.colliders.length; i++) {
+          const c = this.colliders[i];
+          if (c.type === 'RAMP') continue;
+          const hit = GameEngine._camRay.intersectBox(c.box, GameEngine._hitPoint);
+          if (hit) {
+            const hitDist = GameEngine._camRay.origin.distanceTo(hit);
+            if (hitDist > 0.35 && hitDist < closestHitDist) {
+              closestHitDist = hitDist;
+            }
+          }
+        }
+
+        if (closestHitDist < fullDist) {
+          const safeDist = Math.max(1.25, closestHitDist - 0.4);
+          GameEngine._idealCamPos.set(
+            headX + (toCamX / fullDist) * safeDist,
+            Math.max(0.8, headY + (toCamY / fullDist) * safeDist),
+            headZ + (toCamZ / fullDist) * safeDist
+          );
+        }
+      }
+
       this.camera.position.copy(GameEngine._idealCamPos);
       GameEngine._lookTarget.set(targetPos.x, targetPos.y + 1.45, targetPos.z);
       this.camera.lookAt(GameEngine._lookTarget);
@@ -1014,6 +1057,11 @@ export class GameEngine {
         if (hasChai) {
           this.localPlayer.currentStamina = 100;
         }
+        const isRain = this.weatherManager.currentWeather === 'MONSOON_RAIN';
+        const p = this.localPlayer.mesh.position;
+        const isParisWet = this.selectedMap === 'PARIS' && Math.hypot(p.x, p.z) < 55;
+        this.localPlayer.isInPuddle = isRain || isParisWet;
+
         this.localPlayer.update(delta, this.currentInput, this.colliders, this.cameraYaw);
       }
 
@@ -1109,6 +1157,14 @@ export class GameEngine {
 
         if (this.matchState.isPlayerInSpotlight && this.localPlayer.state.team === 'PROTESTOR') {
           this.addAwareness(delta * 0.8);
+
+          // Media Press Drone Flash Strobe
+          this.droneFlashTimer += delta;
+          if (this.droneFlashTimer > 3.2) {
+            this.droneFlashTimer = 0;
+            this.particleSystem.spawnCameraFlash(this.localPlayer.mesh.position);
+            audioManager.playCameraFlash();
+          }
         }
       }
 
@@ -1291,6 +1347,43 @@ export class GameEngine {
         Math.max(1.0, targetPos.y + offsetY),
         targetPos.z + offsetZ
       );
+
+      // AAA Camera Collision & Occlusion Avoidance against world colliders
+      const headX = targetPos.x;
+      const headY = targetPos.y + 1.45;
+      const headZ = targetPos.z;
+
+      const toCamX = GameEngine._idealCamPos.x - headX;
+      const toCamY = GameEngine._idealCamPos.y - headY;
+      const toCamZ = GameEngine._idealCamPos.z - headZ;
+      const fullDist = Math.hypot(toCamX, toCamY, toCamZ);
+
+      if (fullDist > 0.1) {
+        GameEngine._camRay.origin.set(headX, headY, headZ);
+        GameEngine._camRay.direction.set(toCamX / fullDist, toCamY / fullDist, toCamZ / fullDist);
+
+        let closestHitDist = fullDist;
+        for (let i = 0; i < this.colliders.length; i++) {
+          const c = this.colliders[i];
+          if (c.type === 'RAMP') continue;
+          const hit = GameEngine._camRay.intersectBox(c.box, GameEngine._hitPoint);
+          if (hit) {
+            const hitDist = GameEngine._camRay.origin.distanceTo(hit);
+            if (hitDist > 0.35 && hitDist < closestHitDist) {
+              closestHitDist = hitDist;
+            }
+          }
+        }
+
+        if (closestHitDist < fullDist) {
+          const safeDist = Math.max(1.25, closestHitDist - 0.4);
+          GameEngine._idealCamPos.set(
+            headX + (toCamX / fullDist) * safeDist,
+            Math.max(0.8, headY + (toCamY / fullDist) * safeDist),
+            headZ + (toCamZ / fullDist) * safeDist
+          );
+        }
+      }
 
       this.camera.position.lerp(GameEngine._idealCamPos, Math.min(1.0, delta * 11));
       GameEngine._lookTarget.set(targetPos.x, targetPos.y + 1.45, targetPos.z);
