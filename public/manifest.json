@@ -1,0 +1,18 @@
+{
+  "name": "Protest-n-Chase: World Tour",
+  "short_name": "Protest-n-Chase",
+  "description": "High-octane 3D tactical action game created by Shazeb Anwar Khan. Subway-style evasion, global city maps, and real-time multiplayer.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#090d16",
+  "theme_color": "#090d16",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📢</text></svg>",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

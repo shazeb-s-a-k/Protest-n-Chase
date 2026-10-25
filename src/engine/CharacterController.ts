@@ -41,6 +41,13 @@ export class CharacterController {
   public radius: number = 0.55;
   public height: number = 1.85;
 
+  // Zero-GC scratch instances to eliminate thousands of allocations per second
+  private static _scratchMoveDir = new THREE.Vector3();
+  private static _scratchPlayerBox = new THREE.Box3();
+  private static _scratchBoxCenter = new THREE.Vector3();
+  private static _scratchBoxSize = new THREE.Vector3();
+  private static _scratchResolvedPos = new THREE.Vector3();
+
   constructor(scene: THREE.Scene, state: PlayerState) {
     this.state = state;
     this.mesh = this.buildCharacterMesh(state.team);
@@ -798,8 +805,8 @@ export class CharacterController {
       this.velocity.y -= 22 * delta;
     }
 
-    // Movement Direction calculation
-    const moveDir = new THREE.Vector3();
+    // Movement Direction calculation (Zero GC allocation)
+    const moveDir = CharacterController._scratchMoveDir.set(0, 0, 0);
     if (input.moveForward !== 0 || input.moveRight !== 0) {
       moveDir.set(input.moveRight, 0, -input.moveForward).normalize();
 
@@ -808,15 +815,16 @@ export class CharacterController {
       this.state.rotation = targetAngle;
     }
 
-    const moveOffset = moveDir.clone().multiplyScalar(speed * delta);
-    const nextX = this.mesh.position.x + moveOffset.x;
-    const nextZ = this.mesh.position.z + moveOffset.z;
+    const nextX = this.mesh.position.x + moveDir.x * speed * delta;
+    const nextZ = this.mesh.position.z + moveDir.z * speed * delta;
     const nextY = Math.max(0, this.mesh.position.y + this.velocity.y * delta);
 
     const newPos = this.resolveCollisions(nextX, nextY, nextZ, colliders);
 
     this.mesh.position.copy(newPos);
-    this.state.position = { x: newPos.x, y: newPos.y, z: newPos.z };
+    this.state.position.x = newPos.x;
+    this.state.position.y = newPos.y;
+    this.state.position.z = newPos.z;
 
     if (newPos.y <= 0.05) {
       this.mesh.position.y = 0;
@@ -825,7 +833,7 @@ export class CharacterController {
       this.state.isJumping = false;
     }
 
-    this.animateLimbs(delta, moveDir.length() > 0, speed);
+    this.animateLimbs(delta, moveDir.lengthSq() > 0, speed);
   }
 
   private resolveCollisions(
@@ -834,17 +842,17 @@ export class CharacterController {
     targetZ: number,
     colliders: Collider[]
   ): THREE.Vector3 {
-    const playerBox = new THREE.Box3();
+    const playerBox = CharacterController._scratchPlayerBox;
     const halfR = this.radius;
     const charHeight = this.state.isSliding ? 0.7 : this.height;
 
     let resolvedX = targetX;
-    playerBox.setFromCenterAndSize(
-      new THREE.Vector3(targetX, targetY + charHeight / 2, this.mesh.position.z),
-      new THREE.Vector3(halfR * 2, charHeight, halfR * 2)
-    );
+    CharacterController._scratchBoxCenter.set(targetX, targetY + charHeight / 2, this.mesh.position.z);
+    CharacterController._scratchBoxSize.set(halfR * 2, charHeight, halfR * 2);
+    playerBox.setFromCenterAndSize(CharacterController._scratchBoxCenter, CharacterController._scratchBoxSize);
 
-    for (const c of colliders) {
+    for (let i = 0; i < colliders.length; i++) {
+      const c = colliders[i];
       if (this.state.isSliding && c.type === 'BARRICADE' && targetY < 0.8) {
         continue;
       }
@@ -855,12 +863,11 @@ export class CharacterController {
     }
 
     let resolvedZ = targetZ;
-    playerBox.setFromCenterAndSize(
-      new THREE.Vector3(resolvedX, targetY + charHeight / 2, targetZ),
-      new THREE.Vector3(halfR * 2, charHeight, halfR * 2)
-    );
+    CharacterController._scratchBoxCenter.set(resolvedX, targetY + charHeight / 2, targetZ);
+    playerBox.setFromCenterAndSize(CharacterController._scratchBoxCenter, CharacterController._scratchBoxSize);
 
-    for (const c of colliders) {
+    for (let i = 0; i < colliders.length; i++) {
+      const c = colliders[i];
       if (this.state.isSliding && c.type === 'BARRICADE' && targetY < 0.8) {
         continue;
       }
@@ -870,7 +877,7 @@ export class CharacterController {
       }
     }
 
-    return new THREE.Vector3(resolvedX, targetY, resolvedZ);
+    return CharacterController._scratchResolvedPos.set(resolvedX, targetY, resolvedZ);
   }
 
   /**

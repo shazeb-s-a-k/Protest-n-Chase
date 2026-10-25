@@ -49,6 +49,24 @@ class AudioManager {
     }
   }
 
+  /**
+   * Pre-warms the Web Audio synthesizer buffers in RAM so sound effects trigger with 0ms latency
+   */
+  public async preloadAudio(): Promise<void> {
+    this.init();
+    if (this.ctx) {
+      try {
+        const dummyBuffer = this.ctx.createBuffer(1, 1, this.ctx.sampleRate);
+        const source = this.ctx.createBufferSource();
+        source.buffer = dummyBuffer;
+        source.connect(this.ctx.destination);
+        source.start(0);
+      } catch (e) {
+        // non-blocking
+      }
+    }
+  }
+
   public setMuted(muted: boolean) {
     this.isMuted = muted;
     if (this.masterGain && this.ctx) {

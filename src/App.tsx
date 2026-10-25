@@ -21,6 +21,7 @@ import { VictoryModal } from './components/VictoryModal';
 import { SettingsModal } from './components/SettingsModal';
 import { PhotoBoothModal } from './components/PhotoBoothModal';
 import { SupportModal } from './components/SupportModal';
+import { LoadingOverlay } from './components/LoadingOverlay';
 import { audioManager } from './engine/AudioManager';
 import { Smartphone } from 'lucide-react';
 
@@ -30,6 +31,9 @@ export const App: React.FC = () => {
 
   // Game UI States
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isLoadingAssets, setIsLoadingAssets] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [loadingStatus, setLoadingStatus] = useState('Initializing device memory...');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isPhotoBoothOpen, setIsPhotoBoothOpen] = useState(false);
   const [isSupportOpen, setIsSupportOpen] = useState(false);
@@ -200,12 +204,16 @@ export const App: React.FC = () => {
     slide: false,
   });
 
-  // Start Match
-  const handleStartGame = (team: Team, mode: GameMode, roomCode?: string, mapId: MapId = 'DELHI') => {
+  // Start Match with full RAM Asset Preloading
+  const handleStartGame = async (team: Team, mode: GameMode, roomCode?: string, mapId: MapId = 'DELHI') => {
     setLaunchError(null);
+    setIsLoadingAssets(true);
+    setLoadingProgress(10);
+    setLoadingStatus('Initializing Web Audio synthesis buffers...');
+
     try {
       audioManager.init();
-      console.log('🎮 Starting Awaaz Match:', { team, mode, roomCode, mapId });
+      console.log('🎮 Starting Protest-n-Chase Match:', { team, mode, roomCode, mapId });
 
       if (mapId === 'PARIS') {
         setComments([
@@ -264,11 +272,19 @@ export const App: React.FC = () => {
         ]);
       };
 
+      // Preload & compile all PBR textures, audio synthesis, and WebGL shaders into RAM/VRAM
+      await engine.preloadAssets((pct, status) => {
+        setLoadingProgress(pct);
+        setLoadingStatus(status);
+      });
+
+      setIsLoadingAssets(false);
       setIsPlaying(true);
     } catch (err: any) {
       console.error('❌ Error during GameEngine initialization:', err);
       const msg = err instanceof Error ? err.message : String(err);
       setLaunchError(msg);
+      setIsLoadingAssets(false);
       setIsPlaying(false);
     }
   };
@@ -482,6 +498,7 @@ export const App: React.FC = () => {
       engineRef.current.destroy();
       engineRef.current = null;
     }
+    setIsLoadingAssets(false);
     setIsPlaying(false);
     setIsSettingsOpen(false);
     setIsPhotoBoothOpen(false);
@@ -599,8 +616,13 @@ export const App: React.FC = () => {
         </div>
       )}
 
+      {/* RAM Asset Preloading Screen */}
+      {isLoadingAssets && (
+        <LoadingOverlay progress={loadingProgress} status={loadingStatus} />
+      )}
+
       {/* Team Selection & Mode Modal */}
-      {!isPlaying && (
+      {!isPlaying && !isLoadingAssets && (
         <TeamSelectModal
           onStartGame={handleStartGame}
           onOpenSupport={() => setIsSupportOpen(true)}

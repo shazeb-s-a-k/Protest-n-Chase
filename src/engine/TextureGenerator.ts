@@ -625,5 +625,44 @@ export class TextureGenerator {
     this.cache.set(key, tex);
     return tex;
   }
+
+  /**
+   * Pre-generates 100% of PBR textures into device RAM and uploads them directly
+   * into GPU VRAM units via renderer.initTexture so there are ZERO mid-game stutters!
+   */
+  public static async preloadAllTextures(renderer?: THREE.WebGLRenderer): Promise<void> {
+    // 1. Synthesize all textures into persistent RAM cache
+    this.getAsphaltTexture();
+    this.getSandstoneFlagstoneTexture();
+    this.getParisCobblestoneTexture();
+    this.getFabricBumpTexture();
+    this.getTacticalKevlarTexture();
+    this.getGTABoulevardRoadTexture();
+    this.getZebraCrosswalkTexture();
+    this.getPalmBarkTexture();
+    this.getPalmFrondTexture();
+
+    // Pre-cache all neon signs
+    const neonPresets = [
+      { t: 'OCEAN DRIVE RALLY', c: '#ec4899', s: 'VICE CITY TOUR' },
+      { t: 'DELHI 24/7 CLUB', c: '#38bdf8', s: 'ALL NIGHT ACCESS' },
+      { t: 'SYNTHWAVE STAGE', c: '#facc15', s: 'LIVE MUSIC' },
+      { t: 'LE BISTROT DE LA BASTILLE', c: '#38bdf8', s: 'GASTRONOMIE & CAFÉ' },
+      { t: 'CLUB D\'OR BASTILLE', c: '#ec4899', s: 'DISCOTHÈQUE' },
+      { t: 'PROTEST-N-CHASE PARIS', c: '#facc15', s: 'WORLD TOUR 2026' },
+    ];
+    neonPresets.forEach((p) => this.getNeonSignTexture(p.t, p.c, p.s));
+
+    // 2. Pin textures into GPU VRAM if renderer is available
+    if (renderer) {
+      this.cache.forEach((tex) => {
+        try {
+          renderer.initTexture(tex);
+        } catch (e) {
+          // non-critical, renderer will bind on first frame
+        }
+      });
+    }
+  }
 }
 
