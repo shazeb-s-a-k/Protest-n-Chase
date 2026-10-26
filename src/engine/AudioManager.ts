@@ -1,3 +1,5 @@
+import { RadioStation } from '../types/game';
+
 /**
  * Audio Engine: Web Audio API Procedural Synthesizer & Speech Chants
  * Generates rich, authentic sounds in real time without external mp3 dependencies.
@@ -16,6 +18,11 @@ class AudioManager {
   private droneOsc: OscillatorNode | null = null;
   private droneGain: GainNode | null = null;
   private speechAvailable: boolean = false;
+
+  // 4-Channel In-Game Boombox Radio State
+  private currentRadioStation: RadioStation = 'OFF';
+  private radioInterval: number | null = null;
+  private radioStep: number = 0;
 
   constructor() {
     this.speechAvailable = typeof window !== 'undefined' && 'speechSynthesis' in window;
@@ -451,7 +458,7 @@ class AudioManager {
   /**
    * Sound 10: Jump, Slide & Ground Impact Landing
    */
-  public playParkourAction(type: 'JUMP' | 'SLIDE' | 'LAND') {
+  public playParkourAction(type: 'JUMP' | 'SLIDE' | 'LAND' | 'VAULT') {
     if (this.isMuted) return;
     this.init();
     if (!this.ctx || !this.sfxGain) return;
@@ -466,6 +473,12 @@ class AudioManager {
       osc.frequency.exponentialRampToValueAtTime(420, t + 0.12);
       gain.gain.setValueAtTime(0.35, t);
       gain.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
+    } else if (type === 'VAULT') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(240, t);
+      osc.frequency.exponentialRampToValueAtTime(580, t + 0.16);
+      gain.gain.setValueAtTime(0.42, t);
+      gain.gain.exponentialRampToValueAtTime(0.01, t + 0.19);
     } else if (type === 'SLIDE') {
       osc.type = 'triangle';
       osc.frequency.setValueAtTime(340, t);
@@ -484,7 +497,31 @@ class AudioManager {
     osc.connect(gain);
     gain.connect(this.sfxGain);
     osc.start(t);
-    osc.stop(t + 0.25);
+    osc.stop(t + (type === 'VAULT' ? 0.2 : 0.25));
+  }
+
+  /**
+   * Sound 11: Refreshing Chai Sip & Warm Swallow
+   */
+  public playChaiSip() {
+    if (this.isMuted) return;
+    this.init();
+    if (!this.ctx || !this.sfxGain) return;
+
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(320, t);
+    osc.frequency.linearRampToValueAtTime(540, t + 0.18);
+    gain.gain.setValueAtTime(0.25, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+
+    osc.connect(gain);
+    gain.connect(this.sfxGain);
+    osc.start(t);
+    osc.stop(t + 0.24);
   }
 
   /**
@@ -901,6 +938,220 @@ class AudioManager {
 
     osc.start(t);
     osc.stop(t + 0.68);
+  }
+
+  /**
+   * Sound 23: Street Coin & Energy Star Pickup Chime
+   * Plays sparkling ascending pentatonic harmonic notes that scale with player combo
+   */
+  public playCoinChime(comboIndex: number = 0) {
+    if (this.isMuted) return;
+    this.init();
+    if (!this.ctx || !this.sfxGain) return;
+
+    const scale = [523.25, 587.33, 659.25, 783.99, 880.0, 1046.5, 1174.66, 1318.51];
+    const freq = scale[comboIndex % scale.length];
+    const t = this.ctx.currentTime;
+
+    // Primary fundamental bell
+    const osc1 = this.ctx.createOscillator();
+    const gain1 = this.ctx.createGain();
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(freq, t);
+
+    gain1.gain.setValueAtTime(0.24, t);
+    gain1.gain.exponentialRampToValueAtTime(0.001, t + 0.38);
+
+    osc1.connect(gain1);
+    gain1.connect(this.sfxGain);
+    osc1.start(t);
+    osc1.stop(t + 0.4);
+
+    // Sparkle harmonic overtone
+    const osc2 = this.ctx.createOscillator();
+    const gain2 = this.ctx.createGain();
+    osc2.type = 'triangle';
+    osc2.frequency.setValueAtTime(freq * 2, t);
+
+    gain2.gain.setValueAtTime(0.12, t);
+    gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+
+    osc2.connect(gain2);
+    gain2.connect(this.sfxGain);
+    osc2.start(t);
+    osc2.stop(t + 0.25);
+  }
+
+  // ==============================================================
+  // 4-Channel In-Game Boombox Radio Procedural Synthesizer
+  // ==============================================================
+  public setRadioStation(station: RadioStation) {
+    if (this.currentRadioStation === station) return;
+    this.currentRadioStation = station;
+    this.stopRadioLoop();
+
+    if (station === 'OFF') return;
+
+    this.init();
+    this.radioStep = 0;
+    this.scheduleRadioStep();
+  }
+
+  public getRadioStation(): RadioStation {
+    return this.currentRadioStation;
+  }
+
+  public toggleRadioStation(): RadioStation {
+    const stations: RadioStation[] = ['OFF', 'DHOL_BRASS', 'SYNTHWAVE', 'CHILLHOP', 'AMBIENCE'];
+    const nextIdx = (stations.indexOf(this.currentRadioStation) + 1) % stations.length;
+    const nextStation = stations[nextIdx];
+    this.setRadioStation(nextStation);
+    return nextStation;
+  }
+
+  private stopRadioLoop() {
+    if (this.radioInterval) {
+      clearTimeout(this.radioInterval);
+      this.radioInterval = null;
+    }
+  }
+
+  private scheduleRadioStep = () => {
+    if (this.currentRadioStation === 'OFF') return;
+
+    // Tempo per station in milliseconds
+    let stepMs = 135;
+    if (this.currentRadioStation === 'DHOL_BRASS') stepMs = 120; // 125 BPM
+    else if (this.currentRadioStation === 'SYNTHWAVE') stepMs = 125; // 120 BPM
+    else if (this.currentRadioStation === 'CHILLHOP') stepMs = 180; // 83 BPM
+    else if (this.currentRadioStation === 'AMBIENCE') stepMs = 350; // Ambient drone
+
+    this.radioInterval = window.setTimeout(() => {
+      this.radioStep = (this.radioStep + 1) % 32;
+      this.renderRadioStep(this.currentRadioStation, this.radioStep);
+      this.scheduleRadioStep();
+    }, stepMs);
+  };
+
+  private renderRadioStep(station: RadioStation, step: number) {
+    if (this.isMuted || !this.ctx || !this.bgmGain) return;
+    const t = this.ctx.currentTime;
+
+    switch (station) {
+      case 'DHOL_BRASS': {
+        // High energy street brass & folk syncopation
+        if (step % 8 === 0 || step % 8 === 5) {
+          this.playDholBass(0.25);
+        }
+        if (step % 4 === 2) {
+          this.playTashaRimshot(0.18);
+        }
+        // Brass hit on measure starts
+        if (step % 16 === 0 || step % 16 === 6) {
+          const brassOsc = this.ctx.createOscillator();
+          const brassGain = this.ctx.createGain();
+          const brassFilter = this.ctx.createBiquadFilter();
+
+          brassOsc.type = 'sawtooth';
+          brassOsc.frequency.setValueAtTime(293.66, t); // D4 brass horn
+          brassFilter.type = 'lowpass';
+          brassFilter.frequency.setValueAtTime(1200, t);
+          brassFilter.frequency.exponentialRampToValueAtTime(450, t + 0.35);
+
+          brassGain.gain.setValueAtTime(0.18, t);
+          brassGain.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+
+          brassOsc.connect(brassFilter);
+          brassFilter.connect(brassGain);
+          brassGain.connect(this.bgmGain);
+
+          brassOsc.start(t);
+          brassOsc.stop(t + 0.42);
+        }
+        break;
+      }
+
+      case 'SYNTHWAVE': {
+        // 80s Cyber Bass Arpeggio (A minor scale)
+        const notes = [110.0, 110.0, 130.81, 164.81, 146.83, 174.61, 164.81, 130.81];
+        const bassFreq = notes[step % notes.length];
+
+        const synthOsc = this.ctx.createOscillator();
+        const synthGain = this.ctx.createGain();
+        const synthFilter = this.ctx.createBiquadFilter();
+
+        synthOsc.type = 'sawtooth';
+        synthOsc.frequency.setValueAtTime(bassFreq, t);
+
+        synthFilter.type = 'lowpass';
+        synthFilter.frequency.setValueAtTime(800, t);
+        synthFilter.Q.setValueAtTime(4, t);
+
+        synthGain.gain.setValueAtTime(0.16, t);
+        synthGain.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
+
+        synthOsc.connect(synthFilter);
+        synthFilter.connect(synthGain);
+        synthGain.connect(this.bgmGain);
+
+        synthOsc.start(t);
+        synthOsc.stop(t + 0.15);
+
+        // Synth snare on step 4 and 12
+        if (step % 8 === 4) {
+          this.playTashaRimshot(0.12);
+        }
+        break;
+      }
+
+      case 'CHILLHOP': {
+        // Relaxing Rhodes chord swells and warm vinyl kick
+        if (step % 8 === 0) {
+          // Warm jazz chord
+          const chord = [220.0, 261.63, 329.63, 392.0]; // Am7
+          chord.forEach((f) => {
+            const chordOsc = this.ctx!.createOscillator();
+            const chordGain = this.ctx!.createGain();
+            chordOsc.type = 'sine';
+            chordOsc.frequency.setValueAtTime(f, t);
+
+            chordGain.gain.setValueAtTime(0.05, t);
+            chordGain.gain.exponentialRampToValueAtTime(0.001, t + 1.2);
+
+            chordOsc.connect(chordGain);
+            chordGain.connect(this.bgmGain!);
+            chordOsc.start(t);
+            chordOsc.stop(t + 1.25);
+          });
+        }
+        if (step % 8 === 0 || step % 8 === 5) {
+          this.playDholBass(0.14);
+        }
+        break;
+      }
+
+      case 'AMBIENCE': {
+        // Soothing temple chimes and breeze whispers
+        if (step % 8 === 0 && Math.random() > 0.3) {
+          const chimeNotes = [659.25, 783.99, 880.0, 1046.5, 1174.66];
+          const chimeFreq = chimeNotes[Math.floor(Math.random() * chimeNotes.length)];
+          const chimeOsc = this.ctx.createOscillator();
+          const chimeGain = this.ctx.createGain();
+
+          chimeOsc.type = 'sine';
+          chimeOsc.frequency.setValueAtTime(chimeFreq, t);
+
+          chimeGain.gain.setValueAtTime(0.08, t);
+          chimeGain.gain.exponentialRampToValueAtTime(0.001, t + 1.8);
+
+          chimeOsc.connect(chimeGain);
+          chimeGain.connect(this.bgmGain);
+          chimeOsc.start(t);
+          chimeOsc.stop(t + 1.85);
+        }
+        break;
+      }
+    }
   }
 }
 

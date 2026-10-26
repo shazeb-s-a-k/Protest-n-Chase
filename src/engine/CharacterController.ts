@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Team, PlayerState } from '../types/game';
+import { Team, PlayerState, WardrobeConfig, EmoteType, PlacardStyle } from '../types/game';
 import { Collider } from './MapBuilder';
 import { audioManager } from './AudioManager';
 import { TextureGenerator } from './TextureGenerator';
@@ -52,6 +52,14 @@ export class CharacterController {
   public policeLightLeft?: THREE.PointLight;
   public policeLightRight?: THREE.PointLight;
 
+  // Slide-Jump Momentum Surge & Emote State
+  public slideSurgeTimer: number = 0;
+  public slideSurgeDirection: THREE.Vector3 = new THREE.Vector3();
+  public currentEmote: EmoteType | null = null;
+  public emoteTimer: number = 0;
+  private hoodieMat?: THREE.MeshStandardMaterial;
+  private headwearGroup?: THREE.Group;
+
   // Zero-GC scratch instances to eliminate thousands of allocations per second
   private static _scratchMoveDir = new THREE.Vector3();
   private static _scratchPlayerBox = new THREE.Box3();
@@ -59,12 +67,16 @@ export class CharacterController {
   private static _scratchBoxSize = new THREE.Vector3();
   private static _scratchResolvedPos = new THREE.Vector3();
 
-  constructor(scene: THREE.Scene, state: PlayerState) {
+  constructor(scene: THREE.Scene, state: PlayerState, wardrobe?: WardrobeConfig) {
     this.state = state;
     this.mesh = this.buildCharacterMesh(state.team);
     this.mesh.position.set(state.position.x, state.position.y, state.position.z);
     this.mesh.rotation.y = state.rotation;
     scene.add(this.mesh);
+
+    if (wardrobe) {
+      this.applyWardrobe(wardrobe);
+    }
   }
 
   /**
@@ -123,6 +135,8 @@ export class CharacterController {
         bumpScale: 0.03,
       });
     }
+
+    this.hoodieMat = hoodieMat;
 
     // ==============================================================
     // 1. Torso & Upper Body
@@ -298,6 +312,10 @@ export class CharacterController {
       hair.position.set(0, 0.06, -0.02);
       this.headGroup.add(hair);
 
+      // Dynamic Headwear Mount Point for Wardrobe Customizer
+      this.headwearGroup = new THREE.Group();
+      this.headGroup.add(this.headwearGroup);
+
       // Snapback Cap with curved visor
       const capDomeGeo = new THREE.SphereGeometry(0.255, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2);
       const capMat = new THREE.MeshStandardMaterial({
@@ -306,14 +324,14 @@ export class CharacterController {
       });
       const capDome = new THREE.Mesh(capDomeGeo, capMat);
       capDome.position.set(0, 0.08, -0.01);
-      this.headGroup.add(capDome);
+      this.headwearGroup.add(capDome);
 
       // Curved Cap Visor / Bill
       const visorGeo = new THREE.BoxGeometry(0.28, 0.025, 0.22);
       const visor = new THREE.Mesh(visorGeo, capMat);
       visor.position.set(0, 0.1, 0.28);
       visor.rotation.x = -0.15;
-      this.headGroup.add(visor);
+      this.headwearGroup.add(visor);
 
       // Iconic Vice City Gold Aviator Sunglasses
       const shadesFrameMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.95, roughness: 0.15 });
@@ -323,15 +341,15 @@ export class CharacterController {
         const lens = new THREE.Mesh(lensGeo, shadesLensMat);
         lens.rotation.x = Math.PI / 2;
         lens.position.set(sx, 0.04, 0.24);
-        this.headGroup?.add(lens);
+        this.headwearGroup?.add(lens);
 
         const frame = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.006, 6, 16), shadesFrameMat);
         frame.position.set(sx, 0.04, 0.245);
-        this.headGroup?.add(frame);
+        this.headwearGroup?.add(frame);
       });
       const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.008, 0.01), shadesFrameMat);
       bridge.position.set(0, 0.06, 0.245);
-      this.headGroup.add(bridge);
+      this.headwearGroup.add(bridge);
 
       // Chunky DJ / Streetwear Wireless Headphones around neck
       const hpBandGeo = new THREE.TorusGeometry(0.22, 0.025, 8, 20, Math.PI * 1.3);
@@ -749,6 +767,163 @@ export class CharacterController {
     (this.placardMesh.material as THREE.MeshStandardMaterial).needsUpdate = true;
   }
 
+  /**
+   * Applies customizable Wardrobe configuration (Jacket color, Headwear model, Placard style)
+   */
+  public applyWardrobe(config: WardrobeConfig) {
+    // 1. Custom Jacket Style
+    if (this.hoodieMat) {
+      const colors: Record<string, number> = {
+        ELECTRIC_PINK: 0xec4899,
+        TACTICAL_BLUE: 0x1e3a8a,
+        CYBER_YELLOW: 0xfacc15,
+        KHADI_GREEN: 0x15803d,
+        PARIS_TRICOLORE: 0x2563eb,
+      };
+      const hex = colors[config.jacket] || 0xec4899;
+      this.hoodieMat.color.setHex(hex);
+      this.hoodieMat.needsUpdate = true;
+    }
+
+    // 2. Headwear Stylization
+    if (this.headwearGroup) {
+      while (this.headwearGroup.children.length > 0) {
+        const child = this.headwearGroup.children[0];
+        this.headwearGroup.remove(child);
+      }
+
+      if (config.headwear === 'AVIATORS') {
+        const shadesFrameMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.95, roughness: 0.15 });
+        const shadesLensMat = new THREE.MeshStandardMaterial({ color: 0x090d16, metalness: 0.9, roughness: 0.05 });
+        [-0.08, 0.08].forEach((sx) => {
+          const lensGeo = new THREE.CylinderGeometry(0.048, 0.048, 0.015, 12);
+          const lens = new THREE.Mesh(lensGeo, shadesLensMat);
+          lens.rotation.x = Math.PI / 2;
+          lens.position.set(sx, 0.04, 0.24);
+          this.headwearGroup?.add(lens);
+
+          const frame = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.006, 6, 16), shadesFrameMat);
+          frame.position.set(sx, 0.04, 0.245);
+          this.headwearGroup?.add(frame);
+        });
+        const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.008, 0.01), shadesFrameMat);
+        bridge.position.set(0, 0.06, 0.245);
+        this.headwearGroup.add(bridge);
+      } else if (config.headwear === 'PRESS_BERET') {
+        const beretGeo = new THREE.CylinderGeometry(0.26, 0.3, 0.08, 16);
+        const beretMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.7 });
+        const beret = new THREE.Mesh(beretGeo, beretMat);
+        beret.position.set(0.05, 0.14, 0);
+        beret.rotation.z = -0.18;
+        this.headwearGroup.add(beret);
+      } else if (config.headwear === 'STREET_BEANIE') {
+        const beanieGeo = new THREE.SphereGeometry(0.265, 16, 12, 0, Math.PI * 2, 0, Math.PI / 1.7);
+        const beanieMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.85 });
+        const beanie = new THREE.Mesh(beanieGeo, beanieMat);
+        beanie.position.set(0, 0.08, -0.01);
+        this.headwearGroup.add(beanie);
+      } else if (config.headwear === 'BANDANA') {
+        const bandGeo = new THREE.TorusGeometry(0.25, 0.04, 8, 20);
+        const bandMat = new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.6 });
+        const band = new THREE.Mesh(bandGeo, bandMat);
+        band.rotation.x = Math.PI / 2;
+        band.position.set(0, 0.06, 0.02);
+        this.headwearGroup.add(band);
+      }
+    }
+
+    // 3. Placard Aesthetic
+    if (this.placardMesh) {
+      this.updatePlacardStyle(config.placardStyle, this.state.placardText || 'AWAAZ');
+    }
+  }
+
+  /**
+   * Updates held placard material based on wardrobe placard style
+   */
+  public updatePlacardStyle(style: PlacardStyle, text: string) {
+    if (!this.placardMesh) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 320;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      if (style === 'NEON_CYBER') {
+        ctx.fillStyle = '#090d16';
+        ctx.fillRect(0, 0, 512, 320);
+        ctx.strokeStyle = '#00f0ff';
+        ctx.lineWidth = 10;
+        ctx.strokeRect(8, 8, 496, 304);
+        ctx.fillStyle = '#00f0ff';
+        ctx.shadowColor = '#00f0ff';
+        ctx.shadowBlur = 12;
+      } else if (style === 'GOLD_LEAF') {
+        ctx.fillStyle = '#1e1b4b';
+        ctx.fillRect(0, 0, 512, 320);
+        ctx.strokeStyle = '#facc15';
+        ctx.lineWidth = 12;
+        ctx.strokeRect(8, 8, 496, 304);
+        ctx.fillStyle = '#facc15';
+        ctx.shadowColor = '#facc15';
+        ctx.shadowBlur = 10;
+      } else if (style === 'FLAG_BANNER') {
+        ctx.fillStyle = '#ff9933';
+        ctx.fillRect(0, 0, 512, 106);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 106, 512, 108);
+        ctx.fillStyle = '#138808';
+        ctx.fillRect(0, 214, 512, 106);
+        ctx.fillStyle = '#000080';
+      } else {
+        // CARDBOARD
+        ctx.fillStyle = '#d97706';
+        ctx.fillRect(0, 0, 512, 320);
+        ctx.strokeStyle = '#92400e';
+        ctx.lineWidth = 12;
+        ctx.strokeRect(8, 8, 496, 304);
+        ctx.fillStyle = '#1c1917';
+      }
+      ctx.font = '900 48px Outfit, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(text, 256, 175);
+    }
+    const tex = new THREE.CanvasTexture(canvas);
+    (this.placardMesh.material as THREE.MeshStandardMaterial).map = tex;
+    (this.placardMesh.material as THREE.MeshStandardMaterial).needsUpdate = true;
+  }
+
+  /**
+   * Plays expressive procedural emote animation (Bhangra, Fist Pump, Backflip, Chai Sip, Megaphone)
+   */
+  public playEmote(emote: EmoteType) {
+    if (this.state.isDetained || this.state.isGrappled) return;
+    this.currentEmote = emote;
+    this.emoteTimer = 3.5;
+
+    switch (emote) {
+      case 'BHANGRA':
+        audioManager.playDholBass(0.42);
+        this.particleSystem?.spawnComicPopup('🕺 BHANGRA BEAT!', this.mesh.position, '#f43f5e');
+        break;
+      case 'FIST_PUMP':
+        audioManager.speakSlogan('INQUILAB ZINDABAD!');
+        this.particleSystem?.spawnComicPopup('✊ INQUILAB!', this.mesh.position, '#00f0ff');
+        break;
+      case 'BACKFLIP':
+        audioManager.playParkourAction('VAULT');
+        this.particleSystem?.spawnComicPopup('⚡ BACKFLIP!', this.mesh.position, '#facc15');
+        break;
+      case 'CHAI_SIP':
+        audioManager.playChaiSip();
+        this.particleSystem?.spawnComicPopup('☕ KADAK CHAI!', this.mesh.position, '#f59e0b');
+        break;
+      case 'MEGAPHONE_SOLO':
+        audioManager.playPoliceDispersalWarning();
+        this.particleSystem?.spawnComicPopup('📢 AWAAZ DO!', this.mesh.position, '#a855f7');
+        break;
+    }
+  }
+
   public setHumanChain(active: boolean) {
     this.state.isInHumanChain = active;
     if (this.auraRing) {
@@ -853,6 +1028,12 @@ export class CharacterController {
       speed = 24.5;
     }
 
+    const isSlideSurge = this.slideSurgeTimer > 0;
+    if (isSlideSurge) {
+      this.slideSurgeTimer -= delta;
+      speed = Math.max(speed, 22.0);
+    }
+
     const isPursuit = this.pursuitTimer > 0;
     if (isPursuit) {
       this.pursuitTimer -= delta;
@@ -871,7 +1052,7 @@ export class CharacterController {
     }
 
     // 2. Sprint & Stamina Mechanics
-    if (!isDashing && !isPursuit) {
+    if (!isDashing && !isPursuit && !isSlideSurge) {
       if (input.sprint && this.currentStamina > 5) {
         speed *= isProtestor ? 1.55 : 1.45;
         this.currentStamina = Math.max(0, this.currentStamina - delta * 25);
@@ -884,10 +1065,25 @@ export class CharacterController {
       this.state.isSprinting = true;
     }
 
-    // 3. Slide Mechanic (Parkour slide)
-    if (input.slide && this.isGrounded && !this.state.isSliding && !isDashing) {
+    // 3. Momentum Parkour Slide & Slide-Jump Mechanics
+    if (input.jump && this.state.isSliding) {
+      // Momentum Parkour Slide-Jump: convert slide inertia into massive forward leap!
+      this.state.isSliding = false;
+      this.velocity.y = isProtestor ? 10.2 : 8.8;
+      this.isGrounded = false;
+      this.state.isJumping = true;
+      this.slideSurgeTimer = 0.45;
+      this.slideSurgeDirection.set(Math.sin(this.mesh.rotation.y), 0, Math.cos(this.mesh.rotation.y)).normalize();
+      audioManager.playParkourAction('VAULT');
+      this.particleSystem?.spawnComicPopup('SLICK SLIDE-JUMP! ⚡', this.mesh.position, '#38bdf8');
+      this.particleSystem?.spawnNeonSprintTrail(this.mesh.position, 0x00f0ff);
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        navigator.vibrate([40, 30, 40]);
+      }
+    } else if (input.slide && this.isGrounded && !this.state.isSliding && !isDashing) {
       this.state.isSliding = true;
       this.particleSystem?.spawnSlideDust(this.mesh.position);
+      this.particleSystem?.spawnComicPopup('SLICK SLIDE!', this.mesh.position, '#38bdf8');
       audioManager.playParkourAction('SLIDE');
       if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
         navigator.vibrate(30);
@@ -1144,6 +1340,80 @@ export class CharacterController {
    * Procedural articulated limb animations for run, sprint, slide, and jump
    */
   private animateLimbs(delta: number, isMoving: boolean, currentSpeed: number) {
+    // 0. Active Emote Animation Overrides
+    if (this.currentEmote && this.emoteTimer > 0) {
+      if (isMoving || !this.isGrounded) {
+        this.currentEmote = null;
+        this.emoteTimer = 0;
+      } else {
+        this.emoteTimer -= delta;
+        const t = (3.5 - this.emoteTimer) * 4;
+
+        switch (this.currentEmote) {
+          case 'BHANGRA': {
+            const armWave = Math.sin(t * 2.2) * 0.45;
+            if (this.leftArmGroup) {
+              this.leftArmGroup.rotation.x = -Math.PI / 1.4 + armWave;
+              this.leftArmGroup.rotation.z = -0.4;
+            }
+            if (this.rightArmGroup) {
+              this.rightArmGroup.rotation.x = -Math.PI / 1.4 - armWave;
+              this.rightArmGroup.rotation.z = 0.4;
+            }
+            if (this.leftLegGroup) this.leftLegGroup.rotation.x = Math.max(0, Math.sin(t * 2)) * 0.5;
+            if (this.rightLegGroup) this.rightLegGroup.rotation.x = Math.max(0, -Math.sin(t * 2)) * 0.5;
+            if (this.torsoGroup) this.torsoGroup.position.y = 1.05 + Math.abs(Math.sin(t * 2)) * 0.12;
+            return;
+          }
+          case 'FIST_PUMP': {
+            if (this.rightArmGroup) {
+              this.rightArmGroup.rotation.x = -Math.PI / 1.1 + Math.sin(t * 3) * 0.2;
+              this.rightArmGroup.rotation.z = 0.2;
+            }
+            if (this.leftArmGroup) {
+              this.leftArmGroup.rotation.x = 0.2;
+              this.leftArmGroup.rotation.z = -0.3;
+            }
+            if (this.headGroup) this.headGroup.rotation.x = -0.25;
+            return;
+          }
+          case 'BACKFLIP': {
+            const progress = (3.5 - this.emoteTimer) / 1.0;
+            if (progress <= 1.0) {
+              this.mesh.rotation.x = -progress * Math.PI * 2;
+              if (this.torsoGroup) this.torsoGroup.position.y = 1.05 + Math.sin(progress * Math.PI) * 1.5;
+              if (this.leftLegGroup) this.leftLegGroup.rotation.x = -Math.PI / 2.5;
+              if (this.rightLegGroup) this.rightLegGroup.rotation.x = -Math.PI / 2.5;
+              return;
+            } else {
+              this.mesh.rotation.x = 0;
+            }
+            break;
+          }
+          case 'CHAI_SIP': {
+            if (this.rightArmGroup) {
+              this.rightArmGroup.rotation.x = -Math.PI / 2.2;
+              this.rightArmGroup.rotation.z = -0.3;
+            }
+            if (this.headGroup) {
+              this.headGroup.rotation.x = Math.sin(t) * 0.15;
+            }
+            return;
+          }
+          case 'MEGAPHONE_SOLO': {
+            if (this.rightArmGroup) {
+              this.rightArmGroup.rotation.x = -Math.PI / 2.0;
+              this.rightArmGroup.rotation.z = -0.2;
+            }
+            if (this.leftArmGroup) {
+              this.leftArmGroup.rotation.z = -0.5;
+            }
+            return;
+          }
+        }
+      }
+    }
+
     if (this.state.isSliding) {
       this.mesh.rotation.x = -Math.PI / 4;
       if (this.leftLegGroup) this.leftLegGroup.rotation.x = -Math.PI / 3;

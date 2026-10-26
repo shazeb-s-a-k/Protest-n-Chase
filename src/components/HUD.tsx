@@ -50,6 +50,9 @@ interface HUDProps {
   onOpenPhotoBooth: () => void;
   onOpenSupport?: () => void;
   onOpenCareerStats?: () => void;
+  onOpenWardrobe?: () => void;
+  onOpenEmoteWheel?: () => void;
+  onToggleRadio?: () => void;
   onUseAbility: (ability: string) => void;
   onInteractStation?: () => void;
   onTapDetained?: () => void;
@@ -77,6 +80,9 @@ export const HUD: React.FC<HUDProps> = ({
   onOpenPhotoBooth,
   onOpenSupport,
   onOpenCareerStats,
+  onOpenWardrobe,
+  onOpenEmoteWheel,
+  onToggleRadio,
   onUseAbility,
   onInteractStation,
   onTapDetained,
@@ -135,15 +141,44 @@ export const HUD: React.FC<HUDProps> = ({
       >
         {/* Left: Live Stream Indicator, Active PowerUp & Media Spotlight Alert */}
         <div className="flex flex-col gap-2 pointer-events-auto">
-          <div className="glass-panel px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-2xl flex items-center gap-2 border border-white/10 shadow-lg">
-            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full badge-live text-[10px] sm:text-xs font-bold tracking-wider uppercase">
-              <span className="w-2 h-2 rounded-full bg-white animate-ping"></span>
-              LIVE
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="glass-panel px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-2xl flex items-center gap-2 border border-white/10 shadow-lg">
+              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full badge-live text-[10px] sm:text-xs font-bold tracking-wider uppercase">
+                <span className="w-2 h-2 rounded-full bg-white animate-ping"></span>
+                LIVE
+              </div>
+              <div className="text-xs sm:text-sm font-semibold text-slate-200">
+                {matchState.viewerCount.toLocaleString()}{' '}
+                <span className="text-slate-400 font-normal hidden sm:inline">watching</span>
+              </div>
             </div>
-            <div className="text-xs sm:text-sm font-semibold text-slate-200">
-              {matchState.viewerCount.toLocaleString()}{' '}
-              <span className="text-slate-400 font-normal hidden sm:inline">watching</span>
+
+            {/* Street Coins Counter */}
+            <div className="glass-panel px-3 py-1.5 rounded-2xl flex items-center gap-1.5 border border-amber-400/40 bg-amber-950/40 shadow-lg text-amber-300 font-bold text-xs sm:text-sm">
+              <span className="text-sm">🟡</span>
+              <span>{matchState.coinsCollected || 0}</span>
+              <span className="text-[10px] text-amber-400/80 font-normal uppercase hidden sm:inline">Coins</span>
             </div>
+
+            {/* 4-Channel In-Game Boombox Radio Toggle */}
+            {onToggleRadio && (
+              <button
+                onClick={onToggleRadio}
+                className={`glass-panel px-3 py-1.5 rounded-2xl flex items-center gap-1.5 border text-xs font-bold transition-all active:scale-95 ${
+                  matchState.radioStation && matchState.radioStation !== 'OFF'
+                    ? 'border-pink-500/60 bg-pink-950/70 text-pink-300 shadow-lg shadow-pink-500/20'
+                    : 'border-white/10 hover:bg-white/10 text-slate-300'
+                }`}
+                title="Toggle Boombox Radio Channel (T)"
+              >
+                <Radio className="w-3.5 h-3.5 text-pink-400" />
+                <span className="text-[10px] sm:text-xs font-mono uppercase">
+                  {matchState.radioStation && matchState.radioStation !== 'OFF'
+                    ? matchState.radioStation.replace('_', ' ')
+                    : 'RADIO OFF'}
+                </span>
+              </button>
+            )}
           </div>
 
           {/* Active PowerUp Badge */}
@@ -370,6 +405,28 @@ export const HUD: React.FC<HUDProps> = ({
                 title="Support Shazeb Anwar Khan (UPI: shazeb26@fam)"
               >
                 <Heart className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-pink-400 fill-pink-400" />
+              </button>
+            )}
+
+            {/* Radial Emotes & Dances Wheel (<kbd>B</kbd>) */}
+            {onOpenEmoteWheel && (
+              <button
+                onClick={onOpenEmoteWheel}
+                className="glass-panel p-1.5 sm:p-2 rounded-lg sm:rounded-xl hover:bg-pink-500/30 transition-all text-pink-300 active:scale-95 border border-pink-500/40 bg-pink-500/10 shadow-lg cursor-pointer"
+                title="Expressive Emotes & Bhangra Dance (B)"
+              >
+                <span className="text-sm">🕺</span>
+              </button>
+            )}
+
+            {/* 3D Character Wardrobe Customizer (<kbd>H</kbd>) */}
+            {onOpenWardrobe && (
+              <button
+                onClick={onOpenWardrobe}
+                className="glass-panel p-1.5 sm:p-2 rounded-lg sm:rounded-xl hover:bg-cyan-500/30 transition-all text-cyan-300 active:scale-95 border border-cyan-500/40 bg-cyan-500/10 shadow-lg cursor-pointer"
+                title="3D Character Wardrobe Customizer (H)"
+              >
+                <span className="text-sm">👕</span>
               </button>
             )}
           </div>

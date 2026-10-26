@@ -396,6 +396,139 @@ export class ParticleSystem {
     });
   }
 
+  private static _comicCanvasCache: Map<string, THREE.CanvasTexture> = new Map();
+
+  /**
+   * Spawns arcade comic popups (e.g. 'SLICK SLIDE!', 'CLOSE CALL! +150', 'PARKOUR VAULT!')
+   */
+  public spawnComicPopup(text: string, origin: THREE.Vector3, color: string = '#facc15') {
+    const key = `${text}_${color}`;
+    let tex = ParticleSystem._comicCanvasCache.get(key);
+    if (!tex) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 384;
+      canvas.height = 128;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 6;
+
+        const x = 8, y = 8, w = 368, h = 112, r = 20;
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + w - r, y);
+        ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+        ctx.lineTo(x + w, y + h - r);
+        ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+        ctx.lineTo(x + r, y + h);
+        ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+        ctx.lineTo(x, y + r);
+        ctx.quadraticCurveTo(x, y, x + r, y);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = color;
+        ctx.font = '900 36px Outfit, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowColor = '#000000';
+        ctx.shadowBlur = 6;
+        ctx.fillText(text, 192, 64);
+      }
+      tex = new THREE.CanvasTexture(canvas);
+      ParticleSystem._comicCanvasCache.set(key, tex);
+    }
+
+    const spriteMat = new THREE.SpriteMaterial({
+      map: tex,
+      transparent: true,
+      opacity: 1.0,
+      depthWrite: false,
+    });
+    const sprite = new THREE.Sprite(spriteMat);
+    sprite.scale.set(3.0, 1.0, 1.0);
+    sprite.position.copy(origin);
+    sprite.position.y += 2.2;
+
+    this.scene.add(sprite as any);
+
+    this.particles.push({
+      mesh: sprite as any,
+      velocity: new THREE.Vector3(
+        (Math.random() - 0.5) * 0.2,
+        2.5,
+        (Math.random() - 0.5) * 0.2
+      ),
+      life: 0,
+      maxLife: 1.1,
+      scaleGrowth: 0.6,
+      initialScale: 1.0,
+    });
+  }
+
+  /**
+   * Spawns radiant gold star bursts when collecting street coins or tokens
+   */
+  public spawnGoldStarBurst(origin: THREE.Vector3) {
+    const count = 10;
+    for (let i = 0; i < count; i++) {
+      const mat = new THREE.MeshBasicMaterial({
+        color: 0xfacc15,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.95,
+      });
+      const mesh = new THREE.Mesh(ParticleSystem._confettiGeo, mat);
+      mesh.position.copy(origin);
+      mesh.position.y += 0.8;
+
+      const angle = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
+      const speed = 2.6 + Math.random() * 3.2;
+      mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+      this.scene.add(mesh);
+
+      this.particles.push({
+        mesh,
+        velocity: new THREE.Vector3(
+          Math.cos(angle) * speed,
+          2.2 + Math.random() * 2.0,
+          Math.sin(angle) * speed
+        ),
+        life: 0,
+        maxLife: 0.75,
+        scaleGrowth: -0.4,
+        initialScale: 1.0,
+      });
+    }
+  }
+
+  /**
+   * Spawns neon speed ribbon streaks behind sprinting or slide-jumping characters
+   */
+  public spawnNeonSprintTrail(origin: THREE.Vector3, colorHex: number = 0x00f0ff) {
+    const mat = new THREE.MeshBasicMaterial({
+      color: colorHex,
+      transparent: true,
+      opacity: 0.8,
+    });
+    const mesh = new THREE.Mesh(ParticleSystem._speedStreakGeo, mat);
+    mesh.position.copy(origin);
+    mesh.position.y += 0.2;
+    mesh.rotation.x = Math.PI / 2;
+    this.scene.add(mesh);
+
+    this.particles.push({
+      mesh,
+      velocity: new THREE.Vector3(0, 0.4, 0),
+      life: 0,
+      maxLife: 0.35,
+      scaleGrowth: 0.5,
+      initialScale: 0.9,
+    });
+  }
+
   public update(delta: number) {
     // 1. Update Standard Particles (Smoke, Water, Emojis)
     for (let i = this.particles.length - 1; i >= 0; i--) {

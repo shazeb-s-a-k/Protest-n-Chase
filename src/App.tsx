@@ -23,6 +23,9 @@ import { PhotoBoothModal } from './components/PhotoBoothModal';
 import { SupportModal } from './components/SupportModal';
 import { CareerStatsModal } from './components/CareerStatsModal';
 import { LoadingOverlay } from './components/LoadingOverlay';
+import { EmoteWheel } from './components/EmoteWheel';
+import { WardrobeModal } from './components/WardrobeModal';
+import { DifficultyMode } from './types/game';
 import { audioManager } from './engine/AudioManager';
 import { Smartphone } from 'lucide-react';
 
@@ -39,6 +42,9 @@ export const App: React.FC = () => {
   const [isPhotoBoothOpen, setIsPhotoBoothOpen] = useState(false);
   const [isSupportOpen, setIsSupportOpen] = useState(false);
   const [isCareerStatsOpen, setIsCareerStatsOpen] = useState(false);
+  const [isWardrobeOpen, setIsWardrobeOpen] = useState(false);
+  const [isEmoteWheelOpen, setIsEmoteWheelOpen] = useState(false);
+  const [difficultyMode, setDifficultyMode] = useState<DifficultyMode>('STANDARD');
   const [launchError, setLaunchError] = useState<string | null>(null);
   const [isPointerLocked, setIsPointerLocked] = useState(false);
 
@@ -247,6 +253,7 @@ export const App: React.FC = () => {
       }
 
       const engine = new GameEngine(containerRef.current, mode, team, roomCode, mapId);
+      engine.setDifficulty(difficultyMode);
       engineRef.current = engine;
 
       engine.onPointerLockChange = (locked) => {
@@ -369,7 +376,6 @@ export const App: React.FC = () => {
           }
           break;
         case 'Digit4':
-        case 'KeyH':
           if (matchState.localTeam === 'PROTESTOR') {
             engineRef.current.toggleHumanChain();
           } else {
@@ -384,7 +390,16 @@ export const App: React.FC = () => {
           }
           break;
         case 'KeyB':
-          engineRef.current.recenterCamera();
+          setIsEmoteWheelOpen((prev) => !prev);
+          break;
+        case 'KeyT':
+          if (engineRef.current) {
+            const next = engineRef.current.toggleRadioStation();
+            setMatchState((prev) => ({ ...prev, radioStation: next }));
+          }
+          break;
+        case 'KeyH':
+          setIsWardrobeOpen((prev) => !prev);
           break;
         case 'KeyE':
           if (matchState.nearInteractiveStation) {
@@ -397,7 +412,6 @@ export const App: React.FC = () => {
           engineRef.current.scatterLeafletDecoys();
           break;
         case 'KeyG':
-        case 'KeyT':
           engineRef.current.cycleKafilaCommand();
           break;
         case 'KeyP':
@@ -629,6 +643,14 @@ export const App: React.FC = () => {
             onOpenPhotoBooth={() => setIsPhotoBoothOpen(true)}
             onOpenSupport={() => setIsSupportOpen(true)}
             onOpenCareerStats={() => setIsCareerStatsOpen(true)}
+            onOpenWardrobe={() => setIsWardrobeOpen(true)}
+            onOpenEmoteWheel={() => setIsEmoteWheelOpen(true)}
+            onToggleRadio={() => {
+              if (engineRef.current) {
+                const next = engineRef.current.toggleRadioStation();
+                setMatchState((prev) => ({ ...prev, radioStation: next }));
+              }
+            }}
             onUseAbility={handleUseAbility}
             onInteractStation={() => engineRef.current?.interactWithStation()}
             onTapDetained={() => engineRef.current?.handleMinigameTap()}
@@ -660,6 +682,13 @@ export const App: React.FC = () => {
             onTapDetained={() => engineRef.current?.handleMinigameTap()}
             onScatterLeaflets={() => engineRef.current?.scatterLeafletDecoys()}
             onCycleKafilaCommand={() => engineRef.current?.cycleKafilaCommand()}
+            onOpenEmoteWheel={() => setIsEmoteWheelOpen(true)}
+            onToggleRadio={() => {
+              if (engineRef.current) {
+                const next = engineRef.current.toggleRadioStation();
+                setMatchState((prev) => ({ ...prev, radioStation: next }));
+              }
+            }}
             kafilaCommand={matchState.kafilaCommand}
             kafilaCount={matchState.kafilaCount}
             leafletsRemaining={matchState.leafletsRemaining}
@@ -712,10 +741,36 @@ export const App: React.FC = () => {
           onStartGame={handleStartGame}
           onOpenSupport={() => setIsSupportOpen(true)}
           onOpenCareerStats={() => setIsCareerStatsOpen(true)}
+          onOpenWardrobe={() => setIsWardrobeOpen(true)}
+          initialDifficulty={difficultyMode}
+          onSelectDifficulty={(mode) => {
+            setDifficultyMode(mode);
+            engineRef.current?.setDifficulty(mode);
+          }}
           isFullscreen={isFullscreen}
           onToggleFullscreen={toggleFullscreen}
         />
       )}
+
+      {/* Radial Emote Wheel */}
+      <EmoteWheel
+        isOpen={isEmoteWheelOpen}
+        onClose={() => setIsEmoteWheelOpen(false)}
+        onSelectEmote={(emote) => {
+          engineRef.current?.triggerEmote(emote);
+        }}
+      />
+
+      {/* 3D Character Wardrobe Modal */}
+      <WardrobeModal
+        isOpen={isWardrobeOpen}
+        onClose={() => setIsWardrobeOpen(false)}
+        currentConfig={matchState.wardrobe}
+        onSaveWardrobe={(config) => {
+          engineRef.current?.setWardrobe(config);
+          setMatchState((prev) => ({ ...prev, wardrobe: config }));
+        }}
+      />
 
       {/* Victory / Defeat Modal */}
       {isPlaying && matchState.isGameOver && (

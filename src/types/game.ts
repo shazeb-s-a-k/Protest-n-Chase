@@ -14,11 +14,37 @@ export type TimeOfDay = 'GOLDEN_HOUR' | 'NIGHT_RALLY' | 'MIDDAY';
 
 export type WeatherCondition = 'CLEAR_GOLDEN' | 'MONSOON_RAIN' | 'NIGHT_CYBERPUNK';
 
-export type PowerUpType = 'ENERGY_CHAI' | 'AMP_BOOST' | 'WIFI_HOTSPOT' | 'PEACE_AURA' | 'CONE_TRAP';
+export type PowerUpType = 'ENERGY_CHAI' | 'AMP_BOOST' | 'WIFI_HOTSPOT' | 'PEACE_AURA' | 'CONE_TRAP' | 'COIN_MAGNET';
 
 export type KafilaCommand = 'FOLLOW' | 'RUSH' | 'DHARNA' | 'SCATTER';
 
 export type AstronomicalZone = 'NONE' | 'SAMRAT_SUMMIT' | 'JAI_PRAKASH_BOWL' | 'RAM_YANTRA_MAZE';
+
+export type DifficultyMode = 'CHILL' | 'STANDARD' | 'HARDCORE';
+
+export type EmoteType = 'BHANGRA' | 'FIST_PUMP' | 'BACKFLIP' | 'CHAI_SIP' | 'MEGAPHONE_SOLO';
+
+export type RadioStation = 'OFF' | 'DHOL_BRASS' | 'SYNTHWAVE' | 'CHILLHOP' | 'AMBIENCE';
+
+export type JacketStyle = 'ELECTRIC_PINK' | 'TACTICAL_BLUE' | 'CYBER_YELLOW' | 'KHADI_GREEN' | 'PARIS_TRICOLORE';
+
+export type HeadwearStyle = 'NONE' | 'AVIATORS' | 'PRESS_BERET' | 'STREET_BEANIE' | 'BANDANA';
+
+export type PlacardStyle = 'NEON_CYBER' | 'CARDBOARD' | 'GOLD_LEAF' | 'FLAG_BANNER';
+
+export interface WardrobeConfig {
+  jacket: JacketStyle;
+  headwear: HeadwearStyle;
+  placardStyle: PlacardStyle;
+}
+
+export interface PickupItem {
+  id: string;
+  type: 'COIN' | 'CHAI_CUP' | 'MAGNET' | 'ENERGY_STAR';
+  position: { x: number; y: number; z: number };
+  value: number;
+  collected: boolean;
+}
 
 export interface PowerUpItem {
   id: string;
@@ -176,6 +202,17 @@ export interface GameMatchState {
   leafletsRemaining?: number;
   dholTempo?: number;
   heatLevel?: number;
+  coinsCollected?: number;
+  totalCoinsInMap?: number;
+  radioStation?: RadioStation;
+  currentRadioStation?: RadioStation;
+  difficultyMode?: DifficultyMode;
+  activeEmote?: EmoteType | null;
+  currentEmote?: EmoteType | null;
+  wardrobe?: WardrobeConfig;
+  wardrobeConfig?: WardrobeConfig;
+  flowCombo?: number;
+  flowMultiplier?: number;
   nearInteractiveStation?: {
     type: 'CHAI_TAPRI' | 'CAFE_TABLE' | 'PARKOUR_PAD';
     label: string;

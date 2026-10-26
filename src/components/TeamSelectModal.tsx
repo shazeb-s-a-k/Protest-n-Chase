@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Team, GameMode } from '../types/game';
+import { Team, GameMode, DifficultyMode } from '../types/game';
 import {
   Megaphone,
   Shield,
@@ -22,6 +22,9 @@ interface TeamSelectModalProps {
   onStartGame: (team: Team, mode: GameMode, roomCode?: string, mapId?: 'DELHI' | 'PARIS') => void;
   onOpenSupport?: () => void;
   onOpenCareerStats?: () => void;
+  onOpenWardrobe?: () => void;
+  onSelectDifficulty?: (mode: DifficultyMode) => void;
+  initialDifficulty?: DifficultyMode;
   isFullscreen?: boolean;
   onToggleFullscreen?: () => void;
 }
@@ -30,12 +33,16 @@ export const TeamSelectModal: React.FC<TeamSelectModalProps> = ({
   onStartGame,
   onOpenSupport,
   onOpenCareerStats,
+  onOpenWardrobe,
+  onSelectDifficulty,
+  initialDifficulty = 'STANDARD',
   isFullscreen = false,
   onToggleFullscreen,
 }) => {
   const [selectedTeam, setSelectedTeam] = useState<Team>('PROTESTOR');
   const [selectedMode, setSelectedMode] = useState<GameMode>('SOLO');
   const [selectedMap, setSelectedMap] = useState<'DELHI' | 'PARIS'>('DELHI');
+  const [difficulty, setDifficulty] = useState<DifficultyMode>(initialDifficulty);
   const [roomCode, setRoomCode] = useState('');
 
   return (
@@ -240,6 +247,46 @@ export const TeamSelectModal: React.FC<TeamSelectModalProps> = ({
             />
           </div>
         )}
+
+        {/* Difficulty Assist & Wardrobe Customizer Bar */}
+        <div className="flex flex-col gap-2 glass-panel p-3.5 rounded-2xl border border-white/10 bg-slate-900/60">
+          <div className="flex items-center justify-between text-xs font-bold text-slate-300">
+            <span className="uppercase tracking-wider text-[11px] text-cyan-300">Gameplay Intensity / Assist Mode:</span>
+            {onOpenWardrobe && (
+              <button
+                type="button"
+                onClick={onOpenWardrobe}
+                className="px-3 py-1 rounded-xl bg-pink-500/20 hover:bg-pink-500/30 text-pink-300 border border-pink-500/40 text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer shadow-lg shadow-pink-500/10"
+              >
+                <span>👕 Customize Wardrobe</span>
+              </button>
+            )}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {[
+              { id: 'CHILL', label: 'Chill Explorer', icon: '🕊️', desc: 'No detention, infinite stamina, free parkour roam' },
+              { id: 'STANDARD', label: 'Standard Rally', icon: '⚖️', desc: 'Original balanced tag & rally mechanics' },
+              { id: 'HARDCORE', label: 'Hardcore Riot', icon: '🔥', desc: 'Aggressive cops, maximum adrenaline' },
+            ].map((diff) => (
+              <div
+                key={diff.id}
+                onClick={() => {
+                  setDifficulty(diff.id as DifficultyMode);
+                  onSelectDifficulty?.(diff.id as DifficultyMode);
+                }}
+                className={`cursor-pointer rounded-xl p-2.5 border transition-all text-center flex flex-col items-center gap-1 ${
+                  difficulty === diff.id
+                    ? 'border-cyan-400 bg-cyan-500/20 shadow-lg text-white font-bold'
+                    : 'border-white/10 bg-slate-900/70 hover:border-white/20 text-slate-400'
+                }`}
+              >
+                <span className="text-xl">{diff.icon}</span>
+                <span className="text-xs font-bold">{diff.label}</span>
+                <span className="text-[10px] text-slate-400 leading-tight">{diff.desc}</span>
+              </div>
+            ))}
+          </div>
+        </div>
 
         {/* Fullscreen Mobile Landscape Switch */}
         {onToggleFullscreen && (

@@ -17,6 +17,10 @@ import {
   FloatingNotification,
   KafilaCommand,
   AstronomicalZone,
+  DifficultyMode,
+  EmoteType,
+  RadioStation,
+  WardrobeConfig,
 } from '../types/game';
 import { MapBuilder, Collider } from './MapBuilder';
 import { CharacterController, MovementInput } from './CharacterController';
@@ -29,6 +33,9 @@ import { WeatherManager } from './WeatherManager';
 import { WildlifeManager } from './WildlifeManager';
 import { SkyAtmosphere } from './SkyAtmosphere';
 import { TextureGenerator } from './TextureGenerator';
+import { PickupManager } from './PickupManager';
+import { GamepadManager } from './GamepadManager';
+import { WardrobeManager } from './WardrobeManager';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
@@ -52,6 +59,9 @@ export class GameEngine {
   public weatherManager: WeatherManager;
   public wildlifeManager: WildlifeManager;
   public skyAtmosphere: SkyAtmosphere;
+  public pickupManager: PickupManager;
+  public gamepadManager: GamepadManager;
+  public wardrobeManager: WardrobeManager;
   private composer: EffectComposer | null = null;
   public isPointerLocked: boolean = false;
   public onPointerLockChange?: (locked: boolean) => void;
@@ -236,6 +246,9 @@ export class GameEngine {
     this.weatherManager = new WeatherManager(this.scene);
     this.wildlifeManager = new WildlifeManager(this.scene);
     this.skyAtmosphere = new SkyAtmosphere(this.scene);
+    this.wardrobeManager = new WardrobeManager();
+    this.gamepadManager = new GamepadManager();
+    this.pickupManager = new PickupManager(this.scene, this.selectedMap);
 
     // GTA Vice City Cinematic Post-Processing Pipeline: UnrealBloomPass & Tone Mapping
     // On mobile devices, bloom runs at half resolution to cut fillrate overhead by 75% with zero quality loss
@@ -315,6 +328,10 @@ export class GameEngine {
       leafletsRemaining: 3,
       dholTempo: 90,
       heatLevel: 15,
+      coinsCollected: 0,
+      radioStation: 'OFF',
+      difficultyMode: 'STANDARD',
+      wardrobe: this.wardrobeManager.getConfig(),
     };
 
     // Build World
@@ -617,7 +634,7 @@ export class GameEngine {
       powerUpTimeRemaining: 0,
     };
 
-    this.localPlayer = new CharacterController(this.scene, state);
+    this.localPlayer = new CharacterController(this.scene, state, this.wardrobeManager.getConfig());
     this.localPlayer.particleSystem = this.particleSystem;
     this.snapCameraToPlayer();
   }
@@ -1407,6 +1424,10 @@ export class GameEngine {
 
   public resolveGrappleFail() {
     if (!this.localPlayer) return;
+    if (this.matchState.difficultyMode === 'CHILL') {
+      this.resolveGrappleSuccess();
+      return;
+    }
     this.localPlayer.state.isGrappled = false;
     this.localPlayer.state.isDetained = true;
     this.matchState.activeMinigame = 'NONE';
@@ -1501,6 +1522,72 @@ export class GameEngine {
 
   public updateLocalInput(input: MovementInput) {
     this.currentInput = input;
+  }
+
+  /**
+   * Triggers an expressive character emote (Bhangra dance, Inquilab fist pump, backflip, chai sip, megaphone)
+   */
+  public triggerEmote(emote: EmoteType) {
+    if (!this.localPlayer) return;
+    this.localPlayer.playEmote(emote);
+    this.matchState.activeEmote = emote;
+    if (this.networkManager) {
+      this.networkManager.broadcast({
+        type: 'PLAYER_UPDATE',
+        payload: { emote },
+        senderId: this.matchState.localPlayerId,
+        timestamp: Date.now(),
+      });
+    }
+  }
+
+  /**
+   * Toggles through the 4 procedural boombox radio stations (Dhol, Synthwave, Chillhop, Ambience, Off)
+   */
+  public toggleRadioStation(): RadioStation {
+    const nextStation = audioManager.toggleRadioStation();
+    this.matchState.radioStation = nextStation;
+    const names: Record<RadioStation, string> = {
+      OFF: 'RADIO OFF 🔇',
+      DHOL_BRASS: '📻 RADIO: DHOL BRASS BEATS 🥁',
+      SYNTHWAVE: '📻 RADIO: CYBER SYNTHWAVE ⚡',
+      CHILLHOP: '📻 RADIO: LO-FI CHILLHOP ☕',
+      AMBIENCE: '📻 RADIO: CITY AMBIENCE 🍃',
+    };
+    this.addFloatingNotification(names[nextStation], 'MISSION');
+    return nextStation;
+  }
+
+  public setRadioStation(station: RadioStation) {
+    audioManager.setRadioStation(station);
+    this.matchState.radioStation = station;
+  }
+
+  /**
+   * Sets game assist difficulty tier (Chill Explorer, Standard, Hardcore)
+   */
+  public setDifficulty(mode: DifficultyMode) {
+    this.matchState.difficultyMode = mode;
+    const labels: Record<DifficultyMode, string> = {
+      CHILL: '🕊️ CHILL EXPLORER: Free Roam & Zero Detention!',
+      STANDARD: '⚖️ STANDARD: Balanced Rally & Tactical Pursuits',
+      HARDCORE: '🔥 HARDCORE: Aggressive Units & Extreme Tension!',
+    };
+    this.addFloatingNotification(labels[mode], 'IMMUNITY');
+    if (this.localPlayer) {
+      this.particleSystem.spawnComicPopup(`${mode} MODE!`, this.localPlayer.mesh.position, '#38bdf8');
+    }
+  }
+
+  /**
+   * Saves and live-applies Wardrobe customizer selections
+   */
+  public setWardrobe(config: WardrobeConfig) {
+    this.wardrobeManager.saveConfig(config);
+    this.matchState.wardrobe = config;
+    if (this.localPlayer) {
+      this.localPlayer.applyWardrobe(config);
+    }
   }
 
   public snapCameraToPlayer() {
@@ -1686,10 +1773,11 @@ export class GameEngine {
       this.matchState.kafilaCount = this.aiController.getKafilaFollowers().length;
       this.matchState.kafilaCommand = this.aiController.currentKafilaCommand;
 
-      // 2. Continuous Local Player Physics, Sprint, Slide, & Collision Update
+      // 2. Continuous Local Player Physics, Sprint, Slide, Gamepad & Collision Update
       if (this.localPlayer) {
         const hasChai = this.matchState.activePowerUp === 'ENERGY_CHAI';
-        if (hasChai) {
+        const isChill = this.matchState.difficultyMode === 'CHILL';
+        if (hasChai || isChill) {
           this.localPlayer.currentStamina = 100;
         }
         const isRain = this.weatherManager.currentWeather === 'MONSOON_RAIN';
@@ -1697,7 +1785,44 @@ export class GameEngine {
         const isParisWet = this.selectedMap === 'PARIS' && Math.hypot(p.x, p.z) < 55;
         this.localPlayer.isInPuddle = isRain || isParisWet;
 
-        this.localPlayer.update(delta, this.currentInput, this.colliders, this.cameraYaw);
+        // Poll Gamepad Controller input and blend with keyboard / touch
+        const gp = this.gamepadManager.pollInput();
+        const activeInput: MovementInput = { ...this.currentInput };
+        if (gp.connected) {
+          if (Math.abs(gp.moveForward) > 0.08) activeInput.moveForward = gp.moveForward;
+          if (Math.abs(gp.moveRight) > 0.08) activeInput.moveRight = gp.moveRight;
+          if (gp.sprint) activeInput.sprint = true;
+          if (gp.jump) activeInput.jump = true;
+          if (gp.slide) activeInput.slide = true;
+
+          if (Math.abs(gp.lookX) > 0.05) this.cameraYaw += gp.lookX * 2.4 * delta;
+          if (Math.abs(gp.lookY) > 0.05) {
+            this.cameraPitch = Math.max(0.05, Math.min(1.2, this.cameraPitch + gp.lookY * 1.8 * delta));
+          }
+
+          if (gp.actionA) {
+            if (this.localPlayer.state.team === 'PROTESTOR') {
+              this.triggerParkourDash();
+            } else {
+              this.triggerPursuitBoost();
+            }
+          }
+          if (gp.actionB) {
+            if (this.localPlayer.state.team === 'PROTESTOR') {
+              this.toggleHumanChain();
+            } else {
+              this.throwSmokeCanister();
+            }
+          }
+        }
+
+        this.localPlayer.update(delta, activeInput, this.colliders, this.cameraYaw);
+
+        // Dynamic Camera FOV Widening on Slide-Jump / Sprint
+        const isHighSpeed = this.localPlayer.state.isSprinting || this.localPlayer.slideSurgeTimer > 0 || this.localPlayer.dashTimer > 0;
+        const targetFov = isHighSpeed ? 72 : 62;
+        this.camera.fov += (targetFov - this.camera.fov) * Math.min(1.0, delta * 6.5);
+        this.camera.updateProjectionMatrix();
       }
 
       // 3. Ability Cooldown Ticks & Overdrive Collision Detection
@@ -1745,6 +1870,27 @@ export class GameEngine {
           this.localPlayer.mesh.position,
           (type, duration) => this.handleCollectPowerUp(type, duration)
         );
+
+        // 4b. Update 3D Collectible Street Coins & Energy Tokens
+        if (!this.localPlayer.state.isDetained) {
+          const isMagnetActive = this.matchState.activePowerUp === 'COIN_MAGNET';
+          this.pickupManager.update(
+            delta,
+            this.localPlayer.mesh.position,
+            isMagnetActive,
+            (item) => {
+              this.matchState.coinsCollected = (this.matchState.coinsCollected || 0) + item.value;
+              audioManager.playCoinChime(this.matchState.coinsCollected);
+              this.particleSystem.spawnGoldStarBurst(this.localPlayer!.mesh.position);
+              this.particleSystem.spawnComicPopup(`+${item.value} COINS!`, this.localPlayer!.mesh.position, '#facc15');
+              this.gamepadManager.rumble(0.2, 0.4, 75);
+              if (item.type === 'ENERGY_STAR') {
+                this.localPlayer!.currentStamina = 100;
+                this.addFloatingNotification('⭐ ENERGY STAR COLLECTED! Stamina Maxed!', 'IMMUNITY');
+              }
+            }
+          );
+        }
       }
 
       // 5. Update Weather & Atmospheric Simulation
@@ -1818,6 +1964,10 @@ export class GameEngine {
         this.busPositions,
         (cop, protestor) => {
           if (protestor.state.isLocal) {
+            if (this.matchState.difficultyMode === 'CHILL') {
+              this.particleSystem.spawnComicPopup('CHILL EVASION! ✨', protestor.mesh.position, '#38bdf8');
+              return;
+            }
             this.triggerLocalGrappleMinigame(cop.state.id);
           } else {
             if (Math.random() < 0.5) {
@@ -2176,9 +2326,12 @@ export class GameEngine {
     window.removeEventListener('resize', this.onResize);
     audioManager.stopSiren();
     audioManager.stopAmbientProtestLoop();
+    audioManager.setRadioStation('OFF');
     this.networkManager.destroy();
     this.particleSystem.clear();
     this.powerUpManager.destroy();
+    this.pickupManager.destroy();
+    this.gamepadManager.destroy();
     this.weatherManager.destroy();
     this.wildlifeManager.destroy();
     if (this.skyAtmosphere) {

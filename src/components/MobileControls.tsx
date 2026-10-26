@@ -35,6 +35,8 @@ interface MobileControlsProps {
   onTapDetained?: () => void;
   onScatterLeaflets?: () => void;
   onCycleKafilaCommand?: () => void;
+  onOpenEmoteWheel?: () => void;
+  onToggleRadio?: () => void;
   kafilaCommand?: string;
   kafilaCount?: number;
   leafletsRemaining?: number;
@@ -58,6 +60,8 @@ export const MobileControls: React.FC<MobileControlsProps> = ({
   onTapDetained,
   onScatterLeaflets,
   onCycleKafilaCommand,
+  onOpenEmoteWheel,
+  onToggleRadio,
   kafilaCommand,
   kafilaCount,
   leafletsRemaining,
@@ -654,6 +658,52 @@ export const MobileControls: React.FC<MobileControlsProps> = ({
                   <span className="absolute bottom-0 text-[8px] font-mono font-bold text-cyan-200">
                     {leafletsRemaining ?? 3}
                   </span>
+                </button>
+              )}
+
+              {/* Expressive Emotes Trigger */}
+              {onOpenEmoteWheel && (
+                <button
+                  type="button"
+                  style={{ touchAction: 'none' }}
+                  onTouchStart={(e) => {
+                    e.preventDefault();
+                    triggerHaptic(30);
+                    onOpenEmoteWheel();
+                  }}
+                  onClick={() => {
+                    triggerHaptic(30);
+                    onOpenEmoteWheel();
+                  }}
+                  className={`relative ${
+                    isLandscape ? 'w-10 h-10' : 'w-11 h-11'
+                  } rounded-2xl bg-gradient-to-br from-pink-600 to-purple-600 flex items-center justify-center shadow-lg text-white active:scale-90 border border-pink-400/30`}
+                  title="Expressive Emotes (B)"
+                >
+                  <span className="text-sm">🕺</span>
+                </button>
+              )}
+
+              {/* Boombox Radio Toggle */}
+              {onToggleRadio && (
+                <button
+                  type="button"
+                  style={{ touchAction: 'none' }}
+                  onTouchStart={(e) => {
+                    e.preventDefault();
+                    triggerHaptic(30);
+                    onToggleRadio();
+                  }}
+                  onClick={() => {
+                    triggerHaptic(30);
+                    onToggleRadio();
+                  }}
+                  className={`relative ${
+                    isLandscape ? 'w-10 h-10' : 'w-11 h-11'
+                  } rounded-2xl bg-gradient-to-br from-cyan-600 to-blue-600 flex items-center justify-center shadow-lg text-white active:scale-90 border border-cyan-400/30`}
+                  title="Toggle Boombox Radio (T)"
+                >
+                  <Radio className={isLandscape ? 'w-4 h-4' : 'w-5 h-5'} />
                 </button>
               )}
             </div>
