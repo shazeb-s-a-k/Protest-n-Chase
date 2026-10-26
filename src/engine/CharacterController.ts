@@ -57,6 +57,7 @@ export class CharacterController {
   public slideSurgeDirection: THREE.Vector3 = new THREE.Vector3();
   public currentEmote: EmoteType | null = null;
   public emoteTimer: number = 0;
+  public onFlowAction?: (actionName: string, points?: number) => void;
   private hoodieMat?: THREE.MeshStandardMaterial;
   private headwearGroup?: THREE.Group;
 
@@ -922,6 +923,7 @@ export class CharacterController {
         this.particleSystem?.spawnComicPopup('📢 AWAAZ DO!', this.mesh.position, '#a855f7');
         break;
     }
+    this.onFlowAction?.('EMOTE', 40);
   }
 
   public setHumanChain(active: boolean) {
@@ -948,6 +950,7 @@ export class CharacterController {
       this.dashDirection.set(Math.sin(this.mesh.rotation.y), 0, Math.cos(this.mesh.rotation.y));
     }
     audioManager.playBreakoutDash();
+    this.onFlowAction?.('DASH', 35);
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
       navigator.vibrate(45);
     }
@@ -959,6 +962,7 @@ export class CharacterController {
   public triggerPursuitBoost(duration = 3.5) {
     this.pursuitTimer = duration;
     audioManager.startSiren(0.35);
+    this.onFlowAction?.('PURSUIT_BOOST', 35);
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
       navigator.vibrate(55);
     }
@@ -1077,6 +1081,7 @@ export class CharacterController {
       audioManager.playParkourAction('VAULT');
       this.particleSystem?.spawnComicPopup('SLICK SLIDE-JUMP! ⚡', this.mesh.position, '#38bdf8');
       this.particleSystem?.spawnNeonSprintTrail(this.mesh.position, 0x00f0ff);
+      this.onFlowAction?.('SLIDE_JUMP', 50);
       if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
         navigator.vibrate([40, 30, 40]);
       }
@@ -1085,6 +1090,7 @@ export class CharacterController {
       this.particleSystem?.spawnSlideDust(this.mesh.position);
       this.particleSystem?.spawnComicPopup('SLICK SLIDE!', this.mesh.position, '#38bdf8');
       audioManager.playParkourAction('SLIDE');
+      this.onFlowAction?.('SLIDE', 20);
       if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
         navigator.vibrate(30);
       }
@@ -1099,6 +1105,7 @@ export class CharacterController {
       this.isGrounded = false;
       this.state.isJumping = true;
       audioManager.playParkourAction('JUMP');
+      this.onFlowAction?.('JUMP', 15);
       if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
         navigator.vibrate(40);
       }

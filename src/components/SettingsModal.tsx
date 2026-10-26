@@ -313,25 +313,34 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         {/* 5. Controls Reference */}
         <div className="border-t border-white/10 pt-3">
-          <div className="text-xs font-bold text-slate-300 uppercase mb-2 flex items-center gap-1.5">
-            <Keyboard className="w-4 h-4 text-purple-400" />
-            Controls Reference
+          <div className="text-xs font-bold text-slate-300 uppercase mb-2 flex items-center justify-between">
+            <span className="flex items-center gap-1.5">
+              <Keyboard className="w-4 h-4 text-purple-400" />
+              Complete Controls & Combat Reference
+            </span>
+            <span className="text-[10px] text-cyan-300 font-mono bg-cyan-500/10 px-2 py-0.5 rounded-full border border-cyan-500/20">
+              PC • Mobile • Gamepad
+            </span>
           </div>
-          <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-300 font-mono">
-            <div><strong className="text-white">WASD / Arrows:</strong> Move</div>
-            <div><strong className="text-white">Shift:</strong> Sprint</div>
-            <div><strong className="text-white">Space:</strong> Jump / QTE Mash</div>
-            <div><strong className="text-white">C:</strong> Slide under barricade</div>
-            <div><strong className="text-white">Q:</strong> Megaphone / Barricade</div>
-            <div><strong className="text-white">F:</strong> Viral Hype / Water Cannon</div>
-            <div><strong className="text-white">E:</strong> Bus Jailbreak / Canister Kick</div>
-            <div><strong className="text-white">G / T:</strong> Kafila Horde Command</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-slate-300 font-mono">
+            <div><strong className="text-cyan-400">WASD / Arrows:</strong> 3D Locomotion</div>
+            <div><strong className="text-cyan-400">Shift:</strong> Stamina Sprint</div>
+            <div><strong className="text-cyan-400">Space:</strong> Jump / QTE Struggle</div>
+            <div><strong className="text-cyan-400">C:</strong> Low Slide (Barricades)</div>
+            <div><strong className="text-amber-300">C + Space:</strong> Slide-Jump Vault ⚡</div>
+            <div><strong className="text-pink-400">B:</strong> Emote Wheel (Bhangra/Flip)</div>
+            <div><strong className="text-pink-400">T:</strong> Boombox Radio Channels</div>
+            <div><strong className="text-cyan-400">H:</strong> Avatar Wardrobe Customizer</div>
+            <div><strong className="text-white">Q / 1:</strong> Megaphone / Barricade</div>
+            <div><strong className="text-white">E / 2:</strong> Interact / Jailbreak</div>
+            <div><strong className="text-white">F / 3:</strong> Viral Hype / Water Cannon</div>
+            <div><strong className="text-white">4:</strong> Human Chain / Teargas</div>
+            <div><strong className="text-white">G:</strong> Kafila Horde Command</div>
             <div><strong className="text-white">X:</strong> Scatter Leaflet Decoys</div>
             <div><strong className="text-white">R / Dbl-Tap:</strong> Recenter Camera</div>
-            <div><strong className="text-white">H:</strong> Form Human Chain</div>
-            <div><strong className="text-white">P:</strong> Photo Mode / Poster</div>
-            <div><strong className="text-white">V:</strong> Camera View Mode</div>
-            <div><strong className="text-white">Mouse:</strong> Free 360 Look</div>
+            <div><strong className="text-white">V:</strong> Cycle Camera Perspectives</div>
+            <div><strong className="text-white">P:</strong> Photo Booth / Poster Gen</div>
+            <div><strong className="text-emerald-400">🎮 Gamepad:</strong> Dual-Stick + Rumble</div>
           </div>
         </div>
 

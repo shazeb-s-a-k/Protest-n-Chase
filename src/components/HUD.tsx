@@ -179,6 +179,17 @@ export const HUD: React.FC<HUDProps> = ({
                 </span>
               </button>
             )}
+
+            {/* Parkour Flow Combo Multiplier Badge */}
+            {Boolean(matchState.flowCombo && matchState.flowCombo > 1) && (
+              <div className="glass-panel px-3 py-1.5 rounded-2xl flex items-center gap-1.5 border border-orange-500/50 bg-gradient-to-r from-orange-950/70 via-pink-950/70 to-purple-950/70 text-orange-300 font-black text-xs sm:text-sm shadow-xl shadow-orange-500/20 animate-pulse">
+                <Flame className="w-4 h-4 text-orange-400 animate-bounce" />
+                <span className="tracking-wide">FLOW x{matchState.flowCombo}</span>
+                <span className="text-[10px] text-pink-300 bg-pink-500/20 px-1.5 py-0.5 rounded-md font-mono">
+                  {matchState.flowMultiplier ? `${matchState.flowMultiplier.toFixed(1)}x` : '1.5x'} BOOST
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Active PowerUp Badge */}

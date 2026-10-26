@@ -218,6 +218,23 @@ export class PickupManager {
     }
   }
 
+  public spawnBonusCoinWave(
+    centerX: number = 0,
+    centerZ: number = 0,
+    radius: number = 14,
+    count: number = 10
+  ) {
+    const waveId = `bonus_wave_${Date.now()}`;
+    for (let i = 0; i < count; i++) {
+      const angle = (i / count) * Math.PI * 2;
+      const x = centerX + Math.cos(angle) * radius;
+      const z = centerZ + Math.sin(angle) * radius;
+      const type = i % 4 === 0 ? 'ENERGY_STAR' : 'COIN';
+      this.createPickupMesh(x, 0.75, z, type, `${waveId}_${i}`);
+    }
+    this.totalSpawned = this.pickups.length;
+  }
+
   public clear() {
     this.pickups.forEach((p) => {
       this.scene.remove(p.mesh);

@@ -93,6 +93,10 @@ export class GameEngine {
   private uiUpdateTimer: number = 0;
   private dholBeatTimer: number = 0;
   private dholBeatCount: number = 0;
+  private flowComboCount: number = 0;
+  private flowComboTimer: number = 0;
+  private bonusWaveTimer: number = 0;
+  private readonly FLOW_COMBO_WINDOW: number = 2.8;
 
   // Callbacks to React UI
   public onStateUpdate?: (state: GameMatchState) => void;
@@ -636,7 +640,47 @@ export class GameEngine {
 
     this.localPlayer = new CharacterController(this.scene, state, this.wardrobeManager.getConfig());
     this.localPlayer.particleSystem = this.particleSystem;
+    this.localPlayer.onFlowAction = (actionName, points) => {
+      this.registerFlowAction(actionName, points);
+    };
     this.snapCameraToPlayer();
+  }
+
+  /**
+   * Registers parkour and dynamic actions into compounding flow multiplier combos
+   */
+  public registerFlowAction(actionName: string, basePoints: number = 25) {
+    if (!this.localPlayer || this.localPlayer.state.isDetained) return;
+
+    this.flowComboCount = Math.min(10, this.flowComboCount + 1);
+    this.flowComboTimer = this.FLOW_COMBO_WINDOW;
+
+    // Multiplier progression: 1x -> 1.25x -> 1.5x -> 2.0x -> 2.5x -> 3.0x max
+    let mult = 1.0;
+    if (this.flowComboCount === 2) mult = 1.25;
+    else if (this.flowComboCount === 3) mult = 1.5;
+    else if (this.flowComboCount === 4) mult = 2.0;
+    else if (this.flowComboCount === 5) mult = 2.5;
+    else if (this.flowComboCount >= 6) mult = 3.0;
+
+    this.matchState.flowCombo = this.flowComboCount;
+    this.matchState.flowMultiplier = mult;
+
+    const awardedScore = Math.round(basePoints * mult);
+    this.matchState.viewerCount += awardedScore * 12;
+    if (this.matchState.localTeam === 'PROTESTOR') {
+      this.addAwareness(0.25 * mult);
+    }
+
+    if (this.flowComboCount >= 2) {
+      const popupText =
+        this.flowComboCount >= 5
+          ? `SUPER FLOW x${this.flowComboCount}! (${mult.toFixed(1)}x)`
+          : `FLOW x${this.flowComboCount}! (${mult.toFixed(1)}x)`;
+      const color = this.flowComboCount >= 5 ? '#f43f5e' : this.flowComboCount >= 3 ? '#fb923c' : '#38bdf8';
+      this.particleSystem.spawnComicPopup(popupText, this.localPlayer.mesh.position, color);
+      this.gamepadManager.rumble(0.12, 0.28, 50);
+    }
   }
 
   private spawnAIUnits(mode: GameMode, localTeam: Team) {
@@ -1880,6 +1924,8 @@ export class GameEngine {
             isMagnetActive,
             (item) => {
               this.matchState.coinsCollected = (this.matchState.coinsCollected || 0) + item.value;
+              WardrobeManager.addStoredCoins(item.value);
+              this.registerFlowAction('COIN', item.value * 2);
               audioManager.playCoinChime(this.matchState.coinsCollected);
               this.particleSystem.spawnGoldStarBurst(this.localPlayer!.mesh.position);
               this.particleSystem.spawnComicPopup(`+${item.value} COINS!`, this.localPlayer!.mesh.position, '#facc15');
@@ -2044,6 +2090,28 @@ export class GameEngine {
         this.matchState.minigameProgress -= delta * 12;
         if (this.matchState.minigameProgress <= 0) {
           this.resolveGrappleFail();
+        }
+      }
+
+      // 12b. Update Parkour Flow Combo Timer
+      if (this.flowComboTimer > 0) {
+        this.flowComboTimer -= delta;
+        if (this.flowComboTimer <= 0) {
+          this.flowComboCount = 0;
+          this.matchState.flowCombo = 0;
+          this.matchState.flowMultiplier = 1.0;
+        }
+      }
+
+      // 12c. Update Periodic Bonus Street Token Waves (Every 55s)
+      if (!this.matchState.isGameOver && this.localPlayer) {
+        this.bonusWaveTimer += delta;
+        if (this.bonusWaveTimer >= 55) {
+          this.bonusWaveTimer = 0;
+          const p = this.localPlayer.mesh.position;
+          this.pickupManager.spawnBonusCoinWave(p.x, p.z, 14, 8);
+          this.addFloatingNotification('🌟 BONUS COIN RING SPAWNED! Rush and grab tokens!', 'IMMUNITY');
+          audioManager.playCoinChime(8);
         }
       }
 
